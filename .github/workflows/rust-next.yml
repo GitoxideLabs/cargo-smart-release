@@ -51,7 +51,7 @@ jobs:
       with:
         toolchain: stable
     - uses: Swatinem/rust-cache@v2
-    - name: Update dependencues
+    - name: Update dependencies
       run: cargo update
     - name: Default features
       run: cargo test --workspace --all-targets

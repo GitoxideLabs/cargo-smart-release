@@ -1,0 +1,30 @@
+name: Installation
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags:
+    - 'v*'
+  schedule:
+  - cron: '1 1 1 * *'
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  CLICOLOR: 1
+
+jobs:
+  installation:
+    name: Installation
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "windows-latest"]
+        rust: ["stable"]
+    continue-on-error: ${{ matrix.rust != 'stable' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: "Installation from crates.io: cargo-smart-release"
+      run: cargo install --debug --force cargo-smart-release
