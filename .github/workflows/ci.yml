@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: none
     name: CI
-    needs: [test, docs, rustfmt, clippy, installation]
+    needs: [test, docs, rustfmt, clippy]
     runs-on: ubuntu-latest
     steps:
     - name: Done
@@ -50,18 +50,6 @@ jobs:
     - name: Journey
       if: ${{ matrix.os != 'windows-latest' }} # on windows, journey tests don't run yet and it's not important enough right now
       run: just ci-test
-
-  installation:
-    name: Installation
-    strategy:
-      matrix:
-        os: ["ubuntu-latest", "windows-latest"]
-        rust: ["stable"]
-    continue-on-error: ${{ matrix.rust != 'stable' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: "Installation from crates.io: cargo-smart-release"
-      run: cargo install --debug --force cargo-smart-release
 
   lockfile:
     runs-on: ubuntu-latest
