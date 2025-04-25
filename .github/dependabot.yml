@@ -4,9 +4,12 @@ updates:
   directory: '/'
   schedule:
     interval: monthly
+  allow:
+  - dependency-type: all
   groups:
     cargo:
       patterns: ['*']
+
 - package-ecosystem: github-actions
   directory: '/'
   schedule:
