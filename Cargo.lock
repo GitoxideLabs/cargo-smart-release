@@ -186,7 +186,7 @@ dependencies = [
  "semver",
  "testing_logger",
  "toml_edit",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -215,9 +215,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.19"
+version = "1.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3a13707ac958681c13b39b458c073d0d9bc8a22cb1b2f4c8e55eb72c13f362"
+checksum = "04da6a0d40b948dfc4fa8f5bbf402b0fc1a64a28dbf7d12ffd683550f2c1b63a"
 dependencies = [
  "shlex",
 ]
@@ -602,7 +602,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6a949b7fcc81df22526032dcddb006e78c8575e47b0e7ba57d9960570a57bc4"
 dependencies = [
  "unicase",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -684,7 +684,7 @@ dependencies = [
  "gix-utils 0.2.0",
  "itoa",
  "thiserror 2.0.12",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -797,7 +797,7 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.12",
  "unicode-bom",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -1205,7 +1205,7 @@ dependencies = [
  "itoa",
  "smallvec",
  "thiserror 2.0.12",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -1338,7 +1338,7 @@ dependencies = [
  "gix-utils 0.2.0",
  "maybe-async",
  "thiserror 2.0.12",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -1403,7 +1403,7 @@ dependencies = [
  "gix-validate 0.9.4",
  "memmap2",
  "thiserror 2.0.12",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -1946,9 +1946,9 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "jiff"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59ec30f7142be6fe14e1b021f50b85db8df2d4324ea6e91ec3e5dcde092021d0"
+checksum = "5a064218214dc6a10fbae5ec5fa888d80c45d611aba169222fc272072bf7aef6"
 dependencies = [
  "jiff-static",
  "jiff-tzdb-platform",
@@ -1961,9 +1961,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "526b834d727fd59d37b076b0c3236d9adde1b1729a4361e20b2026f738cc1dbe"
+checksum = "199b7932d97e325aff3a7030e141eafe7f2c6268e1d1b24859b753a627f45254"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2250,15 +2250,22 @@ dependencies = [
 
 [[package]]
 name = "pulldown-cmark"
-version = "0.9.6"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57206b407293d2bcd3af849ce869d52068623f19e1b5ff8e8778e3309439682b"
+checksum = "1e8bbe1a966bd2f362681a44f6edce3c2310ac21e4d5067a6e7ec396297a6ea0"
 dependencies = [
  "bitflags",
  "getopts",
  "memchr",
+ "pulldown-cmark-escape",
  "unicase",
 ]
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
 
 [[package]]
 name = "quote"
@@ -2699,7 +2706,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.7.6",
+ "winnow 0.7.7",
 ]
 
 [[package]]
@@ -2934,9 +2941,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.6"
+version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63d3fcd9bba44b03821e7d699eeee959f3126dcc4aa8e4ae18ec617c2a5cea10"
+checksum = "6cb8234a863ea0e8cd7284fcdd4f145233eb00fee02bbdd9861aec44e6477bc5"
 dependencies = [
  "memchr",
 ]

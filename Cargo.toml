@@ -34,10 +34,10 @@ toml_edit = "0.22.22"
 semver = "1.0.4"
 crates-index = { version = "3.5.0", default-features = false, features = ["git-performance", "git-https"] }
 cargo_toml = "0.22.1"
-winnow = "0.7.6"
+winnow = "0.7.7"
 git-conventional = "0.12.0"
-jiff = "0.2.9"
-pulldown-cmark = "0.9.6"
+jiff = "0.2.10"
+pulldown-cmark = "0.13.0"
 bitflags = "2"
 
 [dev-dependencies]
