@@ -8,6 +8,12 @@ updates:
     prefix: ''
   allow:
   - dependency-type: all
+  ignore:
+  # Temporarily keep pulldown-cmark at 0.9.* (see comments in #54 and #59).
+  - dependency-name: pulldown-cmark
+    update-types:
+    - 'version-update:semver-major'
+    - 'version-update:semver-minor'
   groups:
     cargo:
       patterns: ['*']
