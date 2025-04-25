@@ -4,6 +4,8 @@ updates:
   directory: '/'
   schedule:
     interval: monthly
+  commit-message:
+    prefix: ''
   allow:
   - dependency-type: all
   groups:
@@ -14,6 +16,8 @@ updates:
   directory: '/'
   schedule:
     interval: monthly
+  commit-message:
+    prefix: ''
   groups:
     github-actions:
       patterns: ['*']
