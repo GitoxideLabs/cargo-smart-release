@@ -11,11 +11,11 @@
 [TRACE] Pending 'b' manifest dependencies update: 'a = "^0.9.0"' (from  "0.8.0" )
 [TRACE] Pending 'c' manifest version update: "9.0.0"
 [TRACE] Pending 'c' manifest dependencies update: 'b = "^0.9.0"' (from  "0.8.0" )
-[TRACE] WOULD persist changes to 3 manifests and 3 changelogs (1 new) with: "Adjusting changelogs prior to release of a v0.9.0, b v0.9.0, c v9.0.0, safety bump 2 crates\n\nSAFETY BUMP: b v0.9.0, c v9.0.0"
+[TRACE] WOULD persist changes to 3 manifests and 3 changelogs (1 new) with: "Bump a v0.9.0, b v0.9.0, c v9.0.0, safety bump 2 crates\n\nSAFETY BUMP: b v0.9.0, c v9.0.0"
 [INFO ] Up to 3 changelogs would be previewed if the --execute is set and --no-changelog-preview is unset.
 [WARN ] WOULD ask for review after commit as the changelog entry is empty for crates: b, c
 [WARN ] To fix the changelog manually, run: cargo changelog --write c a
-[TRACE] WOULD run "git" "commit" "-am" "Adjusting changelogs prior to release of a v0.9.0, b v0.9.0, c v9.0.0, safety bump 2 crates\n\nSAFETY BUMP: b v0.9.0, c v9.0.0"
+[TRACE] WOULD run "git" "commit" "-am" "Bump a v0.9.0, b v0.9.0, c v9.0.0, safety bump 2 crates\n\nSAFETY BUMP: b v0.9.0, c v9.0.0"
 [TRACE] WOULD create tag object a-v0.9.0 with changelog message, first line is: '### Refactor (BREAKING)'
 [TRACE] WOULD create tag object b-v0.9.0 with changelog message, first line is: '### Commit Statistics'
 [TRACE] WOULD create tag object c-v9.0.0 with changelog message, first line is: '### Commit Statistics'

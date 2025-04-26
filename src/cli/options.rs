@@ -84,12 +84,15 @@ pub enum SubCommands {
         no_changelog_github_release: bool,
 
         /// If changelogs are generated from git-conventional comments extracted from the commit history exclusively, publishes
-        /// will fail as in order to give opportunity to author at least a portion of the upcoming release.
+        /// will fail as to give an opportunity to author at least a portion of the upcoming release.
         ///
         /// With this flag set, the release will not stop.
         /// Note that changelog entries purely composed of statistical information will always stop a release.
         #[clap(long, help_heading = Some("CHANGELOG-EXPERT"))]
         allow_fully_generated_changelogs: bool,
+        /// If changelogs have no message or release information at all, continue anyway.
+        #[clap(long, help_heading = Some("CHANGELOG-EXPERT"))]
+        allow_empty_release_message: bool,
 
         /// Do not generate links to commits and issues when writing the changelogs. This currently only works for GitHub.
         #[clap(long, help_heading = Some("CHANGELOG"))]
