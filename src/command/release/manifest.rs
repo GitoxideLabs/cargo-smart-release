@@ -5,11 +5,6 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{bail, Context as ContextTrait};
-use cargo_metadata::{camino::Utf8PathBuf, Package};
-use gix::{lock::File, Id};
-use semver::{Version, VersionReq};
-
 use super::{cargo, git, Context, Options};
 use crate::{
     changelog,
@@ -18,6 +13,10 @@ use crate::{
     utils::{names_and_versions, try_to_published_crate_and_new_version, version_req_unset_or_default, will},
     version, ChangeLog,
 };
+use anyhow::{bail, Context as ContextTrait};
+use cargo_metadata::{camino::Utf8PathBuf, Package};
+use gix::{lock::File, Id};
+use semver::{Version, VersionReq};
 
 pub struct Outcome<'repo, 'meta> {
     pub commit_id: Option<Id<'repo>>,
@@ -76,8 +75,9 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         )?;
     }
 
-    let would_stop_release = !(changelog_ids_with_statistical_segments_only.is_empty()
-        && changelog_ids_probably_lacking_user_edits.is_empty());
+    let would_stop_release = (!changelog_ids_with_statistical_segments_only.is_empty()
+        && !opts.allow_fully_generated_changelogs)
+        || (!changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_empty_release_message);
     let safety_bumped_packages = crates
         .iter()
         .filter_map(|c| c.mode.safety_bump().map(|b| (c.package, &b.next_release)))
@@ -123,6 +123,7 @@ fn commit_locks_and_generate_bail_message(
         dry_run,
         skip_publish,
         allow_fully_generated_changelogs,
+        allow_empty_release_message,
         ..
     }: Options,
 ) -> anyhow::Result<Option<String>> {
@@ -134,7 +135,7 @@ fn commit_locks_and_generate_bail_message(
                 || changelog_ids_with_statistical_segments_only.contains(&idx)
             {
                 lock.commit()?;
-                if !changelog_ids_with_statistical_segments_only.is_empty() {
+                if !allow_fully_generated_changelogs && !changelog_ids_with_statistical_segments_only.is_empty() {
                     packages_whose_changelogs_need_edits
                         .get_or_insert_with(Vec::new)
                         .push(package);
@@ -142,7 +143,7 @@ fn commit_locks_and_generate_bail_message(
             } else {
                 drop(lock);
             }
-            if changelog_ids_probably_lacking_user_edits.contains(&idx) {
+            if allow_empty_release_message || changelog_ids_probably_lacking_user_edits.contains(&idx) {
                 packages_which_might_be_fully_generated
                     .get_or_insert_with(Vec::new)
                     .push(package);
@@ -152,42 +153,40 @@ fn commit_locks_and_generate_bail_message(
             manifest_lock.commit()?;
         }
         // This is dangerous as incompatibilities can happen here, leaving the working tree dirty.
-        // For now we leave it that way without auto-restoring originals to facilitate debugging.
+        // For now, we leave it that way without auto-restoring originals to facilitate debugging.
         cargo::refresh_lock_file()?;
 
-        packages_whose_changelogs_need_edits
-            .and_then(|logs| {
-                let names_of_crates_in_need_of_changelog_entry =
-                    logs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
-                if skip_publish {
-                    log::warn!(
-                        "Please consider creating changelog entries for crate{}: {}",
-                        if logs.len() == 1 { "" } else { "s" },
-                        names_of_crates_in_need_of_changelog_entry
-                    );
-                    None
-                } else {
-                    Some(format!(
-                        "Write changelog entries for crate(s) {names_of_crates_in_need_of_changelog_entry} and try again"
-                    ))
-                }
+        if let Some(logs) = packages_whose_changelogs_need_edits {
+            let names_of_crates_in_need_of_changelog_entry =
+                logs.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
+            if skip_publish {
+                log::warn!(
+                    "Please consider creating changelog entries for crate{}: {}",
+                    if logs.len() == 1 { "" } else { "s" },
+                    names_of_crates_in_need_of_changelog_entry
+                );
+                None
+            } else {
+                Some(format!(
+                    "Write changelog entries for crate(s) {names_of_crates_in_need_of_changelog_entry} and try again"
+                ))
+            }
+        } else if let Some(packages) = packages_which_might_be_fully_generated {
+            let crate_names = packages.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
+            (!allow_fully_generated_changelogs).then(|| {
+                format!(
+                    "{} edits by hand to avoid being entirely generated: {}",
+                    if crate_names.len() == 1 {
+                        "This changelog needs"
+                    } else {
+                        "These changelogs need"
+                    },
+                    crate_names
+                )
             })
-            .or_else(|| {
-                packages_which_might_be_fully_generated.and_then(|packages| {
-                    let crate_names = packages.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
-                    (!allow_fully_generated_changelogs).then(|| {
-                        format!(
-                            "{} edits by hand to avoid being entirely generated: {}",
-                            if crate_names.len() == 1 {
-                                "This changelog needs"
-                            } else {
-                                "These changelogs need"
-                            },
-                            crate_names
-                        )
-                    })
-                })
-            })
+        } else {
+            None
+        }
     } else {
         let crate_names = |ids: &[usize]| {
             ids.iter()
@@ -207,23 +206,27 @@ fn commit_locks_and_generate_bail_message(
             let crate_names = crate_names(&changelog_ids_with_statistical_segments_only);
             let names_of_crates_that_would_need_review = crate_names.join(", ");
             log::warn!(
-                "WOULD {} as the changelog entry is empty for crate{}: {}",
-                if skip_publish {
-                    "ask for review after commit"
-                } else {
-                    "stop release after commit"
-                },
-                if changelog_ids_with_statistical_segments_only.len() == 1 {
+                "WOULD {message}{plural_s}: {crates}",
+                crates = names_of_crates_that_would_need_review,
+                plural_s = if changelog_ids_with_statistical_segments_only.len() == 1 {
                     ""
                 } else {
                     "s"
                 },
-                names_of_crates_that_would_need_review
+                message = if allow_empty_release_message {
+                    "continue despite the changelog entry being empty for crate"
+                } else if skip_publish {
+                    "ask for review after commit as the changelog entry is empty for crate"
+                } else {
+                    "stop release after commit as the changelog entry is empty for crate"
+                },
             );
-            log::warn!(
-                "To fix the changelog manually, run: cargo changelog --write {}",
-                ctx.base.crate_names.join(" ")
-            );
+            if !allow_empty_release_message {
+                log::warn!(
+                    "To fix the changelog manually, run: cargo changelog --write {}",
+                    ctx.base.crate_names.join(" ")
+                );
+            }
         }
         if !changelog_ids_probably_lacking_user_edits.is_empty() {
             let crate_names = crate_names(&changelog_ids_probably_lacking_user_edits);
