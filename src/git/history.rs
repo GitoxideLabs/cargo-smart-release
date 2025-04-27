@@ -2,7 +2,6 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     iter::FromIterator,
-    path::PathBuf,
 };
 
 use crate::{
@@ -56,7 +55,7 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>
                 let object = commit.object()?;
                 let commit = object.decode()?;
                 let parent = commit.parents().next();
-                (commit.message.to_vec(), commit.tree(), commit.committer.time, parent)
+                (commit.message.to_vec(), commit.tree(), commit.committer.time()?, parent)
             };
             (
                 message,
@@ -108,7 +107,7 @@ pub fn crate_ref_segments<'h>(
         let refs = ctx.repo.references()?;
         match tag_prefix {
             Some(prefix) => BTreeMap::from_iter(
-                refs.prefixed(PathBuf::from(format!("refs/tags/{prefix}-")))?
+                refs.prefixed(format!("refs/tags/{prefix}-").as_str())?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
                     .filter(|r| is_tag_name(prefix, strip_tag_path(r.name.as_ref())))

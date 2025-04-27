@@ -69,7 +69,7 @@ pub(in crate::command::release_impl) fn create_version_tag<'repo>(
                     tag_name,
                     target,
                     gix::objs::Kind::Commit,
-                    Some(crate::git::author()?.to_ref()),
+                    Some(crate::git::author()?.to_ref(&mut Default::default())),
                     message,
                     constraint,
                 )?;
