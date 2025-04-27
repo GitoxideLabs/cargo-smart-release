@@ -5,6 +5,225 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.7 (2025-04-27)
+
+### Chore
+
+ - <csr-id-919acc2000c694a3f2399fa6992a56803653d003/> bump the cargo group across 1 directory with 5 updates
+   Bumps the cargo group with 5 updates in the / directory:
+   
+   | Package | From | To |
+   | --- | --- | --- |
+   | [clap](https://github.com/clap-rs/clap) | `4.5.36` | `4.5.37` |
+   | [cargo_toml](https://gitlab.com/lib.rs/cargo_toml) | `0.21.0` | `0.22.1` |
+   | [winnow](https://github.com/winnow-rs/winnow) | `0.6.26` | `0.7.6` |
+   | [jiff](https://github.com/BurntSushi/jiff) | `0.1.29` | `0.2.8` |
+   | [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) | `0.9.6` | `0.13.0` |
+   
+   
+   
+   Updates `clap` from 4.5.36 to 4.5.37
+   - [Release notes](https://github.com/clap-rs/clap/releases)
+   - [Changelog](https://github.com/clap-rs/clap/blob/master/CHANGELOG.md)
+   - [Commits](https://github.com/clap-rs/clap/compare/clap_complete-v4.5.36...clap_complete-v4.5.37)
+   
+   Updates `cargo_toml` from 0.21.0 to 0.22.1
+   - [Commits](https://gitlab.com/lib.rs/cargo_toml/commits/v0.22.1)
+   
+   Updates `winnow` from 0.6.26 to 0.7.6
+   - [Changelog](https://github.com/winnow-rs/winnow/blob/main/CHANGELOG.md)
+   - [Commits](https://github.com/winnow-rs/winnow/compare/v0.6.26...v0.7.6)
+   
+   Updates `jiff` from 0.1.29 to 0.2.8
+   - [Release notes](https://github.com/BurntSushi/jiff/releases)
+   - [Changelog](https://github.com/BurntSushi/jiff/blob/master/CHANGELOG.md)
+   - [Commits](https://github.com/BurntSushi/jiff/compare/0.1.29...jiff-static-0.2.8)
+   
+   Updates `pulldown-cmark` from 0.9.6 to 0.13.0
+   - [Release notes](https://github.com/raphlinus/pulldown-cmark/releases)
+   - [Commits](https://github.com/raphlinus/pulldown-cmark/compare/v0.9.6...v0.13.0)
+   
+   ---
+   updated-dependencies:
+   - dependency-name: clap
+     dependency-version: 4.5.37
+     dependency-type: direct:production
+     update-type: version-update:semver-patch
+     dependency-group: cargo
+   - dependency-name: cargo_toml
+     dependency-version: 0.22.1
+     dependency-type: direct:production
+     update-type: version-update:semver-minor
+     dependency-group: cargo
+   - dependency-name: winnow
+     dependency-version: 0.7.6
+     dependency-type: direct:production
+     update-type: version-update:semver-minor
+     dependency-group: cargo
+   - dependency-name: jiff
+     dependency-version: 0.2.8
+     dependency-type: direct:production
+     update-type: version-update:semver-minor
+     dependency-group: cargo
+   - dependency-name: pulldown-cmark
+     dependency-version: 0.13.0
+     dependency-type: direct:production
+     update-type: version-update:semver-minor
+     dependency-group: cargo
+   ...
+ - <csr-id-202be0927a17cf20c458fab9cc6eb957d3a81584/> bump crossbeam-channel from 0.5.14 to 0.5.15
+   Bumps [crossbeam-channel](https://github.com/crossbeam-rs/crossbeam) from 0.5.14 to 0.5.15.
+   - [Release notes](https://github.com/crossbeam-rs/crossbeam/releases)
+   - [Changelog](https://github.com/crossbeam-rs/crossbeam/blob/master/CHANGELOG.md)
+   - [Commits](https://github.com/crossbeam-rs/crossbeam/compare/crossbeam-channel-0.5.14...crossbeam-channel-0.5.15)
+   
+   ---
+   updated-dependencies:
+   - dependency-name: crossbeam-channel
+     dependency-version: 0.5.15
+     dependency-type: indirect
+   ...
+ - <csr-id-9e3257c19dcd12ed556fd173c7211b729a69d1ff/> bump the github-actions group with 4 updates
+   Bumps the github-actions group with 4 updates: [actions/checkout](https://github.com/actions/checkout), [EmbarkStudios/cargo-deny-action](https://github.com/embarkstudios/cargo-deny-action), [extractions/setup-just](https://github.com/extractions/setup-just) and [github/codeql-action](https://github.com/github/codeql-action).
+   
+   
+   Updates `actions/checkout` from 3 to 4
+   - [Release notes](https://github.com/actions/checkout/releases)
+   - [Changelog](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
+   - [Commits](https://github.com/actions/checkout/compare/v3...v4)
+   
+   Updates `EmbarkStudios/cargo-deny-action` from 1 to 2
+   - [Release notes](https://github.com/embarkstudios/cargo-deny-action/releases)
+   - [Commits](https://github.com/embarkstudios/cargo-deny-action/compare/v1...v2)
+   
+   Updates `extractions/setup-just` from 1 to 3
+   - [Release notes](https://github.com/extractions/setup-just/releases)
+   - [Commits](https://github.com/extractions/setup-just/compare/v1...v3)
+   
+   Updates `github/codeql-action` from 2 to 3
+   - [Release notes](https://github.com/github/codeql-action/releases)
+   - [Changelog](https://github.com/github/codeql-action/blob/main/CHANGELOG.md)
+   - [Commits](https://github.com/github/codeql-action/compare/v2...v3)
+   
+   ---
+   updated-dependencies:
+   - dependency-name: actions/checkout
+     dependency-version: '4'
+     dependency-type: direct:production
+     update-type: version-update:semver-major
+     dependency-group: github-actions
+   - dependency-name: EmbarkStudios/cargo-deny-action
+     dependency-version: '2'
+     dependency-type: direct:production
+     update-type: version-update:semver-major
+     dependency-group: github-actions
+   - dependency-name: extractions/setup-just
+     dependency-version: '3'
+     dependency-type: direct:production
+     update-type: version-update:semver-major
+     dependency-group: github-actions
+   - dependency-name: github/codeql-action
+     dependency-version: '3'
+     dependency-type: direct:production
+     update-type: version-update:semver-major
+     dependency-group: github-actions
+   ...
+
+### Documentation
+
+ - <csr-id-3267581a7f69bbc2c630552d3daf08fdaa4c7992/> Update project URL and add security policy
+   - Update the URL in `Cargo.toml` to point to
+     `GitoxideLabs/cargo-smart-release` since the repo was moved
+     (though the old URL will still work as a redirect).
+   
+   - Add a `SECURITY.md` file with the same wording as in `gitoxide`,
+     but where the hyperlink is for drafting a `cargo-smart-release`
+     advisory (rather than a `gitoxide` advisory).
+
+### New Features
+
+ - <csr-id-2efb737d16dec82d1e8a00d05fac06142a4b2718/> add `--allow-empty-release-message` actually ignore empty changelogs
+ - <csr-id-ca7d486d48ee37ba70cbcf583b3479a97f1899d5/> Recognize variants of "thanks clippy"
+   The commit message title (or title prefix) "thanks clippy" was
+   recognized, but case variants such as "Thanks clippy" were not.
+   Less importantly, the plausible "thanks, clippy" variant (and its
+   case variants) were also not recognized.
+   
+   This downcases the title before checking for "thanks clippy" as a
+   prefix, and it adds a check for the prefix "thanks, clippy".
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 48 commits contributed to the release.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#40](https://github.com/Byron/cargo-smart-release/issues/40)
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 3 times to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#40](https://github.com/Byron/cargo-smart-release/issues/40)**
+    - Update Contributing guide ([`52f8824`](https://github.com/Byron/cargo-smart-release/commit/52f8824f9ffdff316b36a9270d89ab3e45994478))
+ * **Uncategorized**
+    - Merge pull request #63 from GitoxideLabs/dependabot/cargo/cargo-cfb4711de7 ([`008bfec`](https://github.com/Byron/cargo-smart-release/commit/008bfec919b0d5e55a7a71d024f733815febef2e))
+    - Upgrade `crates-index` and `gix-testtools` ([`350b950`](https://github.com/Byron/cargo-smart-release/commit/350b9508d2a22c62343806f98fad3bd028b42d03))
+    - Refactor ([`385159e`](https://github.com/Byron/cargo-smart-release/commit/385159e8cad0f79ba84553007b9c139480b82bcd))
+    - Adapt to changes in `gix` ([`698bb7a`](https://github.com/Byron/cargo-smart-release/commit/698bb7a96bdbc100268e79992c485729777f26e9))
+    - Bump the cargo group across 1 directory with 11 updates ([`4da21c0`](https://github.com/Byron/cargo-smart-release/commit/4da21c0bea2612341d3aed3e47b2426a9aa1a031))
+    - Merge pull request #62 from EliahKagan/deps ([`5386251`](https://github.com/Byron/cargo-smart-release/commit/5386251d277e20772c330e21a94aeb8860b1738c))
+    - Get only patch version updates to `pulldown-cmark` ([`aeb91ee`](https://github.com/Byron/cargo-smart-release/commit/aeb91ee22bcd8aadd64a3261e3de2ed985c99485))
+    - Omit conventional prefix in Dependabot commits ([`d71b7b7`](https://github.com/Byron/cargo-smart-release/commit/d71b7b7e30cd6659c5a762f0d9d4bbfeb6de1d0b))
+    - Merge pull request #61 from GitoxideLabs/allow-generated ([`c583e0a`](https://github.com/Byron/cargo-smart-release/commit/c583e0a3b3e034a3f891056d57a108caf2c970a0))
+    - Add `--allow-empty-release-message` actually ignore empty changelogs ([`2efb737`](https://github.com/Byron/cargo-smart-release/commit/2efb737d16dec82d1e8a00d05fac06142a4b2718))
+    - Merge pull request #58 from EliahKagan/dependency-type ([`bd30507`](https://github.com/Byron/cargo-smart-release/commit/bd30507aa857ec179c9b6b874d67abe548194a42))
+    - Always let Dependabot propose `Cargo.lock` updates ([`93c47c2`](https://github.com/Byron/cargo-smart-release/commit/93c47c209428621873ec25e99e98c07055341bd7))
+    - Merge pull request #54 from GitoxideLabs/dependabot/cargo/cargo-fb4565de19 ([`76ec21b`](https://github.com/Byron/cargo-smart-release/commit/76ec21bced0da7200e5b2306514740262f0d9edc))
+    - Downgrade `pulldown-cmark` to 0.9.6; bump some others ([`694c34f`](https://github.com/Byron/cargo-smart-release/commit/694c34f52430cbdec0a0f921e27330bfe76fbdcb))
+    - Bump the cargo group across 1 directory with 5 updates ([`919acc2`](https://github.com/Byron/cargo-smart-release/commit/919acc2000c694a3f2399fa6992a56803653d003))
+    - Merge pull request #57 from EliahKagan/installation ([`acc104a`](https://github.com/Byron/cargo-smart-release/commit/acc104a75dac8478ffafec4378a558289cf034f7))
+    - Improve event triggers for crates.io install test ([`33bd24d`](https://github.com/Byron/cargo-smart-release/commit/33bd24d94d2cabd4151095e905f7ed3a90d66f68))
+    - Merge pull request #55 from EliahKagan/doc ([`d59c889`](https://github.com/Byron/cargo-smart-release/commit/d59c889b5cd931ac22c27e02ef2af063834f6b11))
+    - Update project URL and add security policy ([`3267581`](https://github.com/Byron/cargo-smart-release/commit/3267581a7f69bbc2c630552d3daf08fdaa4c7992))
+    - Merge pull request #52 from EliahKagan/version-updates ([`49e50f7`](https://github.com/Byron/cargo-smart-release/commit/49e50f7d6a133d275792f783789b9d8b4c1a092a))
+    - Merge pull request #51 from EliahKagan/run-ci/cargo-update ([`dfa7a85`](https://github.com/Byron/cargo-smart-release/commit/dfa7a85e016f9de526961cfd20dca39f8e55bcd4))
+    - Thanks clippy ([`5386a41`](https://github.com/Byron/cargo-smart-release/commit/5386a41f048a744e7cbabb131256d08b15bc4d2e))
+    - Don't `--allow deprecated` for `clippy` on CI ([`1fa2b68`](https://github.com/Byron/cargo-smart-release/commit/1fa2b68b32455401b4540fa07b0bfae88f8ea817))
+    - Thanks clippy ([`90afecb`](https://github.com/Byron/cargo-smart-release/commit/90afecbb4d5fe58cfb559cc2c47711db6b32f1e0))
+    - Bump locked dependencies ([`fe4de40`](https://github.com/Byron/cargo-smart-release/commit/fe4de4067ad2559284b54f0349a538f4732a9a1d))
+    - Enable Dependabot version updates for Rust ([`24dc8df`](https://github.com/Byron/cargo-smart-release/commit/24dc8df5f6abcb2da382b2a6399dcb57094c0d74))
+    - Merge pull request #49 from GitoxideLabs/dependabot/cargo/crossbeam-channel-0.5.15 ([`502682d`](https://github.com/Byron/cargo-smart-release/commit/502682d5b61e9dc5b98872d9273094a38486acff))
+    - Bump crossbeam-channel from 0.5.14 to 0.5.15 ([`202be09`](https://github.com/Byron/cargo-smart-release/commit/202be0927a17cf20c458fab9cc6eb957d3a81584))
+    - Merge pull request #48 from EliahKagan/run-ci/security ([`c254144`](https://github.com/Byron/cargo-smart-release/commit/c2541442e3597330aeb38bddd2689912de37abe8))
+    - Merge pull request #47 from EliahKagan/contrib ([`262f202`](https://github.com/Byron/cargo-smart-release/commit/262f202fed524a8554b345295b665ac24a528a53))
+    - Fix GHA warning syntax ([`ae23c95`](https://github.com/Byron/cargo-smart-release/commit/ae23c954066c880862cc9f2111dd41bc3300d8c8))
+    - Find all applicable RUSTSEC advisories in `security_audit` job ([`3f243c1`](https://github.com/Byron/cargo-smart-release/commit/3f243c1a74f582de816c0447b3e96fe0f9fc19ed))
+    - Preinstall `cargo-audit` binary in `security_audit` job ([`f34e7b6`](https://github.com/Byron/cargo-smart-release/commit/f34e7b66d64164494dff644ce7c369a01a4b0ff2))
+    - Add some convenient and fairly unobtrustive CI triggers ([`f9880fa`](https://github.com/Byron/cargo-smart-release/commit/f9880fa55f46363e1b82d4c052dd9cf13bf07be6))
+    - Improve title in the contributing guidelines ([`e2b3f17`](https://github.com/Byron/cargo-smart-release/commit/e2b3f175b562c1c2f1bc71b4a5ba7badb9c2fb29))
+    - Merge pull request #45 from Byron/dependabot/github_actions/github-actions-d3e65476f6 ([`1ebc174`](https://github.com/Byron/cargo-smart-release/commit/1ebc174eb62d656fc3359744bdbfeb689f46fa2d))
+    - Merge pull request #44 from EliahKagan/bump-gix ([`28def59`](https://github.com/Byron/cargo-smart-release/commit/28def59a9e58edac81d2e9d5df2c0cad94db03da))
+    - Bump the github-actions group with 4 updates ([`9e3257c`](https://github.com/Byron/cargo-smart-release/commit/9e3257c19dcd12ed556fd173c7211b729a69d1ff))
+    - Merge pull request #43 from EliahKagan/run-ci/gha ([`9c9a8dc`](https://github.com/Byron/cargo-smart-release/commit/9c9a8dc002153f9dc91fc36ee0fc6a86cebd7e95))
+    - Merge pull request #42 from EliahKagan/thanks-clippy-detection ([`0c307d3`](https://github.com/Byron/cargo-smart-release/commit/0c307d38581450efa63145c2d3e1293e14f7e746))
+    - Bump `gix` from 0.69.1 to 0.71.0 ([`0f1bc82`](https://github.com/Byron/cargo-smart-release/commit/0f1bc82b130684d1e4348c7015c456013d5b6e36))
+    - Enable Dependabot version updates for actions ([`ed59e97`](https://github.com/Byron/cargo-smart-release/commit/ed59e97eab4202f010bc2d7fac6aad12b7fe866f))
+    - Make the main CI workflow easier to run in forks ([`74e3475`](https://github.com/Byron/cargo-smart-release/commit/74e3475249f035d8f17f6e3ab9cf0043c068c3fb))
+    - Use more consistent style in CI workflows ([`bfbaa1e`](https://github.com/Byron/cargo-smart-release/commit/bfbaa1ef58f409c5554c585038e6ac5323dcbd9d))
+    - Recognize variants of "thanks clippy" ([`ca7d486`](https://github.com/Byron/cargo-smart-release/commit/ca7d486d48ee37ba70cbcf583b3479a97f1899d5))
+    - Merge pull request #41 from EliahKagan/clippy-fixes ([`67b2147`](https://github.com/Byron/cargo-smart-release/commit/67b2147ac69db4c03bfe41540e1ff0d165481724))
+    - Thanks clippy ([`c286b5a`](https://github.com/Byron/cargo-smart-release/commit/c286b5a077548cb428dba91eb389fdea0283c7e9))
+</details>
+
 ## 0.21.6 (2024-12-24)
 
 ### New Features
@@ -25,7 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 11 commits contributed to the release.
+ - 12 commits contributed to the release.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#34](https://github.com/Byron/cargo-smart-release/issues/34)
 
@@ -44,6 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#34](https://github.com/Byron/cargo-smart-release/issues/34)**
     - Don't crash when run on a detached `HEAD` ([`869b0bd`](https://github.com/Byron/cargo-smart-release/commit/869b0bd5202465a891bae8830e817e07a6133df6))
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.6 ([`7db489e`](https://github.com/Byron/cargo-smart-release/commit/7db489e9d3df4f111d59f695b66c241955666509))
     - Upgrade all dependencies ([`8f3f794`](https://github.com/Byron/cargo-smart-release/commit/8f3f794658fe9b63b399e437894ca923896d0084))
     - Update dependencies ([`b5c8259`](https://github.com/Byron/cargo-smart-release/commit/b5c825950ba2fa1497f92f5bb8481b0e03ab2c1e))
     - Adjust test expectations, which are dependent on the Rust version now ([`f8c753d`](https://github.com/Byron/cargo-smart-release/commit/f8c753d8da3254427bb05bc3242fdca9b88cd777))
