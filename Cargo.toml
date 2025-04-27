@@ -19,7 +19,6 @@ test = false
 name = "cargo-changelog"
 path = "src/cli/main-changelog.rs"
 test = false
-
 [features]
 cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 
@@ -32,7 +31,7 @@ cargo_metadata = "0.19.1"
 log = "0.4.14"
 toml_edit = "0.22.25"
 semver = "1.0.4"
-crates-index = { version = "3.5.0", default-features = false, features = ["git-performance", "git-https"] }
+crates-index = { version = "3.10.0", default-features = false, features = ["git-performance", "git-https"] }
 cargo_toml = "0.22.1"
 winnow = "0.7.6"
 git-conventional = "0.12.0"
@@ -42,7 +41,7 @@ bitflags = "2"
 
 [dev-dependencies]
 insta = "1.43.0"
-gix-testtools = "0.15.0"
+gix-testtools = "0.16.1"
 testing_logger = "0.1.1"
 
 [workspace]
