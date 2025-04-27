@@ -108,7 +108,7 @@ pub fn author() -> anyhow::Result<gix::actor::Signature> {
     Ok(gix::actor::SignatureRef::from_bytes::<()>(&stdout)
         .ok()
         .ok_or_else(|| anyhow!("Could not parse author from GIT_AUTHOR_IDENT='{}'", stdout.as_bstr()))?
-        .to_owned())
+        .to_owned()?)
 }
 
 pub fn strip_tag_path(name: &FullNameRef) -> &BStr {
