@@ -117,7 +117,7 @@ pub fn crate_ref_segments<'h>(
                     }),
             ),
             None => BTreeMap::from_iter(
-                refs.prefixed("refs/tags")?
+                refs.prefixed("refs/tags/")?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
                     .filter(|r| is_tag_version(strip_tag_path(r.name.as_ref())))

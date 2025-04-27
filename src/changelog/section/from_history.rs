@@ -187,7 +187,7 @@ fn segment_head_time(segment: &commit::history::Segment<'_>, repo: &gix::Reposit
         .to_commit_ref()
         .committer
         .time()
-        .expect("always valid time (parse header)");
+        .unwrap_or_default();
 
     time_to_zoned_time(time).expect("always valid time (in range)")
 }
