@@ -22,7 +22,13 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
     } = opts;
     let bump_spec = if dependencies { BumpSpec::Auto } else { BumpSpec::Keep };
     let force_history_segmentation = false;
-    let ctx = crate::Context::new(crates.clone(), force_history_segmentation, bump_spec, bump_spec)?;
+    let ctx = crate::Context::new(
+        crates.clone(),
+        force_history_segmentation,
+        bump_spec,
+        bump_spec,
+        opts.registry.clone(),
+    )?;
     let crates: Vec<_> = {
         crate::traverse::dependencies(
             &ctx,

@@ -184,7 +184,7 @@ pub fn dependencies(
                 crates_this_round.push(Dependency {
                     package,
                     kind: dependency::Kind::UserSelection,
-                    mode: if package_may_be_published(package) {
+                    mode: if package_may_be_published(package, ctx.registry.as_deref()) {
                         dependency::Mode::ToBePublished {
                             adjustment: VersionAdjustment::Changed {
                                 change: user_package_change,
@@ -263,7 +263,7 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
         .workspace_members
         .iter()
         .map(|wmid| package_by_id(&ctx.meta, wmid))
-        .filter(|p| package_may_be_published(p)) // will publish, non-publishing ones need no safety bumps
+        .filter(|p| package_may_be_published(p, ctx.registry.as_deref())) // will publish, non-publishing ones need no safety bumps
         .collect();
     let mut set_to_expand_from = &backing;
     let mut seen = BTreeSet::default();
@@ -341,8 +341,18 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
     Ok(())
 }
 
-fn package_may_be_published(p: &Package) -> bool {
-    p.publish.is_none()
+fn package_may_be_published(p: &Package, registry: Option<&str>) -> bool {
+    match &p.publish {
+        // Empty vec seems to be the translation of `publish = false` in Cargo.toml
+        Some(registries) if registries.is_empty() => false,
+        Some(registries) => match registry {
+            Some(registry) => registries.iter().any(|r| r == registry),
+            // TODO: The user didn't specify any registry on the cmdline, assume they want to publish anything
+            None => true,
+        },
+        // TODO: Only do this if registry was unset, or equals the default crates-io registry?
+        None => true,
+    }
 }
 
 fn forward_propagate_breaking_changes_for_publishing(

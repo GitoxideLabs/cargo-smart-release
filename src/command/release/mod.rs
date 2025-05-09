@@ -33,8 +33,9 @@ impl Context {
         bump_dependencies: BumpSpec,
         changelog: bool,
         changelog_links: bool,
+        registry: Option<String>,
     ) -> anyhow::Result<Self> {
-        let base = crate::Context::new(crate_names, changelog, bump, bump_dependencies)?;
+        let base = crate::Context::new(crate_names, changelog, bump, bump_dependencies, registry)?;
         let changelog_links = if changelog_links {
             crate::git::remote_url(&base.repo)?.map_or(Linkables::AsText, |url| Linkables::AsLinks {
                 repository_url: url.into(),
@@ -69,7 +70,14 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
         );
     }
 
-    let ctx = Context::new(crates, bump, bump_dependencies, allow_changelog, opts.changelog_links)?;
+    let ctx = Context::new(
+        crates,
+        bump,
+        bump_dependencies,
+        allow_changelog,
+        opts.changelog_links,
+        opts.registry.clone(),
+    )?;
     if !ctx.base.crates_index.exists() {
         log::warn!("Crates.io index doesn't exist. Consider using --update-crates-index to help determining if release versions are published already");
     }
@@ -416,7 +424,7 @@ fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -
         if let Some((crate_, version)) = successful_publishees_and_version.last() {
             if let Err(err) = wait_for_release(crate_, version, options.clone()) {
                 log::warn!(
-                    "Failed to wait for crates-index update - trying to publish '{} v{}' anyway: {}.",
+                    "Failed to wait for crates-index update - trying to publish '{} v{}' anyway: {:?}.",
                     publishee.name,
                     new_version,
                     err
@@ -478,7 +486,12 @@ fn wait_for_release(
     let sleep_time = std::time::Duration::from_secs(1);
     let crate_version = crate_version.to_string();
 
-    log::info!("Waiting for '{} v{}' to arrive in index…", crate_.name, crate_version);
+    log::info!(
+        "Waiting for '{} v{}' to arrive in index for {:.0?}…",
+        crate_.name,
+        crate_version,
+        timeout
+    );
     let mut crates_index = crates_index::GitIndex::new_cargo_default()?;
     let mut attempt = 0;
     while start.elapsed() < timeout {
@@ -498,13 +511,17 @@ fn wait_for_release(
             .rev()
             .any(|version| version.version() == crate_version)
         {
-            break;
+            return Ok(());
         }
 
         std::thread::sleep(sleep_time);
         log::info!("attempt {}", attempt);
     }
-    Ok(())
+    Err(anyhow::anyhow!(
+        "Timed out waiting for'{} v{}' to arrive in the index",
+        crate_.name,
+        crate_version
+    ))
 }
 
 enum WriteMode {
