@@ -97,7 +97,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
                 },
                 capitalize_commit,
             )
-            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+            .map_err(std::io::Error::other)?;
             file.write_all(buf.as_bytes())
         })?;
         if let Some(bat) = bat.as_ref() {
