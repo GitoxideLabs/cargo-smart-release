@@ -45,7 +45,7 @@ pub(in crate::command::release_impl) fn publish_crate(
         }
         c.arg("--manifest-path").arg(&publishee.manifest_path);
         if prevent_default_members {
-            c.arg("--package").arg(&publishee.name);
+            c.arg("--package").arg(publishee.name.as_str());
         }
         if verbose {
             log::trace!("{} run {:?}", will(!cargo_must_run), c);

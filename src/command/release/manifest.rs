@@ -521,11 +521,11 @@ fn set_version_and_update_package_dependency(
         }
     }
     for (dep_table, dep_type) in find_dependency_tables(&mut doc) {
-        for (name_to_find, new_version) in crates.iter().map(|(p, nv)| (&p.name, nv)) {
+        for (name_to_find, new_version) in crates.iter().map(|(p, nv)| (p.name.as_str(), nv)) {
             for name_to_find in package_to_update
                 .dependencies
                 .iter()
-                .filter(|dep| &dep.name == name_to_find)
+                .filter(|dep| dep.name == name_to_find)
                 .map(|dep| dep.rename.as_ref().unwrap_or(&dep.name))
             {
                 let Some(name_table) = dep_table

@@ -64,20 +64,20 @@ pub fn version_req_unset_or_default(req: &VersionReq) -> bool {
 
 pub fn package_eq_dependency_ignore_dev_without_version(package: &Package, dependency: &Dependency) -> bool {
     (dependency.kind != DependencyKind::Development || !version_req_unset_or_default(&dependency.req))
-        && package.name == dependency.name
+        && package.name.as_str() == dependency.name
 }
 
 pub fn workspace_package_by_dependency<'a>(meta: &'a Metadata, dep: &Dependency) -> Option<&'a Package> {
     meta.packages
         .iter()
-        .find(|p| p.name == dep.name && p.source.as_ref().is_none_or(|s| !s.is_crates_io()))
+        .find(|p| p.name.as_str() == dep.name && p.source.as_ref().is_none_or(|s| !s.is_crates_io()))
         .filter(|p| meta.workspace_members.iter().any(|m| m == &p.id))
 }
 
 pub fn package_by_name<'a>(meta: &'a Metadata, name: &str) -> anyhow::Result<&'a Package> {
     meta.packages
         .iter()
-        .find(|p| p.name == name && p.source.as_ref().is_none_or(|s| !s.is_crates_io()))
+        .find(|p| p.name.as_str() == name && p.source.as_ref().is_none_or(|s| !s.is_crates_io()))
         .ok_or_else(|| anyhow!("workspace member '{}' must be a listed package", name))
 }
 
