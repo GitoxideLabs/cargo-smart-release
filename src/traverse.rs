@@ -305,7 +305,7 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
                         let adjustment = VersionAdjustment::Breakage {
                             bump,
                             change: None,
-                            causing_dependency_names: vec![dependee.package.name.to_owned()],
+                            causing_dependency_names: vec![dependee.package.name.to_string()],
                         };
                         new_crates_this_round.push(Dependency {
                             package: dependant,
@@ -407,7 +407,7 @@ impl EditForPublish {
         let causing_dependency_names = self
             .causing_dependency_indices
             .into_iter()
-            .map(|idx| crates[idx].package.name.clone())
+            .map(|idx| crates[idx].package.name.to_string())
             .collect();
         let dep_mut = &mut crates[self.crates_idx];
         if is_pre_release_version(&dep_mut.package.version) || allow_auto_publish_of_stable_crates {

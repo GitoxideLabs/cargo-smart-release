@@ -41,7 +41,7 @@ impl Support {
         {
             Ok(())
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "bat exited with an error"))
+            Err(io::Error::other("bat exited with an error"))
         }
     }
 }
