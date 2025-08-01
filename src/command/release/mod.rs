@@ -269,9 +269,11 @@ fn present_and_validate_dependencies(
                                 causes.iter().map(|n| format!("'{n}'")).collect::<Vec<_>>().join(", ")
                             ))
                             .unwrap_or_default(),
-                        (bump.next_release != bump.desired_release)
-                            .then(|| format!(", ignoring computed version {}", bump.desired_release))
-                            .unwrap_or_default(),
+                        if bump.next_release == bump.desired_release {
+                            "".into()
+                        } else {
+                            format!(", ignoring computed version {}", bump.desired_release)
+                        },
                     );
                 } else if bump.desired_release != dep.package.version {
                     log::info!(
