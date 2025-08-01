@@ -25,15 +25,15 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 [dependencies]
 gix = { version = "0.72.1", default-features = false, features = ["max-performance", "interrupt"] }
 anyhow = "1.0.42"
-clap = { version = "4.5.40", features = ["derive", "cargo"] }
+clap = { version = "4.5.42", features = ["derive", "cargo"] }
 env_logger = { version = "0.11.6", default-features = false, features = ["humantime", "auto-color"] }
-cargo_metadata = "0.20.0"
+cargo_metadata = "0.21.0"
 log = "0.4.14"
-toml_edit = "0.22.27"
+toml_edit = "0.23.2"
 semver = "1.0.4"
-crates-index = { version = "3.10.0", default-features = false, features = ["git-performance", "git-https"] }
-cargo_toml = "0.22.1"
-winnow = "0.7.11"
+crates-index = { version = "3.11.0", default-features = false, features = ["git-performance", "git-https"] }
+cargo_toml = "0.22.3"
+winnow = "0.7.12"
 git-conventional = "0.12.0"
 jiff = "0.2.15"
 pulldown-cmark = { version = "0.9.6", default-features = false }
