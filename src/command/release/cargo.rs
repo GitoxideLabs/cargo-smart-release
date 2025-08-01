@@ -56,9 +56,7 @@ pub(in crate::command::release_impl) fn publish_crate(
             bail!("Could not successfully execute 'cargo publish'.")
         } else {
             log::warn!(
-                "'cargo publish' run {} failed but we retry up to {} times to rule out flakiness",
-                attempt,
-                max_attempts
+                "'cargo publish' run {attempt} failed but we retry up to {max_attempts} times to rule out flakiness"
             );
         }
     }

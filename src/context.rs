@@ -84,10 +84,7 @@ fn fill_in_root_crate_if_needed(crate_names: Vec<String>) -> anyhow::Result<Vec<
         } else {
             dir_name.to_owned()
         };
-        log::warn!(
-            "Using '{}' as crate name as no one was provided. Specify one if this isn't correct",
-            crate_name
-        );
+        log::warn!("Using '{crate_name}' as crate name as no one was provided. Specify one if this isn't correct");
         vec![crate_name]
     } else {
         crate_names

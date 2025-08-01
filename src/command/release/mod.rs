@@ -358,9 +358,11 @@ fn present_and_validate_dependencies(
             .map(|d| d.package.name.as_str())
             .collect::<Vec<_>>();
         if !crate_names_for_manifest_updates.is_empty() {
-            let plural_s = (crate_names_for_manifest_updates.len() > 1)
-                .then_some("s")
-                .unwrap_or_default();
+            let plural_s = if crate_names_for_manifest_updates.len() > 1 {
+                "s"
+            } else {
+                Default::default()
+            };
             log::info!(
                 "{} adjust version constraints in manifest{} of {} package{} as direct dependencies are changing: {}",
                 will(dry_run),
@@ -502,7 +504,7 @@ fn wait_for_release(
         }
 
         std::thread::sleep(sleep_time);
-        log::info!("attempt {}", attempt);
+        log::info!("attempt {attempt}");
     }
     Ok(())
 }

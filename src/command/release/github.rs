@@ -64,8 +64,7 @@ pub fn create_release(
     cmd.arg(notes);
     if !dry_run && !cmd.status()?.success() {
         log::warn!(
-            "'gh' tool execution failed - considering this non-critical, and you may try to create the release with: {:?}",
-            cmd
+            "'gh' tool execution failed - considering this non-critical, and you may try to create the release with: {cmd:?}"
         );
     }
     Ok(())

@@ -49,7 +49,7 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
                         .peel_to_kind(object::Kind::Tree)?
                         .into_tree()
                         .peel_to_entry(components.clone())?
-                        .unwrap_or_else(|| panic!("path '{}' must exist in current_commit `{}`", dir, current_commit))
+                        .unwrap_or_else(|| panic!("path '{dir}' must exist in current_commit `{current_commit}`"))
                         .object_id();
                     if let Some(released_dir_entry) = released_target
                         .object()?

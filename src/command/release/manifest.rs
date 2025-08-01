@@ -246,7 +246,7 @@ fn commit_locks_and_generate_bail_message(
             );
             if !allow_fully_generated_changelogs {
                 for crate_name in crate_names {
-                    log::warn!("{} {}", fix_preamble, crate_name);
+                    log::warn!("{fix_preamble} {crate_name}");
                 }
             }
         }
