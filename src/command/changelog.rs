@@ -129,7 +129,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         change.commit()?;
     }
     if num_changes != 0 {
-        log::info!("Wrote {} changelogs", num_changes);
+        log::info!("Wrote {num_changes} changelogs");
     }
 
     Ok(())

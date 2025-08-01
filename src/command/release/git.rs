@@ -56,7 +56,7 @@ pub(in crate::command::release_impl) fn create_version_tag<'repo>(
                 );
             }
             None => {
-                log::trace!("WOULD create tag {}", tag_name);
+                log::trace!("WOULD create tag {tag_name}");
             }
         }
         Ok(Some(format!("refs/tags/{tag_name}").try_into()?))
