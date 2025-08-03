@@ -1,6 +1,6 @@
 use std::{convert::TryInto, process::Command};
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use cargo_metadata::Package;
 use gix::{bstr::ByteSlice, refs, refs::transaction::PreviousValue, Id};
 
@@ -98,15 +98,17 @@ pub fn push_tags_and_head(
 
     let mut cmd = Command::new("git");
     cmd.arg("push")
-        .arg(
-            repo.head()?
+        .arg({
+            let remote = repo
+                .head()?
                 .into_remote(gix::remote::Direction::Push)
-                .ok_or_else(|| anyhow!("Cannot push in uninitialized repo"))??
+                .ok_or_else(|| anyhow!("Cannot push in uninitialized repo"))??;
+            remote
                 .name()
-                .expect("configured remotes have a name")
-                .as_bstr()
-                .to_string(),
-        )
+                .map(|name| name.as_bstr().to_string())
+                .or_else(|| remote.url(gix::remote::Direction::Push).map(|url| url.to_string()))
+                .context("Couldn't find push-remote of HEAD reference")?
+        })
         .arg("HEAD");
     for tag_name in tag_names {
         cmd.arg(tag_name.as_bstr().to_str()?);
