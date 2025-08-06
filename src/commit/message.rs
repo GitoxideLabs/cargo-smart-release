@@ -81,39 +81,55 @@ mod additions {
     }
 }
 
+use unicode_properties::{EmojiStatus, UnicodeEmoji};
+
 impl From<&'_ str> for Message {
     fn from(m: &str) -> Self {
-        let (title, kind, body, breaking, breaking_description) = git_conventional::Commit::parse(m).map_or_else(
-            |_| {
-                let m = gix::objs::commit::MessageRef::from_bytes(m.as_bytes());
-                (
-                    m.summary().as_ref().to_string().into(),
-                    None,
-                    m.body().map(|b| b.without_trailer().to_str_lossy()),
-                    false,
-                    None,
-                )
-            },
-            |c: git_conventional::Commit<'_>| {
-                (
-                    c.description().into(),
-                    Some(c.type_()),
-                    c.body().map(Into::into),
-                    c.breaking(),
-                    c.breaking_description()
-                        .and_then(|d| if d == c.description() { None } else { Some(d) }),
-                )
-            },
-        );
-        let (title, additions) = additions::strip(title);
-        Message {
-            title: title.into_owned(),
-            kind: as_static_str(kind),
-            body: body.map(Cow::into_owned),
-            breaking,
-            breaking_description: breaking_description.map(ToOwned::to_owned),
-            additions,
-        }
+        let emoji_free = m
+            .chars()
+            .map(|c| match c.emoji_status() {
+                EmojiStatus::EmojiOther => c,
+                EmojiStatus::NonEmoji => c,
+                EmojiStatus::EmojiOtherAndEmojiComponent => c,
+                _ => ' ',
+            })
+            .collect::<String>();
+        let trimmed = emoji_free.trim_start();
+        get_message(trimmed)
+    }
+}
+
+fn get_message(m: &str) -> Message {
+    let (title, kind, body, breaking, breaking_description) = git_conventional::Commit::parse(m).map_or_else(
+        |_| {
+            let m = gix::objs::commit::MessageRef::from_bytes(m.as_bytes());
+            (
+                m.summary().as_ref().to_string().into(),
+                None,
+                m.body().map(|b| b.without_trailer().to_str_lossy()),
+                false,
+                None,
+            )
+        },
+        |c: git_conventional::Commit<'_>| {
+            (
+                c.description().into(),
+                Some(c.type_()),
+                c.body().map(Into::into),
+                c.breaking(),
+                c.breaking_description()
+                    .and_then(|d| if d == c.description() { None } else { Some(d) }),
+            )
+        },
+    );
+    let (title, additions) = additions::strip(title);
+    Message {
+        title: title.into_owned(),
+        kind: as_static_str(kind),
+        body: body.map(Cow::into_owned),
+        breaking,
+        breaking_description: breaking_description.map(ToOwned::to_owned),
+        additions,
     }
 }
 
@@ -194,6 +210,36 @@ mod tests {
                 breaking: true,
                 breaking_description: Some("breaks".into()),
                 additions: vec![Addition::IssueId("123".into())]
+            }
+        )
+    }
+
+    #[test]
+    fn conventional_with_scope() {
+        assert_eq!(
+            Message::from("refactor(workspace)!: restructure Cargo.toml for workspace management\n\n- transition from single package to workspace format\n- update dependencies and remove obsolete sections"),
+            Message {
+                title: "restructure Cargo.toml for workspace management".into(),
+                body: Some("- transition from single package to workspace format\n- update dependencies and remove obsolete sections".into()),
+                kind: Some("refactor"),
+                breaking: true,
+                breaking_description: None,
+                additions: vec![]
+            }
+        )
+    }
+
+    #[test]
+    fn conventional_with_scope_and_emoji() {
+        assert_eq!(
+            Message::from("🔧 refactor(workspace)!: restructure Cargo.toml for workspace management\n\n- transition from single package to workspace format\n- update dependencies and remove obsolete sections"),
+            Message {
+                title: "restructure Cargo.toml for workspace management".into(),
+                body: Some("- transition from single package to workspace format\n- update dependencies and remove obsolete sections".into()),
+                kind: Some("refactor"),
+                breaking: true,
+                breaking_description: None,
+                additions: vec![]
             }
         )
     }
