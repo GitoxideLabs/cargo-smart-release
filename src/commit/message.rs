@@ -81,8 +81,10 @@ mod additions {
     }
 }
 
+#[cfg(feature = "allow-emoji")]
 use unicode_properties::{EmojiStatus, UnicodeEmoji};
 
+#[cfg(feature = "allow-emoji")]
 impl From<&'_ str> for Message {
     fn from(m: &str) -> Self {
         let emoji_free = m
@@ -96,6 +98,13 @@ impl From<&'_ str> for Message {
             .collect::<String>();
         let trimmed = emoji_free.trim_start();
         get_message(trimmed)
+    }
+}
+
+#[cfg(not(feature = "allow-emoji"))]
+impl From<&'_ str> for Message {
+    fn from(m: &str) -> Self {
+        get_message(m)
     }
 }
 
@@ -229,6 +238,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "allow-emoji")]
     #[test]
     fn conventional_with_scope_and_emoji() {
         assert_eq!(

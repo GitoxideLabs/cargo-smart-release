@@ -32,6 +32,7 @@ doc $RUSTDOCFLAGS="-D warnings":
 # run all unit tests
 unit-tests:
     cargo test --all
+    cargo test --features allow-emoji
 
 cargo-smart-release := `cargo metadata --format-version 1 | jq -r .target_directory` / "debug/cargo-smart-release"
 
