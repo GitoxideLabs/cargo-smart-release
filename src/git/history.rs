@@ -4,20 +4,21 @@ use std::{
     iter::FromIterator,
 };
 
+use cargo_metadata::Package;
+use gix::{
+    bstr::ByteSlice,
+    head,
+    prelude::{ObjectIdExt, ReferenceExt},
+    traverse::commit::simple::CommitTimeOrder,
+    Reference,
+};
+
 use crate::{
     commit,
     commit::history::{Item, Segment},
     git::strip_tag_path,
     utils::{component_to_bytes, is_tag_name, is_tag_version, tag_prefix},
     Context,
-};
-use cargo_metadata::Package;
-use gix::traverse::commit::simple::CommitTimeOrder;
-use gix::{
-    bstr::ByteSlice,
-    head,
-    prelude::{ObjectIdExt, ReferenceExt},
-    Reference,
 };
 
 pub enum SegmentScope {
