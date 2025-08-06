@@ -45,6 +45,12 @@ Via `cargo`, which can be obtained using [rustup][rustup]
 cargo install cargo-smart-release
 ```
 
+Install with support for emoji's at the start of commit using `cargo`
+
+```
+cargo install cargo-smart-release --features allow-emoji
+```
+
 ## Features
 
 * [x] safe to use as actually performing an operation requires the `--execute` flag
@@ -63,6 +69,7 @@ cargo install cargo-smart-release
 * [ ] handle version specifications correctly [(tables vs values)](https://github.com/Byron/cargo-release/blob/master/src/cargo.rs#L179:L207)
 * [ ] handle all version comparators correctly (see [here](https://github.com/Byron/cargo-release/blob/master/src/version.rs#L192:L226) for how it's done)
 * [ ] Automatically detect if crate changes are breaking to suggest the correct version increment
+* [x] Support for conventional commits prefixed by an emoji
 
 ## Comparison to `cargo release`
 
