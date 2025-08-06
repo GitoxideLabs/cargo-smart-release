@@ -5,6 +5,11 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::{bail, Context as ContextTrait};
+use cargo_metadata::{camino::Utf8PathBuf, Package};
+use gix::{lock::File, Id};
+use semver::{Version, VersionReq};
+
 use super::{cargo, git, Context, Options};
 use crate::{
     changelog,
@@ -13,10 +18,6 @@ use crate::{
     utils::{names_and_versions, try_to_published_crate_and_new_version, version_req_unset_or_default, will},
     version, ChangeLog,
 };
-use anyhow::{bail, Context as ContextTrait};
-use cargo_metadata::{camino::Utf8PathBuf, Package};
-use gix::{lock::File, Id};
-use semver::{Version, VersionReq};
 
 pub struct Outcome<'repo, 'meta> {
     pub commit_id: Option<Id<'repo>>,
