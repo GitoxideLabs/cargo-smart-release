@@ -81,34 +81,29 @@ mod additions {
     }
 }
 
-#[cfg(feature = "allow-emoji")]
-use unicode_properties::{EmojiStatus, UnicodeEmoji};
-
-#[cfg(feature = "allow-emoji")]
-impl From<&'_ str> for Message {
-    fn from(m: &str) -> Self {
-        let emoji_free = m
-            .chars()
-            .map(|c| match c.emoji_status() {
-                EmojiStatus::EmojiOther => c,
-                EmojiStatus::NonEmoji => c,
-                EmojiStatus::EmojiOtherAndEmojiComponent => c,
-                _ => ' ',
-            })
-            .collect::<String>();
-        let trimmed = emoji_free.trim_start();
-        get_message(trimmed)
-    }
-}
-
-#[cfg(not(feature = "allow-emoji"))]
 impl From<&'_ str> for Message {
     fn from(m: &str) -> Self {
         get_message(m)
     }
 }
 
+#[cfg(feature = "allow-emoji")]
 fn get_message(m: &str) -> Message {
+    use unicode_properties::{EmojiStatus, UnicodeEmoji};
+    let emoji_free: String = m
+        .chars()
+        .skip_while(|c| !matches!(c.emoji_status(), EmojiStatus::NonEmoji))
+        .collect();
+    let trimmed = emoji_free.trim_start();
+    get_message_inner(trimmed)
+}
+
+#[cfg(not(feature = "allow-emoji"))]
+fn get_message(m: &str) -> Message {
+    get_message_inner(m)
+}
+
+fn get_message_inner(m: &str) -> Message {
     let (title, kind, body, breaking, breaking_description) = git_conventional::Commit::parse(m).map_or_else(
         |_| {
             let m = gix::objs::commit::MessageRef::from_bytes(m.as_bytes());
@@ -242,9 +237,9 @@ mod tests {
     #[test]
     fn conventional_with_scope_and_emoji() {
         assert_eq!(
-            Message::from("🔧 refactor(workspace)!: restructure Cargo.toml for workspace management\n\n- transition from single package to workspace format\n- update dependencies and remove obsolete sections"),
+            Message::from("🔧 refactor(workspace)!: restructure Cargo.toml for workspace ⚠️management ⚠️ \n\n- transition from single package to workspace format\n- update dependencies and remove obsolete sections"),
             Message {
-                title: "restructure Cargo.toml for workspace management".into(),
+                title: "restructure Cargo.toml for workspace ⚠️management ⚠️ ".into(),
                 body: Some("- transition from single package to workspace format\n- update dependencies and remove obsolete sections".into()),
                 kind: Some("refactor"),
                 breaking: true,
