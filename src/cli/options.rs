@@ -172,6 +172,10 @@ pub enum SubCommands {
         /// Sign off commit messages.
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         signoff: bool,
+
+        /// Prefix to add to start of commit messages.
+        #[clap(long, help_heading = Some("CUSTOMIZATION"))]
+        commit_prefix: Option<String>,
     },
     #[clap(name = "changelog", version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Generate changelogs from commit histories, non-destructively.

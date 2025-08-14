@@ -65,6 +65,7 @@ fn main() -> anyhow::Result<()> {
             capitalize_commit,
             registry,
             signoff,
+            commit_prefix,
         } => {
             let verbose = execute || verbose;
             init_logging(verbose);
@@ -95,6 +96,7 @@ fn main() -> anyhow::Result<()> {
                     capitalize_commit,
                     registry,
                     signoff,
+                    commit_prefix,
                 },
                 crates,
                 to_bump_spec(bump.as_deref().unwrap_or(DEFAULT_BUMP_SPEC))?,

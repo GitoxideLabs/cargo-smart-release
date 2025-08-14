@@ -29,6 +29,7 @@ pub mod release {
         pub capitalize_commit: bool,
         pub registry: Option<String>,
         pub signoff: bool,
+        pub commit_prefix: Option<String>,
     }
 }
 #[path = "release/mod.rs"]

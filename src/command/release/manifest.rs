@@ -306,10 +306,13 @@ fn generate_commit_message(
     num_locks: usize,
     pending_changelogs: &[(&Package, bool, File)],
     Options {
-        skip_publish, dry_run, ..
+        skip_publish,
+        dry_run,
+        commit_prefix,
+        ..
     }: Options,
 ) -> String {
-    let message = format!(
+    let mut message = format!(
         "{} {}{}",
         if would_stop_release {
             "Adjusting changelogs prior to release of"
@@ -333,6 +336,9 @@ fn generate_commit_message(
             }
         }
     );
+    if let Some(prefix) = commit_prefix {
+        message = format!("{prefix} {message}");
+    }
 
     log::trace!(
         "{} persist changes to {} manifests {}with: {:?}",
