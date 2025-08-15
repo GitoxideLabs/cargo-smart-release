@@ -174,6 +174,8 @@ pub enum SubCommands {
         signoff: bool,
 
         /// Prefix to add to start of commit messages.
+        ///
+        /// Useful to enforce commits created for the release are conventional.
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         commit_prefix: Option<String>,
     },
