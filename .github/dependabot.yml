@@ -17,6 +17,7 @@ updates:
   groups:
     cargo:
       patterns: ['*']
+      exclude-patterns: ['pulldown-cmark']
 
 - package-ecosystem: github-actions
   directory: '/'
