@@ -1,7 +1,8 @@
 #[derive(clap::Parser)]
 #[clap(subcommand_required = true)]
 #[clap(disable_help_subcommand = true)]
-#[clap(bin_name = "cargo", version = env!("CARGO_PKG_VERSION"))]
+#[clap(name = "cargo")]
+#[clap(bin_name = "cargo")]
 /// Release workspace crates fearlessly.
 ///
 /// Use --execute to actually perform the operation.
@@ -12,7 +13,7 @@ pub struct Args {
 
 #[derive(clap::Parser)]
 pub enum SubCommands {
-    #[clap(name = "smart-release", version = env!("CARGO_PKG_VERSION"))]
+    #[clap(name = "smart-release", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Release workspace crates fearlessly.
     ///
     /// Use --execute to actually perform the operation.
@@ -178,7 +179,7 @@ pub enum SubCommands {
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         commit_prefix: Option<String>,
     },
-    #[clap(name = "changelog", version = env!("CARGO_PKG_VERSION"))]
+    #[clap(name = "changelog", version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Generate changelogs from commit histories, non-destructively.
     ///
     /// Use --write to actually write generated changelogs
