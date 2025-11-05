@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn main() {
     let version = Command::new(if cfg!(windows) { "git.exe" } else { "git" })
-        .args(["describe", "--match=cargo-smart-release-*"])
+        .args(["describe", "--tags"])
         .output()
         .ok()
         .and_then(|out| parse_describe(&out.stdout))
@@ -13,5 +13,5 @@ fn main() {
 
 fn parse_describe(input: &[u8]) -> Option<String> {
     let input = std::str::from_utf8(input).ok()?;
-    input.trim().to_owned().into()
+    Some(input.trim().trim_start_matches('v').to_owned())
 }

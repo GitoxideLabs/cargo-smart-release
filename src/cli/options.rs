@@ -1,7 +1,7 @@
 #[derive(clap::Parser)]
 #[clap(subcommand_required = true)]
 #[clap(disable_help_subcommand = true)]
-#[clap(disable_version_flag = true)]
+#[clap(name = "cargo")]
 #[clap(bin_name = "cargo")]
 /// Release workspace crates fearlessly.
 ///
@@ -13,7 +13,7 @@ pub struct Args {
 
 #[derive(clap::Parser)]
 pub enum SubCommands {
-    #[clap(name = "smart-release", version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
+    #[clap(name = "smart-release", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Release workspace crates fearlessly.
     ///
     /// Use --execute to actually perform the operation.
