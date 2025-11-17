@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Features
+
+ - Allow specifying a `--target` triple when running `cargo smart-release`, forwarding it to `cargo publish` so crates that don't
+   compile for the host can still be released ([#89](https://github.com/GitoxideLabs/cargo-smart-release/issues/89)).
+
 ## 0.21.8 (2025-08-03)
 
 ### Bug Fixes
@@ -2776,4 +2783,3 @@ For more information, run `cargo changelog -h`.
 ## v0.1.0 (2021-08-13)
 
 - initial release
-

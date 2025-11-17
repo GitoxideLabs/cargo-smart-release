@@ -64,6 +64,7 @@ fn main() -> anyhow::Result<()> {
             no_isolate_dependencies_from_breaking_changes,
             capitalize_commit,
             registry,
+            target,
             signoff,
             commit_prefix,
         } => {
@@ -95,6 +96,7 @@ fn main() -> anyhow::Result<()> {
                     allow_changelog_github_release: !no_changelog_github_release,
                     capitalize_commit,
                     registry,
+                    target,
                     signoff,
                     commit_prefix,
                 },

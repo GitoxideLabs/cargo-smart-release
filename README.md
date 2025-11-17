@@ -26,7 +26,8 @@ When developing various crates in a workspace, when committing changes and if th
 change I want to see in changelogs, [conventional] git messages will be used. This helps building changelog scaffolding automatically later.
 
 When ready for releasing a particular crate or set of crates of interest, run `cargo smart-release [<crate-name> ...]` to simulate a release. For particularly thorough
-but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`. To polish changelogs, run `cargo changelog --write <crate-name>`
+but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`. Crates that don't compile for the host can be released by
+passing `--target <triple>`, which is forwarded to every `cargo publish` invocation (including dry runs). To polish changelogs, run `cargo changelog --write <crate-name>`
 to update the scaffolding and edit it by hand until it fits.
 
 After evaluating the release procedure and following instructions,
