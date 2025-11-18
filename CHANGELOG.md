@@ -5,12 +5,111 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.21.9 (2025-11-18)
 
 ### Features
 
  - Allow specifying a `--target` triple when running `cargo smart-release`, forwarding it to `cargo publish` so crates that don't
    compile for the host can still be released ([#89](https://github.com/GitoxideLabs/cargo-smart-release/issues/89)).
+
+### Style
+
+ - <csr-id-4af7d573c5cc57fd559ea96bc8c32c66cc4f1ed5/> reorder import statements
+   Triggered by justfile fmt
+   - move std::io::Write to the top for standard library import consistency
+ - <csr-id-9f61801b0f4bc7c62c2bd3efa1f58f51e7f1d0a6/> reorder import statements for consistency
+   Triggered by justfile fmt
+   - organize import statements for better readability
+   - move external crates to the top and internal modules below
+ - <csr-id-f1eb1e049bb7f7cdb82b194b5527210e40b5bb73/> reorder imports for better readability
+   Triggered by justfile fmt
+   - move `gix::traverse::commit::simple::CommitTimeOrder` import for logical grouping
+   - adjust crate imports to follow standard ordering conventions
+
+### Other
+
+ - <csr-id-a834811e77ce1c0d7663e84cbcc3c46f13a2d2c1/> add unicode-properties library
+   - add unicode-properties version 0.1.3 with emoji feature
+   - enhance string handling capabilities with new library
+
+### Bug Fixes
+
+ - <csr-id-85cf4c751ec1b6548ec5c14d69c38af254230bd9/> enable version flag
+
+### New Features
+
+ - <csr-id-ecde413b6a919926928b3f8dd8da010c88c01308/> add --target passthrough to cargo
+ - <csr-id-816908351b3d25c1ab1dce796fb635ed39ac67a6/> Add commit_prefix option
+ - <csr-id-514f10b00c3d67bae9f08c1c09eb105a256888cd/> add emoji support feature
+   - introduce `allow-emoji` feature for handling emojis
+   - update Cargo.toml and justfile for conditional emoji feature testing
+   
+   refactor(commit): enhance message parsing with emoji support
+   
+   - add conditional compilation for emoji parsing in commit messages
+   - implement feature flag checks to toggle emoji handling in messages
+ - <csr-id-282445f6806b361cfa177b843faecc7641ad41b1/> add emoji handling for commit parsing
+   - implement unicode properties to filter emojis from commit messages
+   - refactor message parsing to support emoji-free strings
+   - add tests for conventional commits with scope and emoji handling
+
+### Documentation
+
+ - <csr-id-e64ac33304d7e0060ae468ef81dda7ddc516b37e/> add emoji support installation instructions
+   - update README with instructions for installing cargo-smart-release with emoji support
+   - add feature list item for conventional commits prefixed by an emoji
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 34 commits contributed to the release.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#76](https://github.com/Byron/cargo-smart-release/issues/76)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#76](https://github.com/Byron/cargo-smart-release/issues/76)**
+    - Improve `commit-prefix` argument message with anticipated usage note. ([`9d0a085`](https://github.com/Byron/cargo-smart-release/commit/9d0a085c88935d1c292a1fe335ff434c779cf10a))
+ * **Uncategorized**
+    - Merge branch 'cargo-target' ([`fe3f477`](https://github.com/Byron/cargo-smart-release/commit/fe3f47795cd51dbc83145ff17b9e116fcfba2e0e))
+    - Refactor ([`f07ebe1`](https://github.com/Byron/cargo-smart-release/commit/f07ebe1ab75a25ecf10c7f8753dd2dca333dd53b))
+    - Add --target passthrough to cargo ([`ecde413`](https://github.com/Byron/cargo-smart-release/commit/ecde413b6a919926928b3f8dd8da010c88c01308))
+    - Merge branch 'HigherOrderLogic-patch-1' ([`93565bf`](https://github.com/Byron/cargo-smart-release/commit/93565bffa500fe1513f9664f2c9bf0238219c79b))
+    - Refactor ([`6d82e2e`](https://github.com/Byron/cargo-smart-release/commit/6d82e2e7324ee1c29bb2bbca998dfbdca2ce228c))
+    - Enable version flag ([`85cf4c7`](https://github.com/Byron/cargo-smart-release/commit/85cf4c751ec1b6548ec5c14d69c38af254230bd9))
+    - Merge pull request #87 from GitoxideLabs/dependabot/cargo/cargo-04ef004206 ([`00ca99f`](https://github.com/Byron/cargo-smart-release/commit/00ca99f7ca97d1ed907835204ef5b50c1e14b3c4))
+    - Bump the cargo group across 1 directory with 62 updates ([`b54064f`](https://github.com/Byron/cargo-smart-release/commit/b54064fc22957ce7d2696fab9679a97e0fbe1a25))
+    - Merge pull request #86 from EliahKagan/ungroup-pulldown-cmark ([`d0de1a8`](https://github.com/Byron/cargo-smart-release/commit/d0de1a8740a6820e60c3478a7df44c0bd63c32cf))
+    - Don't include `pulldown-cmark` in grouped version updates ([`f5b0637`](https://github.com/Byron/cargo-smart-release/commit/f5b06378f0f2550eb8895506ee969141a869a514))
+    - Merge pull request #84 from GitoxideLabs/dependabot/github_actions/github-actions-1893dd32ff ([`0baa405`](https://github.com/Byron/cargo-smart-release/commit/0baa40522c8d8b8b6943b487acd4fdbed9bfb60c))
+    - Bump github/codeql-action from 3 to 4 in the github-actions group ([`13d50b4`](https://github.com/Byron/cargo-smart-release/commit/13d50b4bffc2255b5c7d8e3cc235889341052aa0))
+    - Merge pull request #83 from GitoxideLabs/dependabot/cargo/cargo-470f7772c1 ([`8001b48`](https://github.com/Byron/cargo-smart-release/commit/8001b4808881971cc34a81e839653d54b561e7ee))
+    - Bump the cargo group across 1 directory with 41 updates ([`0276691`](https://github.com/Byron/cargo-smart-release/commit/02766913af2ff4d89dcdc80d6900082b32389857))
+    - Merge pull request #82 from GitoxideLabs/dependabot/cargo/serde-untagged-0.1.9 ([`bf9960e`](https://github.com/Byron/cargo-smart-release/commit/bf9960e08daa808d99b35ae9bb19cea7e81ee7a7))
+    - Merge pull request #81 from GitoxideLabs/dependabot/cargo/erased-serde-0.4.8 ([`7f13245`](https://github.com/Byron/cargo-smart-release/commit/7f13245cfdcdb2aa5ae736bb1c5c6ce92628f0f0))
+    - Bump serde-untagged from 0.1.8 to 0.1.9 ([`8573eb1`](https://github.com/Byron/cargo-smart-release/commit/8573eb10b9cfeec8a3538fd8a8bf445f01f1d594))
+    - Bump erased-serde from 0.4.6 to 0.4.8 ([`a300ef5`](https://github.com/Byron/cargo-smart-release/commit/a300ef5826e28a836e49f0158a384edc0d1bb5ec))
+    - Merge pull request #79 from GitoxideLabs/dependabot/github_actions/github-actions-a331d3ec2d ([`2b13036`](https://github.com/Byron/cargo-smart-release/commit/2b1303669bcfff93273fe388ffdb18630b704306))
+    - Bump actions/checkout from 4 to 5 in the github-actions group ([`dab64a6`](https://github.com/Byron/cargo-smart-release/commit/dab64a6d6afded7fd5f78b280909c7749430dd59))
+    - Merge pull request #78 from GitoxideLabs/dependabot/cargo/cargo-3aa5a0942d ([`eaf5638`](https://github.com/Byron/cargo-smart-release/commit/eaf5638ea2d6b004d44f8c55034025d43d57c385))
+    - Bump the cargo group with 44 updates ([`170b1e9`](https://github.com/Byron/cargo-smart-release/commit/170b1e9704385cd5c04b52b232fdc0aac76b1f28))
+    - Merge branch 'simoncozens/main' ([`3bb8880`](https://github.com/Byron/cargo-smart-release/commit/3bb8880ff70c231aae11d4dbc9a8f5b7ec376b0e))
+    - Add commit_prefix option ([`8169083`](https://github.com/Byron/cargo-smart-release/commit/816908351b3d25c1ab1dce796fb635ed39ac67a6))
+    - Refactor ([`560e924`](https://github.com/Byron/cargo-smart-release/commit/560e924b1130bf17ee0000d7dc3a8b059cdd5980))
+    - Add emoji support installation instructions ([`e64ac33`](https://github.com/Byron/cargo-smart-release/commit/e64ac33304d7e0060ae468ef81dda7ddc516b37e))
+    - Add emoji support feature ([`514f10b`](https://github.com/Byron/cargo-smart-release/commit/514f10b00c3d67bae9f08c1c09eb105a256888cd))
+    - Reorder import statements ([`4af7d57`](https://github.com/Byron/cargo-smart-release/commit/4af7d573c5cc57fd559ea96bc8c32c66cc4f1ed5))
+    - Reorder import statements for consistency ([`9f61801`](https://github.com/Byron/cargo-smart-release/commit/9f61801b0f4bc7c62c2bd3efa1f58f51e7f1d0a6))
+    - Reorder imports for better readability ([`f1eb1e0`](https://github.com/Byron/cargo-smart-release/commit/f1eb1e049bb7f7cdb82b194b5527210e40b5bb73))
+    - Add unicode-properties library ([`a834811`](https://github.com/Byron/cargo-smart-release/commit/a834811e77ce1c0d7663e84cbcc3c46f13a2d2c1))
+    - Add emoji handling for commit parsing ([`282445f`](https://github.com/Byron/cargo-smart-release/commit/282445f6806b361cfa177b843faecc7641ad41b1))
+    - Merge pull request #72 from GitoxideLabs/fix ([`82d1d24`](https://github.com/Byron/cargo-smart-release/commit/82d1d24d0e76a5e48948b69758864c51839d7424))
+</details>
 
 ## 0.21.8 (2025-08-03)
 
@@ -28,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 17 commits contributed to the release.
+ - 18 commits contributed to the release.
  - 98 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -46,6 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.8 ([`1ffea62`](https://github.com/Byron/cargo-smart-release/commit/1ffea62845507b80662c94e1247efbb03efc4845))
     - Allow remote-URLs to be used when pushing. ([`71f3ff8`](https://github.com/Byron/cargo-smart-release/commit/71f3ff862bf403ce30850461edfe447a9bf5ed23))
     - Merge pull request #71 from GitoxideLabs/dependabot/cargo/cargo-431d3b394f ([`2919096`](https://github.com/Byron/cargo-smart-release/commit/2919096b1c65a75fb83440d69ede05f6e6ec4989))
     - Bump the cargo group with 11 updates ([`ade7955`](https://github.com/Byron/cargo-smart-release/commit/ade79553bede6005c610d52223ff3f185b5c56d3))
@@ -199,9 +299,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Update the URL in `Cargo.toml` to point to
    `GitoxideLabs/cargo-smart-release` since the repo was moved
    (though the old URL will still work as a redirect).
-- Add a `SECURITY.md` file with the same wording as in `gitoxide`,
-     but where the hyperlink is for drafting a `cargo-smart-release`
-     advisory (rather than a `gitoxide` advisory).
 
 ### New Features
 
@@ -287,6 +384,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Merge pull request #41 from EliahKagan/clippy-fixes ([`67b2147`](https://github.com/Byron/cargo-smart-release/commit/67b2147ac69db4c03bfe41540e1ff0d165481724))
     - Thanks clippy ([`c286b5a`](https://github.com/Byron/cargo-smart-release/commit/c286b5a077548cb428dba91eb389fdea0283c7e9))
 </details>
+
+<csr-unknown>
+Add a SECURITY.md file with the same wording as in gitoxide,but where the hyperlink is for drafting a cargo-smart-releaseadvisory (rather than a gitoxide advisory).<csr-unknown/>
 
 ## 0.21.6 (2024-12-24)
 
@@ -2783,3 +2883,4 @@ For more information, run `cargo changelog -h`.
 ## v0.1.0 (2021-08-13)
 
 - initial release
+
