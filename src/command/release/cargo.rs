@@ -17,6 +17,7 @@ pub(in crate::command::release_impl) fn publish_crate(
         no_verify,
         verbose,
         registry,
+        target,
         ..
     }: Options,
 ) -> anyhow::Result<()> {
@@ -32,6 +33,9 @@ pub(in crate::command::release_impl) fn publish_crate(
 
         if let Some(ref registry) = registry {
             c.arg("--registry").arg(registry);
+        }
+        if let Some(ref target) = target {
+            c.arg("--target").arg(target);
         }
 
         if allow_dirty {

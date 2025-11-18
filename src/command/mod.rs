@@ -28,6 +28,7 @@ pub mod release {
         pub allow_changelog_github_release: bool,
         pub capitalize_commit: bool,
         pub registry: Option<String>,
+        pub target: Option<String>,
         pub signoff: bool,
         pub commit_prefix: Option<String>,
     }

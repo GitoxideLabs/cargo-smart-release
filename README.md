@@ -7,17 +7,17 @@ Fearlessly release workspace crates and with beautiful semi-handcrafted changelo
 ## Key Features
 
 * **zero-configuration**
-  * `cargo smart-release` needs no extra flags to _do the right thing™️_ smartly. If your intervention is needed it will let you know before it makes changes.
-  * It won't do anything if there are no changes.
+    * `cargo smart-release` needs no extra flags to _do the right thing™️_ smartly. If your intervention is needed it will let you know before it makes changes.
+    * It won't do anything if there are no changes.
 * **made for multi-crate workspaces**
-  * "Nothing stands by itself, and everything is interconnected" - is how it sees the world, allowing it to efficiently handling complex workspace graphs.
-  * _works just as well for single-crate workspaces_
+    * "Nothing stands by itself, and everything is interconnected" - is how it sees the world, allowing it to efficiently handling complex workspace graphs.
+    * _works just as well for single-crate workspaces_
 * **changelogs-deluxe**
-  * It maintains beautiful changelogs for you while allowing you to edit them for the final polish.
-  * See your release notes via in-repository _tag objects_ and in _GitHub Releases_
-  * **plays well with `cargo release`**
-    * `cargo changelog` writes changelogs non-destructively, and only that, leaving the release workflow to [cargo-release].
-  
+    * It maintains beautiful changelogs for you while allowing you to edit them for the final polish.
+    * See your release notes via in-repository _tag objects_ and in _GitHub Releases_
+    * **plays well with `cargo release`**
+        * `cargo changelog` writes changelogs non-destructively, and only that, leaving the release workflow to [cargo-release].
+
 If seeing is believing, here is [a 12 minute demonstration](https://www.youtube.com/watch?v=EOft_uMDVYE), and the same in 30 minutes is [also available](https://youtu.be/a4CzzxJ7ecE).
 
 ## Made for this Workflow
@@ -25,9 +25,11 @@ If seeing is believing, here is [a 12 minute demonstration](https://www.youtube.
 When developing various crates in a workspace, when committing changes and if the edit is breaking, a feature, or another
 change I want to see in changelogs, [conventional] git messages will be used. This helps building changelog scaffolding automatically later.
 
-When ready for releasing a particular crate or set of crates of interest, run `cargo smart-release [<crate-name> ...]` to simulate a release. For particularly thorough
-but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`. To polish changelogs, run `cargo changelog --write <crate-name>`
-to update the scaffolding and edit it by hand until it fits.
+When ready for releasing a particular crate or set of crates of interest, run `cargo smart-release [<crate-name> ...]` to simulate a release.
+To polish changelogs, run `cargo changelog --write <crate-name>` to update the scaffolding and edit it by hand until it fits.
+
+For particularly thorough but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`.
+Crates that don't compile for the host can be released by passing `--target <triple>`, which is forwarded to every `cargo publish` invocation (including dry runs).
 
 After evaluating the release procedure and following instructions,
 `cargo smart-release --execute` will cause the fully automatic release of one or more crates.
@@ -39,6 +41,7 @@ There are various other options that shouldn't be needed in the common case, use
 ## Installation
 
 ### Cargo
+
 Via `cargo`, which can be obtained using [rustup][rustup]
 
 ```
@@ -87,7 +90,7 @@ Here is what `cargo smart-release` does differently: "It tries really hard to do
 
 ## Limitations
 
-* it requires tables to be used when specifying versions, i.e. `crate = { version = "1" }` instead of `crate  = "1".
+* it requires tables to be used when specifying versions, i.e. `crate = { version = "1" }` instead of `crate = "1".
 * it gracefully fails when encountering version requirement comparators which are not `^`, like `=`
 * it's tested only by using it on `gitoxide`, there are only very few regression tests with little coverage.
 * short object ids in changelogs may be ambiguous, as they are unconditionally truncated to 7 characters.
@@ -109,5 +112,7 @@ Thanks to [cargo-release] for showing the way and for incredible fast response t
 Special thanks go to [git-cliff] which gave me the nudge needed to want to write my own.
 
 [cargo-release]: https://github.com/sunng87/cargo-release/issues/224
+
 [git-cliff]: https://github.com/orhun/git-cliff
+
 [rustup]: https://rustup.rs/

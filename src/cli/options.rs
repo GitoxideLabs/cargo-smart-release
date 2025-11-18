@@ -152,6 +152,12 @@ pub enum SubCommands {
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         registry: Option<String>,
 
+        /// Build and package the crate for the given target triple when invoking `cargo publish`.
+        ///
+        /// This flag is forwarded to all `cargo publish` invocations, including dry runs.
+        #[clap(long, help_heading = Some("CUSTOMIZATION"))]
+        target: Option<String>,
+
         /// Pass --no-verify to 'cargo publish' which should only be a last resort when fixing up packages that
         /// otherwise wouldn't publish, but need to be publish to resolve the situation.
         #[clap(long, help_heading = Some("EXPERT"))]
