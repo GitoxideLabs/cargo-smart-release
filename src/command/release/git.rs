@@ -1,4 +1,4 @@
-use std::{convert::TryInto, process::Command};
+use std::{convert::TryInto, path::Path, process::Command};
 
 use anyhow::{anyhow, bail, Context};
 use cargo_metadata::Package;
@@ -7,14 +7,52 @@ use gix::{bstr::ByteSlice, refs, refs::transaction::PreviousValue, Id};
 use super::{tag_name, Options};
 use crate::utils::will;
 
-pub(in crate::command::release_impl) fn commit_changes(
+pub(in crate::command::release_impl) fn commit_changes<'a>(
     message: impl AsRef<str>,
     dry_run: bool,
     empty_commit_possible: bool,
     signoff: bool,
-    ctx: &crate::Context,
-) -> anyhow::Result<Option<Id<'_>>> {
+    changelog_paths: &[impl AsRef<Path>],
+    ctx: &'a crate::Context,
+) -> anyhow::Result<Option<Id<'a>>> {
     // TODO: replace with gitoxide one day
+    // Add changelog files that are not yet tracked in git index.
+    // `git commit -am` only stages tracked files, so we need to explicitly add new ones.
+    if !changelog_paths.is_empty() {
+        let index = ctx.repo.open_index()?;
+        let worktree = ctx.repo.workdir().expect("this is a worktree repository");
+        
+        let untracked_paths: Vec<_> = changelog_paths
+            .iter()
+            .filter(|path| {
+                // Convert absolute path to worktree-relative path with forward slashes
+                path.as_ref()
+                    .strip_prefix(worktree)
+                    .ok()
+                    .map(|relative_path| {
+                        let relative_path_unix =
+                            gix::path::to_unix_separators(gix::path::into_bstr(relative_path));
+                        // Check if the path is NOT tracked in the git index
+                        index.entry_by_path(relative_path_unix.as_bstr()).is_none()
+                    })
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if !untracked_paths.is_empty() {
+            let mut add_cmd = Command::new("git");
+            add_cmd.arg("add").arg("--");
+            for path in &untracked_paths {
+                add_cmd.arg(path.as_ref());
+            }
+            log::trace!("{} run {:?}", will(dry_run), add_cmd);
+            if !dry_run && !add_cmd.status()?.success() {
+                let paths: Vec<_> = untracked_paths.iter().map(|p| p.as_ref().display().to_string()).collect();
+                bail!("Failed to add new changelog files to git: {}", paths.join(", "));
+            }
+        }
+    }
+
     let mut cmd = Command::new("git");
     cmd.arg("commit").arg("-am").arg(message.as_ref());
     if empty_commit_possible {
@@ -139,8 +177,9 @@ mod tests {
         )
         .unwrap();
         let message = "commit message";
+        let empty: &[&std::path::Path] = &[];
         testing_logger::setup();
-        let _ = commit_changes(message, true, false, false, &ctx).unwrap();
+        let _ = commit_changes(message, true, false, false, empty, &ctx).unwrap();
         testing_logger::validate(|captured_logs| {
             assert_eq!(captured_logs.len(), 1);
             assert_eq!(
@@ -162,8 +201,9 @@ mod tests {
         )
         .unwrap();
         let message = "commit message";
+        let empty: &[&std::path::Path] = &[];
         testing_logger::setup();
-        let _ = commit_changes(message, true, false, true, &ctx).unwrap();
+        let _ = commit_changes(message, true, false, true, empty, &ctx).unwrap();
         testing_logger::validate(|captured_logs| {
             assert_eq!(captured_logs.len(), 1);
             assert_eq!(
