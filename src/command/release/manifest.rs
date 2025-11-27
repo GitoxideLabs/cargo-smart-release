@@ -94,6 +94,12 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
 
     preview_changelogs(ctx, &pending_changelogs, opts.clone())?;
 
+    // Collect all changelog paths before they are consumed by commit_locks_and_generate_bail_message
+    let changelog_paths: Vec<std::path::PathBuf> = pending_changelogs
+        .iter()
+        .map(|(_, _, lock)| lock.resource_path().to_owned())
+        .collect();
+
     let bail_message = commit_locks_and_generate_bail_message(
         ctx,
         pending_changelogs,
@@ -103,7 +109,14 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         opts.clone(),
     )?;
 
-    let res = git::commit_changes(commit_message, dry_run, !made_change, opts.signoff, &ctx.base)?;
+    let res = git::commit_changes(
+        commit_message,
+        dry_run,
+        !made_change,
+        opts.signoff,
+        &changelog_paths,
+        &ctx.base,
+    )?;
     if let Some(bail_message) = bail_message {
         bail!(bail_message);
     } else {
@@ -128,7 +141,7 @@ fn commit_locks_and_generate_bail_message(
         ..
     }: Options,
 ) -> anyhow::Result<Option<String>> {
-    let bail_message_after_commit = if !dry_run {
+    let bail_message = if !dry_run {
         let mut packages_whose_changelogs_need_edits = None;
         let mut packages_which_might_be_fully_generated = None;
         for (idx, (package, _, lock)) in pending_changelogs.into_iter().enumerate() {
@@ -253,7 +266,7 @@ fn commit_locks_and_generate_bail_message(
         }
         None
     };
-    Ok(bail_message_after_commit)
+    Ok(bail_message)
 }
 
 fn preview_changelogs(
