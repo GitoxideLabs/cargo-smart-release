@@ -20,40 +20,43 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
     // `git commit -am` only stages tracked files, so we need to explicitly add new ones.
     if !changelog_paths.is_empty() {
         let index = ctx.repo.open_index()?;
-        let worktree = ctx.repo.workdir().expect("this is a worktree repository");
-        
+        let workdir = ctx.repo.workdir().context("Can only work in non-bare repositories")?;
+
         let untracked_paths: Vec<_> = changelog_paths
             .iter()
-            .filter(|path| {
+            .filter_map(|path| {
                 // Convert absolute path to worktree-relative path with forward slashes
-                path.as_ref()
-                    .strip_prefix(worktree)
-                    .ok()
-                    .map(|relative_path| {
-                        let relative_path_unix =
-                            gix::path::to_unix_separators(gix::path::into_bstr(relative_path));
-                        // Check if the path is NOT tracked in the git index
-                        index.entry_by_path(relative_path_unix.as_bstr()).is_none()
-                    })
-                    .unwrap_or(false)
+                path.as_ref().strip_prefix(workdir).ok().and_then(|relative_path| {
+                    let relative_path_unix = gix::path::to_unix_separators(gix::path::into_bstr(relative_path));
+                    // Check if the path is NOT tracked in the git index
+                    index
+                        .entry_by_path(relative_path_unix.as_bstr())
+                        .is_none()
+                        .then_some(relative_path)
+                })
             })
             .collect();
 
         if !untracked_paths.is_empty() {
-            let mut add_cmd = Command::new("git");
-            add_cmd.arg("add").arg("--");
+            let mut git_add = Command::new(gix::path::env::exe_invocation());
+            git_add.args(["add", "--"]);
             for path in &untracked_paths {
-                add_cmd.arg(path.as_ref());
+                git_add.arg(path);
             }
-            log::trace!("{} run {:?}", will(dry_run), add_cmd);
-            if !dry_run && !add_cmd.status()?.success() {
-                let paths: Vec<_> = untracked_paths.iter().map(|p| p.as_ref().display().to_string()).collect();
-                bail!("Failed to add new changelog files to git: {}", paths.join(", "));
+            log::trace!("{} run {:?}", will(dry_run), git_add);
+            let output = git_add.output()?;
+            if !dry_run && !output.status.success() {
+                let paths: Vec<_> = untracked_paths.iter().map(|p| p.to_string_lossy()).collect();
+                bail!(
+                    "Failed to add new changelog files to git: {}: {err}",
+                    paths.join(", "),
+                    err = output.stderr.to_str_lossy()
+                );
             }
         }
     }
 
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(gix::path::env::exe_invocation());
     cmd.arg("commit").arg("-am").arg(message.as_ref());
     if empty_commit_possible {
         cmd.arg("--allow-empty");
@@ -134,7 +137,7 @@ pub fn push_tags_and_head(
         return Ok(());
     }
 
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(gix::path::env::exe_invocation());
     cmd.arg("push")
         .arg({
             let remote = repo

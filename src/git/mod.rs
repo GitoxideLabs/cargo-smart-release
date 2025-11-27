@@ -71,7 +71,7 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
 }
 
 pub fn assure_clean_working_tree() -> anyhow::Result<()> {
-    let tracked_changed = !Command::new("git")
+    let tracked_changed = !Command::new(gix::path::env::exe_invocation())
         .arg("diff")
         .arg("HEAD")
         .arg("--exit-code")
@@ -82,7 +82,7 @@ pub fn assure_clean_working_tree() -> anyhow::Result<()> {
         bail!("Detected working tree changes. Please commit beforehand as otherwise these would be committed as part of manifest changes, or use --allow-dirty to force it.")
     }
 
-    let untracked = Command::new("git")
+    let untracked = Command::new(gix::path::env::exe_invocation())
         .arg("ls-files")
         .arg("--exclude-standard")
         .arg("--others")
@@ -104,7 +104,11 @@ pub fn remote_url(repo: &gix::Repository) -> anyhow::Result<Option<gix::Url>> {
 }
 
 pub fn author() -> anyhow::Result<gix::actor::Signature> {
-    let stdout = Command::new("git").arg("var").arg("GIT_AUTHOR_IDENT").output()?.stdout;
+    let stdout = Command::new(gix::path::env::exe_invocation())
+        .arg("var")
+        .arg("GIT_AUTHOR_IDENT")
+        .output()?
+        .stdout;
     Ok(gix::actor::SignatureRef::from_bytes::<()>(&stdout)
         .ok()
         .ok_or_else(|| anyhow!("Could not parse author from GIT_AUTHOR_IDENT='{}'", stdout.as_bstr()))?
