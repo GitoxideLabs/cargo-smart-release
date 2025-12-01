@@ -46,7 +46,7 @@ cargo_toml = "0.22.3"
 winnow = "0.7.13"
 git-conventional = "0.12.0"
 jiff = "0.2.15"
-pulldown-cmark = { version = "0.9.6", default-features = false }
+pulldown-cmark = { version = "0.13.0", default-features = false }
 bitflags = "2"
 unicode-properties = { version = "0.1.4", optional = true, features = [
     "emoji",
