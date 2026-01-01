@@ -35,8 +35,8 @@ env_logger = { version = "0.11.6", default-features = false, features = [
     "auto-color",
 ] }
 cargo_metadata = "0.23.1"
-log = "0.4.28"
-toml_edit = "0.23.7"
+log = "0.4.29"
+toml_edit = "0.23.9"
 semver = "1.0.27"
 crates-index = { version = "3.11.0", default-features = false, features = [
     "git-performance",
@@ -45,7 +45,7 @@ crates-index = { version = "3.11.0", default-features = false, features = [
 cargo_toml = "0.22.3"
 winnow = "0.7.14"
 git-conventional = "0.12.0"
-jiff = "0.2.16"
+jiff = "0.2.17"
 pulldown-cmark = { version = "0.9.6", default-features = false }
 bitflags = "2"
 unicode-properties = { version = "0.1.4", optional = true, features = [
@@ -53,7 +53,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 ], default-features = false }
 
 [dev-dependencies]
-insta = "1.44.3"
+insta = "1.45.1"
 gix-testtools = "0.16.1"
 testing_logger = "0.1.1"
 
