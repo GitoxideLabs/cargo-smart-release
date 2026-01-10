@@ -46,21 +46,23 @@ impl ChangeLog {
                 Section::Verbatim { .. } => {
                     bail!("BUG: generated logs may only have verbatim sections at the beginning")
                 }
-                Section::Release { ref name, ref date, .. } => match find_target_section(name, date, sections, first_release_pos) {
-                    Insertion::MergeWith(pos) => sections[pos].merge(section_to_merge)?,
-                    Insertion::At(pos) => {
-                        if let Section::Release {
-                            heading_level,
-                            version_prefix,
-                            ..
-                        } = &mut section_to_merge
-                        {
-                            *heading_level = first_release_indentation;
-                            version_prefix.clone_from(&first_version_prefix);
+                Section::Release { ref name, ref date, .. } => {
+                    match find_target_section(name, date, sections, first_release_pos) {
+                        Insertion::MergeWith(pos) => sections[pos].merge(section_to_merge)?,
+                        Insertion::At(pos) => {
+                            if let Section::Release {
+                                heading_level,
+                                version_prefix,
+                                ..
+                            } = &mut section_to_merge
+                            {
+                                *heading_level = first_release_indentation;
+                                version_prefix.clone_from(&first_version_prefix);
+                            }
+                            sections.insert(pos, section_to_merge);
                         }
-                        sections.insert(pos, section_to_merge);
                     }
-                },
+                }
             }
         }
 
@@ -242,7 +244,12 @@ enum Insertion {
     At(usize),
 }
 
-fn find_target_section(wanted: &Version, wanted_date: &Option<jiff::Zoned>, sections: &[Section], first_release_index: usize) -> Insertion {
+fn find_target_section(
+    wanted: &Version,
+    wanted_date: &Option<jiff::Zoned>,
+    sections: &[Section],
+    first_release_index: usize,
+) -> Insertion {
     if sections.is_empty() {
         return Insertion::At(0);
     }
@@ -266,7 +273,10 @@ fn find_target_section(wanted: &Version, wanted_date: &Option<jiff::Zoned>, sect
                         for (idx, section) in sections.iter().enumerate().skip(first_release_index) {
                             match section {
                                 Section::Verbatim { .. } => continue,
-                                Section::Release { date: Some(existing_date), .. } => {
+                                Section::Release {
+                                    date: Some(existing_date),
+                                    ..
+                                } => {
                                     // If the new release is newer than this one, insert before it
                                     if new_date > existing_date {
                                         insert_pos = idx;

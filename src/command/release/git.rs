@@ -15,7 +15,6 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
     changelog_paths: &[impl AsRef<Path>],
     ctx: &'a crate::Context,
 ) -> anyhow::Result<Option<Id<'a>>> {
-    // TODO: replace with gitoxide one day
     // Add changelog files that are not yet tracked in git index.
     // `git commit -am` only stages tracked files, so we need to explicitly add new ones.
     if !changelog_paths.is_empty() {
