@@ -143,6 +143,9 @@ fn sections() {
                         section::segment::ThanksClippy { count: 2 }
                     ))],
                 },
+                // 0.8.0 (Jun 1) is inserted before 0.9.0 even though 0.9.0 was originally undated
+                // because dated sections must come before undated sections, and 0.9.0 now has a date
+                // from the merge. Since 0.8.0 is older than 0.9.0, it's inserted after it.
                 Section::Release {
                     date: date_m_d(6, 1).into(),
                     name: changelog::Version::Semantic("0.8.0".parse().unwrap()),
@@ -409,3 +412,89 @@ fn date_m_d(month: i8, day: i8) -> jiff::Zoned {
         .to_zoned(jiff::tz::TimeZone::UTC)
         .unwrap()
 }
+
+#[test]
+fn dated_release_insertion_with_undated_sections() {
+    // Test that a dated release older than all existing dated releases
+    // is inserted before undated sections, not at the end
+    let parsed = ChangeLog {
+        sections: vec![
+            Section::Verbatim {
+                text: "preamble".into(),
+                generated: false,
+            },
+            Section::Release {
+                heading_level: 2,
+                version_prefix: "v".into(),
+                removed_messages: vec![],
+                date: Some(date_m_d(9, 15)), // Sep 15
+                name: changelog::Version::Semantic("1.0.0".parse().unwrap()),
+                segments: Vec::new(),
+                unknown: String::new(),
+            },
+            Section::Release {
+                heading_level: 2,
+                version_prefix: "v".into(),
+                removed_messages: vec![],
+                date: None, // Undated section
+                name: changelog::Version::Semantic("0.5.0".parse().unwrap()),
+                segments: Vec::new(),
+                unknown: String::new(),
+            },
+        ],
+    };
+
+    let generated = ChangeLog {
+        sections: vec![
+            Section::Verbatim {
+                text: "header".into(),
+                generated: true,
+            },
+            Section::Release {
+                date: Some(date_m_d(6, 1)), // Jun 1 - older than Sep 15
+                name: changelog::Version::Semantic("0.8.0".parse().unwrap()),
+                removed_messages: vec![],
+                heading_level: 2,
+                version_prefix: "v".into(),
+                segments: vec![section::Segment::Clippy(section::Data::Generated(
+                    section::segment::ThanksClippy { count: 1 },
+                ))],
+                unknown: String::new(),
+            },
+        ],
+    };
+
+    let merged = parsed.merge_generated(generated).expect("works");
+    
+    // Verify that the dated release (0.8.0, Jun 1) is inserted BEFORE 
+    // the undated release (0.5.0), not at the end
+    assert_eq!(merged.sections.len(), 4);
+    
+    // First section should be the verbatim preamble
+    assert!(matches!(merged.sections[0], Section::Verbatim { .. }));
+    
+    // Second should be 1.0.0 (Sep 15) - newest dated
+    if let Section::Release { name, date, .. } = &merged.sections[1] {
+        assert_eq!(*name, changelog::Version::Semantic("1.0.0".parse().unwrap()));
+        assert_eq!(*date, Some(date_m_d(9, 15)));
+    } else {
+        panic!("Expected Release section at index 1");
+    }
+    
+    // Third should be 0.8.0 (Jun 1) - older dated, inserted before undated
+    if let Section::Release { name, date, .. } = &merged.sections[2] {
+        assert_eq!(*name, changelog::Version::Semantic("0.8.0".parse().unwrap()));
+        assert_eq!(*date, Some(date_m_d(6, 1)));
+    } else {
+        panic!("Expected Release section at index 2");
+    }
+    
+    // Fourth should be 0.5.0 (undated) - comes after all dated sections
+    if let Section::Release { name, date, .. } = &merged.sections[3] {
+        assert_eq!(*name, changelog::Version::Semantic("0.5.0".parse().unwrap()));
+        assert_eq!(*date, None);
+    } else {
+        panic!("Expected Release section at index 3");
+    }
+}
+

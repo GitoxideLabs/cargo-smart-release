@@ -270,9 +270,13 @@ fn find_target_section(
                         // Find the position where this section should be inserted based on date
                         // Iterate through existing sections and find where to insert
                         let mut insert_pos = sections.len(); // Default to end
+                        let mut first_undated_pos = None; // Track first undated section position
+                        
                         for (idx, section) in sections.iter().enumerate().skip(first_release_index) {
                             match section {
                                 Section::Verbatim { .. } => continue,
+                                // Skip Unreleased sections - they always come first
+                                Section::Release { name: Version::Unreleased, .. } => continue,
                                 Section::Release {
                                     date: Some(existing_date),
                                     ..
@@ -284,11 +288,24 @@ fn find_target_section(
                                     }
                                 }
                                 Section::Release { date: None, .. } => {
-                                    // Sections without dates go after dated sections
-                                    // Continue searching
+                                    // Track the first undated section we encounter
+                                    // Dated sections should always come before undated ones
+                                    if first_undated_pos.is_none() {
+                                        first_undated_pos = Some(idx);
+                                    }
                                 }
                             }
                         }
+                        
+                        // If we didn't find an older dated section but found undated sections,
+                        // insert before the first undated section to maintain the invariant
+                        // that dated sections come before undated sections
+                        if insert_pos == sections.len() {
+                            if let Some(undated_pos) = first_undated_pos {
+                                insert_pos = undated_pos;
+                            }
+                        }
+                        
                         Insertion::At(insert_pos)
                     }
                     None => {
