@@ -5,7 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.10 (2026-01-10)
+
+### Chore
+
+ - <csr-id-b0b86accb3ec7e8b79b9bbbf5e2e124675188c55/> Upgrade pulldown-cmark to 0.13.0 and toml_edit to 0.24.0
+   - Updated Cargo.toml to use pulldown-cmark 0.13 and toml_edit 0.24
+   - Fixed breaking API changes in pulldown-cmark 0.13.0:
+     - OffsetIter now takes 1 lifetime parameter instead of 2
+     - Tag::Heading, Tag::Link, and Tag::Image changed from tuple variants to struct variants
+     - Event::End now uses TagEnd enum instead of Tag
+     - Added Event::InlineHtml variant for inline HTML (previously all HTML was Event::Html)
+     - Added handling for Tag::HtmlBlock start/end events
+
+### Bug Fixes
+
+ - <csr-id-6242aa46f0315f678a803a6ac9f3ebfcd150a853/> Fix changelog ordering to use date instead of version number
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 18 commits contributed to the release.
+ - 53 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#5](https://github.com/Byron/cargo-smart-release/issues/5)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#5](https://github.com/Byron/cargo-smart-release/issues/5)**
+    - Add git add for untracked CHANGELOG.md files before commit ([`acde47d`](https://github.com/Byron/cargo-smart-release/commit/acde47de1a43f6af47902cf4bce1ecf402da9336))
+ * **Uncategorized**
+    - Merge pull request #98 from GitoxideLabs/copilot/upgrade-dependencies-pulldown-cmark-toml-edit ([`c8bf252`](https://github.com/Byron/cargo-smart-release/commit/c8bf252721f5f62cdb27cba92e09a959f20420db))
+    - Refactor ([`aba48f7`](https://github.com/Byron/cargo-smart-release/commit/aba48f7fc7533e84efa83c677db70d682f3db241))
+    - Upgrade pulldown-cmark to 0.13.0 and toml_edit to 0.24.0 ([`b0b86ac`](https://github.com/Byron/cargo-smart-release/commit/b0b86accb3ec7e8b79b9bbbf5e2e124675188c55))
+    - Merge pull request #97 from GitoxideLabs/copilot/fix-changelog-title-order ([`6e8792b`](https://github.com/Byron/cargo-smart-release/commit/6e8792b51a03f04b011e0b25410cd8e6b740d206))
+    - Update `gix-testtools` to fix security warning ([`a4cd51a`](https://github.com/Byron/cargo-smart-release/commit/a4cd51ae99f9abc88faa2194a34adefc73cfbee3))
+    - Fix date-based insertion to handle undated sections correctly ([`398da82`](https://github.com/Byron/cargo-smart-release/commit/398da82e76155822631bc705dc2dca169e629ca5))
+    - Upgrade `gix` to the latest version ([`02d2914`](https://github.com/Byron/cargo-smart-release/commit/02d2914081c4c890b0ab9048b08fb068ee688527))
+    - Refactor ([`372d854`](https://github.com/Byron/cargo-smart-release/commit/372d854a8998ba5a96911287a6b4151f456a4f8f))
+    - Fix changelog ordering to use date instead of version number ([`6242aa4`](https://github.com/Byron/cargo-smart-release/commit/6242aa46f0315f678a803a6ac9f3ebfcd150a853))
+    - Merge pull request #95 from GitoxideLabs/dependabot/cargo/cargo-baa098c894 ([`75f1610`](https://github.com/Byron/cargo-smart-release/commit/75f1610aeb52b135d0a2c17553e9e0dd2c405c79))
+    - Bump the cargo group with 33 updates ([`cbe850b`](https://github.com/Byron/cargo-smart-release/commit/cbe850b3eb8caa2523ee499f47f7da52e745c361))
+    - Merge pull request #93 from GitoxideLabs/dependabot/cargo/cargo-b7de69a442 ([`1b62654`](https://github.com/Byron/cargo-smart-release/commit/1b626549b2a47bf95c0894ffc1463472d34e52b0))
+    - Bump the cargo group with 35 updates ([`d8f306a`](https://github.com/Byron/cargo-smart-release/commit/d8f306a4362a55f41a349b5723b83aacc6f5c14e))
+    - Merge pull request #92 from GitoxideLabs/copilot/check-changelog-untracked ([`67e1743`](https://github.com/Byron/cargo-smart-release/commit/67e1743f224fccd307edafd069adb430db3f8b0b))
+    - Refactor ([`10c7a3e`](https://github.com/Byron/cargo-smart-release/commit/10c7a3e02d6667b9111b0d396a4db62e33d50d1e))
+    - Merge pull request #91 from GitoxideLabs/dependabot/github_actions/github-actions-76468cb07f ([`8e6b2a1`](https://github.com/Byron/cargo-smart-release/commit/8e6b2a17e7d806e6ddb2b0c8a3e785f2df0a6f97))
+    - Bump actions/checkout from 5 to 6 in the github-actions group ([`f59b147`](https://github.com/Byron/cargo-smart-release/commit/f59b147e295f80707c8bebf9a570076a3834be35))
+</details>
+
 ## 0.21.9 (2025-11-18)
+
+<csr-id-4af7d573c5cc57fd559ea96bc8c32c66cc4f1ed5/>
+<csr-id-9f61801b0f4bc7c62c2bd3efa1f58f51e7f1d0a6/>
+<csr-id-f1eb1e049bb7f7cdb82b194b5527210e40b5bb73/>
+<csr-id-a834811e77ce1c0d7663e84cbcc3c46f13a2d2c1/>
 
 ### Features
 
@@ -38,32 +97,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-282445f6806b361cfa177b843faecc7641ad41b1/>
+
  - <csr-id-ecde413b6a919926928b3f8dd8da010c88c01308/> add --target passthrough to cargo
  - <csr-id-816908351b3d25c1ab1dce796fb635ed39ac67a6/> Add commit_prefix option
  - <csr-id-514f10b00c3d67bae9f08c1c09eb105a256888cd/> add emoji support feature
    - introduce `allow-emoji` feature for handling emojis
-   - update Cargo.toml and justfile for conditional emoji feature testing
-   
-   refactor(commit): enhance message parsing with emoji support
-   
-   - add conditional compilation for emoji parsing in commit messages
-   - implement feature flag checks to toggle emoji handling in messages
- - <csr-id-282445f6806b361cfa177b843faecc7641ad41b1/> add emoji handling for commit parsing
-   - implement unicode properties to filter emojis from commit messages
-   - refactor message parsing to support emoji-free strings
-   - add tests for conventional commits with scope and emoji handling
+- update Cargo.toml and justfile for conditional emoji feature testing
+- add conditional compilation for emoji parsing in commit messages
+- implement feature flag checks to toggle emoji handling in messages
+- implement unicode properties to filter emojis from commit messages
+- refactor message parsing to support emoji-free strings
+- add tests for conventional commits with scope and emoji handling
 
 ### Documentation
 
  - <csr-id-e64ac33304d7e0060ae468ef81dda7ddc516b37e/> add emoji support installation instructions
    - update README with instructions for installing cargo-smart-release with emoji support
-   - add feature list item for conventional commits prefixed by an emoji
+- add feature list item for conventional commits prefixed by an emoji
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 34 commits contributed to the release.
+ - 35 commits contributed to the release.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#76](https://github.com/Byron/cargo-smart-release/issues/76)
 
@@ -76,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#76](https://github.com/Byron/cargo-smart-release/issues/76)**
     - Improve `commit-prefix` argument message with anticipated usage note. ([`9d0a085`](https://github.com/Byron/cargo-smart-release/commit/9d0a085c88935d1c292a1fe335ff434c779cf10a))
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.9 ([`43a4310`](https://github.com/Byron/cargo-smart-release/commit/43a4310e159300d5545d370b4083e59b0daa3073))
     - Merge branch 'cargo-target' ([`fe3f477`](https://github.com/Byron/cargo-smart-release/commit/fe3f47795cd51dbc83145ff17b9e116fcfba2e0e))
     - Refactor ([`f07ebe1`](https://github.com/Byron/cargo-smart-release/commit/f07ebe1ab75a25ecf10c7f8753dd2dca333dd53b))
     - Add --target passthrough to cargo ([`ecde413`](https://github.com/Byron/cargo-smart-release/commit/ecde413b6a919926928b3f8dd8da010c88c01308))
@@ -110,6 +168,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Add emoji handling for commit parsing ([`282445f`](https://github.com/Byron/cargo-smart-release/commit/282445f6806b361cfa177b843faecc7641ad41b1))
     - Merge pull request #72 from GitoxideLabs/fix ([`82d1d24`](https://github.com/Byron/cargo-smart-release/commit/82d1d24d0e76a5e48948b69758864c51839d7424))
 </details>
+
+<csr-unknown>
+refactor(commit): enhance message parsing with emoji support add emoji handling for commit parsing<csr-unknown/>
 
 ## 0.21.8 (2025-08-03)
 
@@ -384,9 +445,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Merge pull request #41 from EliahKagan/clippy-fixes ([`67b2147`](https://github.com/Byron/cargo-smart-release/commit/67b2147ac69db4c03bfe41540e1ff0d165481724))
     - Thanks clippy ([`c286b5a`](https://github.com/Byron/cargo-smart-release/commit/c286b5a077548cb428dba91eb389fdea0283c7e9))
 </details>
-
-<csr-unknown>
-Add a SECURITY.md file with the same wording as in gitoxide,but where the hyperlink is for drafting a cargo-smart-releaseadvisory (rather than a gitoxide advisory).<csr-unknown/>
 
 ## 0.21.6 (2024-12-24)
 
@@ -2191,204 +2249,6 @@ A quality-of-life release which should make publishing of inter-dependent crates
 
  - <csr-id-bbc6efeceb26050973e1425e68a52e51b9df4572/> clarify different repository types much better
 
-## 0.8.4 (2021-09-10)
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 14 commits contributed to the release over the course of 3 calendar days.
- - 3 days passed between releases.
- - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Thanks Clippy
-
-<csr-read-only-do-not-edit/>
-
-[Clippy](https://github.com/rust-lang/rust-clippy) helped 1 time to make code idiomatic. 
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - [smart-release] auto-detect changes in production crates as well ([`4f50c0e`](https://github.com/Byron/cargo-smart-release/commit/4f50c0ead9ef3240628006798e5b2a0e58446f55))
-    - [smart-release #195] update test output to match CI… ([`beb155f`](https://github.com/Byron/cargo-smart-release/commit/beb155f3b5d648b86a964cd51b551ae2f2ee8a84))
-    - [smart-release #195] better error for untracked files. ([`4dee24b`](https://github.com/Byron/cargo-smart-release/commit/4dee24bcdb9a4f0116f90bf2492807736ae2d0b6))
-    - [smart-release #195] assure dependent packages are not packages to be published ([`68a33f8`](https://github.com/Byron/cargo-smart-release/commit/68a33f86b0f424fb4aeaa7e18a31cdf81601b809))
-    - [smart-release #195] refactor ([`39a87f8`](https://github.com/Byron/cargo-smart-release/commit/39a87f8df0c0dad24294f6bbc18bcd503e91d153))
-    - [smart-release #195] refactor ([`e54a241`](https://github.com/Byron/cargo-smart-release/commit/e54a241d7baddd2f4a40dd94cf081c963615897a))
-    - [smart-release #195] don't tout changes that aren't really there… ([`7b103e4`](https://github.com/Byron/cargo-smart-release/commit/7b103e49eb9dc4e52cae8b06c6d7ce662c190135))
-    - [smart-release #195] another test to validate log output ([`64f9ff5`](https://github.com/Byron/cargo-smart-release/commit/64f9ff52b74365ffc6cb7c30eab78867b31fa1a9))
-    - [smart-release #195] a test that in theory should trigger the desired behaviour ([`fd4bd1b`](https://github.com/Byron/cargo-smart-release/commit/fd4bd1b26ff986455fc377fd8e9d625c5eda042b))
-    - [smart-release #194] basic journey test setup ([`87d9451`](https://github.com/Byron/cargo-smart-release/commit/87d94518e97ef3d2443b13308d6977836ba920a5))
-    - Thanks clippy ([`493c9d2`](https://github.com/Byron/cargo-smart-release/commit/493c9d21ad4483738f1f8bbd22ad604ad2edbe4b))
-    - [smart-release #194] conservative pre-release version updates ([`ce5833f`](https://github.com/Byron/cargo-smart-release/commit/ce5833f8941943108709b4c19a48950ccb1fc825))
-    - Bump git-repository v0.9.0 ([`6085a6a`](https://github.com/Byron/cargo-smart-release/commit/6085a6a687a6368e12e6ca4d7700e9efc7549c89))
-    - Release cargo-smart-release v0.3.1 ([`2b48d9c`](https://github.com/Byron/cargo-smart-release/commit/2b48d9c991eb9e3fbdea134211c9493c4fea1450))
-</details>
-
-## 0.8.3 (2021-09-06)
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 39 commits contributed to the release over the course of 20 calendar days.
- - 20 days passed between releases.
- - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - [repository #190] refactor ([`c53f8c1`](https://github.com/Byron/cargo-smart-release/commit/c53f8c168ac1bd2247f76d8ea5f418c5dae76102))
-    - [repository #190] fix build ([`b047941`](https://github.com/Byron/cargo-smart-release/commit/b047941dfdfaa556d5127f8047b65a1493a6d3c7))
-    - [repository #190] a major step forward with `head()` access ([`2121ca6`](https://github.com/Byron/cargo-smart-release/commit/2121ca6f6bed7f4d8c42f549f747435a07ca102d))
-    - Release cargo-smart-release v0.3.0 ([`1dd9e67`](https://github.com/Byron/cargo-smart-release/commit/1dd9e6780be463236e8f8f60fa204da0aec50f76))
-    - [smart-release #174] add asciinema recording of failed release ([`4000034`](https://github.com/Byron/cargo-smart-release/commit/40000346bf3bf2198e1c2173a7c523f8cd35662e))
-    - [smart-release #174] prepare changelog ([`20d7a93`](https://github.com/Byron/cargo-smart-release/commit/20d7a939a7169af7892697f4cb3b743b89d8da3f))
-    - Bump git-repository v0.8.0 ([`a395f98`](https://github.com/Byron/cargo-smart-release/commit/a395f981c75afd5c4d08c2c8d3c757126ee8a17f))
-    - [smart-release] Adjust commit message depending on whether we are skipping the publish… ([`0df4452`](https://github.com/Byron/cargo-smart-release/commit/0df44522757bf7c2b72ebf4c70ed82bd241cdcaf))
-    - [object #177] migrate immutable::tree to crate::tree ([`4c297b5`](https://github.com/Byron/cargo-smart-release/commit/4c297b5b5dc26df97af807bffcd32cd733b15885))
-    - [ref #175] make 'mutable' module private ([`42717b6`](https://github.com/Byron/cargo-smart-release/commit/42717b6bc8d68673846e4095a6933bd9c749052f))
-    - Release git-lock v1.0.0 ([`be05ee4`](https://github.com/Byron/cargo-smart-release/commit/be05ee434db0c5eb60b05acdc81b5fbe5c232235))
-    - [stability #171] git-ref is now ST1 and available through git-repository ([`e731578`](https://github.com/Byron/cargo-smart-release/commit/e73157876148ad2ce3777cb2505384ef89a1c7ef))
-    - [smart-release #171] Try to avoid unstable git-repository features… ([`2a85fce`](https://github.com/Byron/cargo-smart-release/commit/2a85fcebe5b15b039132d4e993efff5c0625fedd))
-    - [stability #171] Don't provide access to less stable crates in `Respository` ([`ef7e6c1`](https://github.com/Byron/cargo-smart-release/commit/ef7e6c19968160aee3417b7ff5a7d291b7063be4))
-    - [stability #171] Don't leak unstable plumbing crates in git-repository… ([`6655eb2`](https://github.com/Byron/cargo-smart-release/commit/6655eb2fe60df19c8b8a82e2d1b3708263b1ba15))
-    - [stability #171] finish tier description… ([`b4d3317`](https://github.com/Byron/cargo-smart-release/commit/b4d3317e2208f863e07cbca8418fccbb185f65d5))
-    - [ref #165] refactor ([`517f5f5`](https://github.com/Byron/cargo-smart-release/commit/517f5f548050aaef21286616b98e82d93042d7b0))
-    - [repository #165] refactor ([`96beaf8`](https://github.com/Byron/cargo-smart-release/commit/96beaf8aa9d0393c21959fcb82b4632aefd3e8c5))
-    - [repository #165] refactor; fine grained allow(missing_docs)… ([`bc9d82d`](https://github.com/Byron/cargo-smart-release/commit/bc9d82d15668cde06ff7e940c45b165e6658523c))
-    - [repository #165] prepare for writing light docs for Easy ([`1173003`](https://github.com/Byron/cargo-smart-release/commit/1173003472fd728b95c865313c9846f2dd7a0d5f))
-    - [repository #165] refactor ([`7da1c77`](https://github.com/Byron/cargo-smart-release/commit/7da1c771f9bcee869d0075b1b771f0b960b39957))
-    - [repository #165] a sample of a simpler way to create a tag ([`abc0b5d`](https://github.com/Byron/cargo-smart-release/commit/abc0b5d980db9e091b8b261bdbc6a9ddf23874db))
-    - [smart-release #165] Use generic edit-reference functionality ([`7a33e94`](https://github.com/Byron/cargo-smart-release/commit/7a33e9484ecae76e253dfaccfd897e502eb560c2))
-    - [repository #165] refactor ([`c5ad72c`](https://github.com/Byron/cargo-smart-release/commit/c5ad72c9c71c589587129b64a72ca7871d8b48eb))
-    - [repository #165] offer panicking type conversions for objects ([`a469f3a`](https://github.com/Byron/cargo-smart-release/commit/a469f3ae48c508921e22dbf019e34bf959a66680))
-    - [repository #165] try a more common naming convention for fallbile things… ([`9eae290`](https://github.com/Byron/cargo-smart-release/commit/9eae29037d598263e6690ce53a30207bd0b2cf53))
-    - [smart-release #162] use TreeRef capabilities to lookup path ([`7a2ed98`](https://github.com/Byron/cargo-smart-release/commit/7a2ed98d5573228e94d865a88028979420c61bbd))
-    - [repository #162] finally let smart-release use the correct abstraction for peeling ([`33e8a5e`](https://github.com/Byron/cargo-smart-release/commit/33e8a5ec2509e46a2359dcfc62a0340645a2a666))
-    - [repository #162] Add id field to ObjectRef… ([`55f8f38`](https://github.com/Byron/cargo-smart-release/commit/55f8f382f1f052b8d69027c220287b2342c53ed4))
-    - [repository #162] experiment with finding objects… ([`0a82358`](https://github.com/Byron/cargo-smart-release/commit/0a82358bd89ceec05a3dc9a5813bb07fa5bbd4f9))
-    - [repository #162] Cannot ever store a RefCell Ref in an object… ([`3e577df`](https://github.com/Byron/cargo-smart-release/commit/3e577df9ae6565a701ef01ad42e58fdd5d0892ce))
-    - [repository #162] experiemnt with optionally keeping data in Object ([`f5876fe`](https://github.com/Byron/cargo-smart-release/commit/f5876fe7a5f8b4f07cefd1c97d837ff36b359a14))
-    - [smart-release #162] Fix short flags ([`01fc50f`](https://github.com/Byron/cargo-smart-release/commit/01fc50f4cb1428960586cbf586f4c744061bdd7f))
-    - [smart-release #162] don't throw away work… ([`4771395`](https://github.com/Byron/cargo-smart-release/commit/4771395f0db2f480724d4b9666e7a0364be60e16))
-    - [smart-release #162] refactor ([`9c61e3a`](https://github.com/Byron/cargo-smart-release/commit/9c61e3ac90625c6f35ebf0713428fae4a930582a))
-    - [smart-release #162] peeling objects to a certain target kind… ([`f70f0e9`](https://github.com/Byron/cargo-smart-release/commit/f70f0e9887679fac3533176c53ad216ad6388d36))
-    - [smart-release #162] a single import path for ReferenceExt ([`e1e9616`](https://github.com/Byron/cargo-smart-release/commit/e1e96160d99704c58565eba0a36d979303b2b07f))
-    - [smart-release #162] replace reference peeling with git_easy ([`42802a2`](https://github.com/Byron/cargo-smart-release/commit/42802a2af9fdba2b6fa34b5661bd17654bb85efd))
-    - [smart-release #162] smart-release uses Easy repository in 'plumbing' mode ([`ff3f077`](https://github.com/Byron/cargo-smart-release/commit/ff3f07742f53d53d5d1bd1faa9d8b2f163eece19))
-</details>
-
-## 0.8.2 (2021-08-17)
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 74 commits contributed to the release over the course of 4 calendar days.
- - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Thanks Clippy
-
-<csr-read-only-do-not-edit/>
-
-[Clippy](https://github.com/rust-lang/rust-clippy) helped 5 times to make code idiomatic. 
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - [smart-release #164] improve handling of empty commits ([`70b8543`](https://github.com/Byron/cargo-smart-release/commit/70b85433bf26d738731665951dacd51b2e9edb00))
-    - [smart-release #164] Make it easier to change a single crate's version only ([`5d7990f`](https://github.com/Byron/cargo-smart-release/commit/5d7990f78225ba012a02a14ed12ab111ffe036cc))
-    - [smart-release #162] only warn if there is working tree modifications in dry-run mode… ([`8ebef73`](https://github.com/Byron/cargo-smart-release/commit/8ebef732039ec95bca733dc060dd19f0db3af78b))
-    - [smart-release #162] clearer messages ([`01a5fd1`](https://github.com/Byron/cargo-smart-release/commit/01a5fd17bdec2c383741eb741a673df7958880a1))
-    - Thanks clippy ([`c87ea9d`](https://github.com/Byron/cargo-smart-release/commit/c87ea9d15839cd4600501b5d405a026eaeab8ff4))
-    - [smart-release #162] top-level crate uses version-only tag ([`1b913d7`](https://github.com/Byron/cargo-smart-release/commit/1b913d79aa6b413b1bdd134f74c69f8376b23e01))
-    - [smart-release #162] FAIL: single-crate workspaces use version-only tags ([`d8147eb`](https://github.com/Byron/cargo-smart-release/commit/d8147eb62b9a58b9812f831ab8b2a591ac634b9f))
-    - [smart-release] better --verbosity handling ([`07ca1bd`](https://github.com/Byron/cargo-smart-release/commit/07ca1bd9679e69071dea28a6f2b0f238c603b3b3))
-    - [smart-release] properly obtain top-level crate name using manifest ([`bf4a890`](https://github.com/Byron/cargo-smart-release/commit/bf4a890268fe57ecdd13d7dd706305ceac1701d4))
-    - Apply nightly rustfmt rules. ([`df13c6b`](https://github.com/Byron/cargo-smart-release/commit/df13c6bf1f57b41bf56bb180213417dae952a8c7))
-    - Release cargo-smart-release v0.2.4 ([`6716f9d`](https://github.com/Byron/cargo-smart-release/commit/6716f9d864cb80a02375049914641a484dbdf96f))
-    - [smart-release #160] fix auto-push issue ([`844960f`](https://github.com/Byron/cargo-smart-release/commit/844960f076a9e2631962591a0843b27bff0bdd1e))
-    - Release cargo-smart-release v0.2.3 ([`438896d`](https://github.com/Byron/cargo-smart-release/commit/438896d0387c376d987af09a7fb4995c2fd7a13a))
-    - [smart-release #160] update chnagelog ([`9b5b321`](https://github.com/Byron/cargo-smart-release/commit/9b5b3216de230ef95c22f6b9c9a4a9e207242b7b))
-    - [smart-release #160] Add the --skip-push flag… ([`1a8de98`](https://github.com/Byron/cargo-smart-release/commit/1a8de986345193aadecf997c2f375b17925e221c))
-    - [smart-release #160] Push after creating a single tag ([`e418201`](https://github.com/Byron/cargo-smart-release/commit/e4182017cd19fdf138de297b246c81b477b2ef7c))
-    - [smart-release #160] a seemingly nice '--verbose' mode… ([`dff05e1`](https://github.com/Byron/cargo-smart-release/commit/dff05e1a52e4501251088d87dacec13c268b3b83))
-    - Thanks clippy ([`74e42d1`](https://github.com/Byron/cargo-smart-release/commit/74e42d1db7167c2b023fbc19643eb0067a935ae0))
-    - [smart-release #160] avoid trying to use an empty path when detecting changes… ([`9a24d05`](https://github.com/Byron/cargo-smart-release/commit/9a24d05977b8fdc65cfb29c9fdd1ff5b1dfba174))
-    - Release cargo-smart-release v0.2.2 ([`79a43c9`](https://github.com/Byron/cargo-smart-release/commit/79a43c9e9bf9630bd76944e9c25a7517f0992103))
-    - Release cargo-smart-release v0.2.1 ([`72d4613`](https://github.com/Byron/cargo-smart-release/commit/72d4613262c001d2aa1a5ececdf4ec35f90b8b30))
-    - [smart-release #155] Another note ([`a1eca1d`](https://github.com/Byron/cargo-smart-release/commit/a1eca1dfccfb2ec0f549acf4634d5e6ece4bd3e7))
-    - [smart-release #155] how to increase version numbers ([`79613c0`](https://github.com/Byron/cargo-smart-release/commit/79613c0c264d231202d64d2acce339bdf52c2e11))
-    - Release cargo-smart-release v0.2.0 ([`be09a0e`](https://github.com/Byron/cargo-smart-release/commit/be09a0e29328dc97023b45d767b7a1844057985f))
-    - [smart-release #155] keep dependency versions by default ([`c37cdb6`](https://github.com/Byron/cargo-smart-release/commit/c37cdb60a8a03bdb106e6420cd292c5e8cdd41c7))
-    - [smart-release #155] fix bug :D ([`2231523`](https://github.com/Byron/cargo-smart-release/commit/2231523efc217bfd7b9d432b1f694839c09b7980))
-    - [smart-release #155] workflow notes and inversion of flag for comfort ([`db48d23`](https://github.com/Byron/cargo-smart-release/commit/db48d23ef1924dee4bfe7034376bf4276e344c1f))
-    - Thanks clippy ([`defc689`](https://github.com/Byron/cargo-smart-release/commit/defc689daf6bf7b6a7f1f3a857e91ee4576b91ea))
-    - [smart-release #155] inform about latest features ([`cf2138f`](https://github.com/Byron/cargo-smart-release/commit/cf2138ff9943b6ec249775d832985e45d98ff844))
-    - [smart-release #155] refactor ([`8e8dc1d`](https://github.com/Byron/cargo-smart-release/commit/8e8dc1d53437df1349d84c8d6a62dd5da5385b36))
-    - [smart-release #155] prepare release ([`0501dc1`](https://github.com/Byron/cargo-smart-release/commit/0501dc147b8aa9e89ce38d6ad6616d362ce3882d))
-    - [smart-release #155] even smarter bumping ([`b337224`](https://github.com/Byron/cargo-smart-release/commit/b337224112be54d7cb9ada7fe3ad599250cf4f8a))
-    - [smart-release #155] --bump-dependencies only ([`173d737`](https://github.com/Byron/cargo-smart-release/commit/173d7378f8b34a0b2b1156205afd793cb4003420))
-    - [smart-release #155] incorporate crates-index for additional version check ([`81de864`](https://github.com/Byron/cargo-smart-release/commit/81de8640bb6fa843315c4f9e8ce3f94f8366117b))
-    - [smart-release #155] prepare for crates-index; refactor ([`5670924`](https://github.com/Byron/cargo-smart-release/commit/5670924a0571abedeecb112e6204fbe9868d0cf4))
-    - [smart-release #155] make it an actual depth-first traversal :D ([`349ef3a`](https://github.com/Byron/cargo-smart-release/commit/349ef3ab8761d54af87a3cbea0aa2fa4f827e16a))
-    - [smart-release #155] sanity check for dry-run/no-dry-run-cargo-publish ([`3d89d39`](https://github.com/Byron/cargo-smart-release/commit/3d89d39ce663e6f21acedaadbb421808c6c011f3))
-    - [smart-release #155] update README, add changelog ([`283c6f1`](https://github.com/Byron/cargo-smart-release/commit/283c6f100777547ad09272ceec3648d1193c86bb))
-    - Thanks clippy ([`4e249c2`](https://github.com/Byron/cargo-smart-release/commit/4e249c297fb824ef89635ea4882297d3a6210e0f))
-    - [smart-release #155] graceful handling of unspecified crate to publish ([`56eb633`](https://github.com/Byron/cargo-smart-release/commit/56eb633639a101f051906f1772a26d380750e770))
-    - [smart-release #155] rely only on cargo metadata for root paths ([`e8e452e`](https://github.com/Byron/cargo-smart-release/commit/e8e452eb38e0285ed42c49ea84cdb01a7589cd68))
-    - [smart-release #155] also ignore provided crate names if they didn't change ([`eccab32`](https://github.com/Byron/cargo-smart-release/commit/eccab323992efee858083cb8ca515d8ceea2fe9c))
-    - [smart-release #155] gracefully fail when encountering unknown comparators ([`2ad38b9`](https://github.com/Byron/cargo-smart-release/commit/2ad38b9d5b068307d6a1564b91d2720135010872))
-    - [smart-release #155] don't set versions if the new ones match ([`65fbe63`](https://github.com/Byron/cargo-smart-release/commit/65fbe634187f16252605d8ed0e0419aecba63035))
-    - [smart-release #155] refactor ([`943d241`](https://github.com/Byron/cargo-smart-release/commit/943d241c76177ec19381fd71bdc4f0c89f374f45))
-    - [smart-release #155] remove dia-semver ([`bd92266`](https://github.com/Byron/cargo-smart-release/commit/bd92266a4e34f13004a3788361e5bc790f7c5b68))
-    - [smart-release #155] don't set versions where there are none when fixing manifests ([`577999e`](https://github.com/Byron/cargo-smart-release/commit/577999e7bf1e6c1aea7ed449cb30718a5d725be9))
-    - [smart-release #155] also find renamed dependencies when updating versions ([`ee99c1c`](https://github.com/Byron/cargo-smart-release/commit/ee99c1c876674b04bb3d13f2a04a73589b10c81a))
-    - [smart-release #155] a note ([`8408641`](https://github.com/Byron/cargo-smart-release/commit/8408641352080e5ba6212c221517b1305e8d380c))
-    - [smart-release #155] invert meaning of cargo-publish dryrun flag ([`d325d2b`](https://github.com/Byron/cargo-smart-release/commit/d325d2b5791c1069ed61fc1275353d815c71d181))
-    - [smart-release #155] allow dry-running cargo publish, too… ([`e3ae915`](https://github.com/Byron/cargo-smart-release/commit/e3ae915dba62a5e8ab3f352a717cf0a0a052bf32))
-    - [smart-release #155] allow dry-running cargo-publish, too ([`63045a0`](https://github.com/Byron/cargo-smart-release/commit/63045a0aeeb5b7e499e17b95529e6e366c6e6d84))
-    - [smart-release #155] Flag to auto-publish dependent stable crates as well ([`8916cd5`](https://github.com/Byron/cargo-smart-release/commit/8916cd58f7a255876d54f9982b144ff77f906c8e))
-    - [smart-release #155] don't auto-add stable crates but suggest to do something about it ([`71efbfc`](https://github.com/Byron/cargo-smart-release/commit/71efbfc7be3614108af6a7109c638a28f7e059c2))
-    - [smart-release #155] refactor ([`df1bf66`](https://github.com/Byron/cargo-smart-release/commit/df1bf66c6bc4914a2ad5580d040f1f9dc6948e9e))
-    - Thanks clippy ([`7d7a89c`](https://github.com/Byron/cargo-smart-release/commit/7d7a89c7b90b4bc47207fcfef43e15c3c19cabd8))
-    - [smart-release #155] refactor ([`27827c3`](https://github.com/Byron/cargo-smart-release/commit/27827c3226ffe1392dbea8bd21f2a3dcf4c4c11e))
-    - [smart-release #155] don't rely on cargo resolution order for cyclic case/publish groups ([`f9cb14f`](https://github.com/Byron/cargo-smart-release/commit/f9cb14f1fc6d667ec10c70c0d719ea5e032d6ba6))
-    - [smart-release #155] avoid using cargo resolution order ([`1fdc475`](https://github.com/Byron/cargo-smart-release/commit/1fdc475908b8d92da024afb2417ea28c43472775))
-    - [smart-release #155] properly handle multi-crate dependencies (if there is no cycle) ([`016c4f4`](https://github.com/Byron/cargo-smart-release/commit/016c4f4da2c83833b29e40e64ee4cf44309c30c4))
-    - [smart-release #155] trust our own resolution order more… ([`514301c`](https://github.com/Byron/cargo-smart-release/commit/514301c6d231d79e71e72dfdcaf4adce2d7a44a3))
-    - [smart-release #155] refactor ([`f03b79a`](https://github.com/Byron/cargo-smart-release/commit/f03b79ae01d69b173ae3de1d6618fa550446d370))
-    - [smart-release #155] don't check cycles on dependencies without version ([`b68a1f8`](https://github.com/Byron/cargo-smart-release/commit/b68a1f8995ac3f67971b3fb56d1bb8f4c26a753c))
-    - [smart-release #155] refactor ([`00a364b`](https://github.com/Byron/cargo-smart-release/commit/00a364bbaf49bb636bd3cc842e7c13feffa1bccd))
-    - [smart-release #155] refactor ([`56c04b3`](https://github.com/Byron/cargo-smart-release/commit/56c04b32c20b504d409c3b1526ce584e1ff6a329))
-    - [smart-release #155] refactor ([`c610e0f`](https://github.com/Byron/cargo-smart-release/commit/c610e0ffc9f135731a9d88cce9edf80ca3ab3c3c))
-    - Remove dev-dependency cycles by removing their version ([`ece1d05`](https://github.com/Byron/cargo-smart-release/commit/ece1d055fa341512cec42270f2e8c07cd878bb5f))
-    - [smart-release #155] prepare release ([`fe3cb77`](https://github.com/Byron/cargo-smart-release/commit/fe3cb772a8761bfabcd17ff1ec614bb72b0bdd93))
-    - [smart-release #155] cargo compatibility ([`c3982a7`](https://github.com/Byron/cargo-smart-release/commit/c3982a7cecf7261391ee32a86c9d14c2a3d803ef))
-    - [smart-release #155] add readme ([`5534a5c`](https://github.com/Byron/cargo-smart-release/commit/5534a5c24b08e9ffa8f0da6dcc50840bc271c734))
-    - [smart-release #155] --skip-tag flag ([`2420c87`](https://github.com/Byron/cargo-smart-release/commit/2420c87db321e8b6ce695e6f241de650697c8eca))
-    - [smart-release #155] --bump option ([`c57f2d0`](https://github.com/Byron/cargo-smart-release/commit/c57f2d0da7fba779390bb1116a020e626a8615b1))
-    - [smart-release #155] remove subcommands ([`2f84447`](https://github.com/Byron/cargo-smart-release/commit/2f8444794ad214f6f7ec81118bdfa076edba4826))
-    - [smart-release #155] rename from 'utils' ([`035224d`](https://github.com/Byron/cargo-smart-release/commit/035224ddabf75d6d14c65237f28c8bf426e16735))
-</details>
-
 ## 0.8.0 (2022-01-23)
 
 <csr-id-a3caf3938bf0f1cea1bee0f55c082062dd250bed/>
@@ -2851,7 +2711,106 @@ For more information, run `cargo changelog -h`.
 
  - <csr-id-11eebdcc572a72b2e66a9db3cae0a01f12a81619/> Previously it might have been possible to see that it won't use a 'new' crate version as it's already in the manifest, _even_ if these are the same. This is now fixed.
 
+## 0.8.4 (2021-09-10)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 14 commits contributed to the release over the course of 3 calendar days.
+ - 3 days passed between releases.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 1 time to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - [smart-release] auto-detect changes in production crates as well ([`4f50c0e`](https://github.com/Byron/cargo-smart-release/commit/4f50c0ead9ef3240628006798e5b2a0e58446f55))
+    - [smart-release #195] update test output to match CI… ([`beb155f`](https://github.com/Byron/cargo-smart-release/commit/beb155f3b5d648b86a964cd51b551ae2f2ee8a84))
+    - [smart-release #195] better error for untracked files. ([`4dee24b`](https://github.com/Byron/cargo-smart-release/commit/4dee24bcdb9a4f0116f90bf2492807736ae2d0b6))
+    - [smart-release #195] assure dependent packages are not packages to be published ([`68a33f8`](https://github.com/Byron/cargo-smart-release/commit/68a33f86b0f424fb4aeaa7e18a31cdf81601b809))
+    - [smart-release #195] refactor ([`39a87f8`](https://github.com/Byron/cargo-smart-release/commit/39a87f8df0c0dad24294f6bbc18bcd503e91d153))
+    - [smart-release #195] refactor ([`e54a241`](https://github.com/Byron/cargo-smart-release/commit/e54a241d7baddd2f4a40dd94cf081c963615897a))
+    - [smart-release #195] don't tout changes that aren't really there… ([`7b103e4`](https://github.com/Byron/cargo-smart-release/commit/7b103e49eb9dc4e52cae8b06c6d7ce662c190135))
+    - [smart-release #195] another test to validate log output ([`64f9ff5`](https://github.com/Byron/cargo-smart-release/commit/64f9ff52b74365ffc6cb7c30eab78867b31fa1a9))
+    - [smart-release #195] a test that in theory should trigger the desired behaviour ([`fd4bd1b`](https://github.com/Byron/cargo-smart-release/commit/fd4bd1b26ff986455fc377fd8e9d625c5eda042b))
+    - [smart-release #194] basic journey test setup ([`87d9451`](https://github.com/Byron/cargo-smart-release/commit/87d94518e97ef3d2443b13308d6977836ba920a5))
+    - Thanks clippy ([`493c9d2`](https://github.com/Byron/cargo-smart-release/commit/493c9d21ad4483738f1f8bbd22ad604ad2edbe4b))
+    - [smart-release #194] conservative pre-release version updates ([`ce5833f`](https://github.com/Byron/cargo-smart-release/commit/ce5833f8941943108709b4c19a48950ccb1fc825))
+    - Bump git-repository v0.9.0 ([`6085a6a`](https://github.com/Byron/cargo-smart-release/commit/6085a6a687a6368e12e6ca4d7700e9efc7549c89))
+    - Release cargo-smart-release v0.3.1 ([`2b48d9c`](https://github.com/Byron/cargo-smart-release/commit/2b48d9c991eb9e3fbdea134211c9493c4fea1450))
+</details>
+
 ## v0.3.1 (2021-09-07)
+
+## 0.8.3 (2021-09-06)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 39 commits contributed to the release over the course of 20 calendar days.
+ - 20 days passed between releases.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - [repository #190] refactor ([`c53f8c1`](https://github.com/Byron/cargo-smart-release/commit/c53f8c168ac1bd2247f76d8ea5f418c5dae76102))
+    - [repository #190] fix build ([`b047941`](https://github.com/Byron/cargo-smart-release/commit/b047941dfdfaa556d5127f8047b65a1493a6d3c7))
+    - [repository #190] a major step forward with `head()` access ([`2121ca6`](https://github.com/Byron/cargo-smart-release/commit/2121ca6f6bed7f4d8c42f549f747435a07ca102d))
+    - Release cargo-smart-release v0.3.0 ([`1dd9e67`](https://github.com/Byron/cargo-smart-release/commit/1dd9e6780be463236e8f8f60fa204da0aec50f76))
+    - [smart-release #174] add asciinema recording of failed release ([`4000034`](https://github.com/Byron/cargo-smart-release/commit/40000346bf3bf2198e1c2173a7c523f8cd35662e))
+    - [smart-release #174] prepare changelog ([`20d7a93`](https://github.com/Byron/cargo-smart-release/commit/20d7a939a7169af7892697f4cb3b743b89d8da3f))
+    - Bump git-repository v0.8.0 ([`a395f98`](https://github.com/Byron/cargo-smart-release/commit/a395f981c75afd5c4d08c2c8d3c757126ee8a17f))
+    - [smart-release] Adjust commit message depending on whether we are skipping the publish… ([`0df4452`](https://github.com/Byron/cargo-smart-release/commit/0df44522757bf7c2b72ebf4c70ed82bd241cdcaf))
+    - [object #177] migrate immutable::tree to crate::tree ([`4c297b5`](https://github.com/Byron/cargo-smart-release/commit/4c297b5b5dc26df97af807bffcd32cd733b15885))
+    - [ref #175] make 'mutable' module private ([`42717b6`](https://github.com/Byron/cargo-smart-release/commit/42717b6bc8d68673846e4095a6933bd9c749052f))
+    - Release git-lock v1.0.0 ([`be05ee4`](https://github.com/Byron/cargo-smart-release/commit/be05ee434db0c5eb60b05acdc81b5fbe5c232235))
+    - [stability #171] git-ref is now ST1 and available through git-repository ([`e731578`](https://github.com/Byron/cargo-smart-release/commit/e73157876148ad2ce3777cb2505384ef89a1c7ef))
+    - [smart-release #171] Try to avoid unstable git-repository features… ([`2a85fce`](https://github.com/Byron/cargo-smart-release/commit/2a85fcebe5b15b039132d4e993efff5c0625fedd))
+    - [stability #171] Don't provide access to less stable crates in `Respository` ([`ef7e6c1`](https://github.com/Byron/cargo-smart-release/commit/ef7e6c19968160aee3417b7ff5a7d291b7063be4))
+    - [stability #171] Don't leak unstable plumbing crates in git-repository… ([`6655eb2`](https://github.com/Byron/cargo-smart-release/commit/6655eb2fe60df19c8b8a82e2d1b3708263b1ba15))
+    - [stability #171] finish tier description… ([`b4d3317`](https://github.com/Byron/cargo-smart-release/commit/b4d3317e2208f863e07cbca8418fccbb185f65d5))
+    - [ref #165] refactor ([`517f5f5`](https://github.com/Byron/cargo-smart-release/commit/517f5f548050aaef21286616b98e82d93042d7b0))
+    - [repository #165] refactor ([`96beaf8`](https://github.com/Byron/cargo-smart-release/commit/96beaf8aa9d0393c21959fcb82b4632aefd3e8c5))
+    - [repository #165] refactor; fine grained allow(missing_docs)… ([`bc9d82d`](https://github.com/Byron/cargo-smart-release/commit/bc9d82d15668cde06ff7e940c45b165e6658523c))
+    - [repository #165] prepare for writing light docs for Easy ([`1173003`](https://github.com/Byron/cargo-smart-release/commit/1173003472fd728b95c865313c9846f2dd7a0d5f))
+    - [repository #165] refactor ([`7da1c77`](https://github.com/Byron/cargo-smart-release/commit/7da1c771f9bcee869d0075b1b771f0b960b39957))
+    - [repository #165] a sample of a simpler way to create a tag ([`abc0b5d`](https://github.com/Byron/cargo-smart-release/commit/abc0b5d980db9e091b8b261bdbc6a9ddf23874db))
+    - [smart-release #165] Use generic edit-reference functionality ([`7a33e94`](https://github.com/Byron/cargo-smart-release/commit/7a33e9484ecae76e253dfaccfd897e502eb560c2))
+    - [repository #165] refactor ([`c5ad72c`](https://github.com/Byron/cargo-smart-release/commit/c5ad72c9c71c589587129b64a72ca7871d8b48eb))
+    - [repository #165] offer panicking type conversions for objects ([`a469f3a`](https://github.com/Byron/cargo-smart-release/commit/a469f3ae48c508921e22dbf019e34bf959a66680))
+    - [repository #165] try a more common naming convention for fallbile things… ([`9eae290`](https://github.com/Byron/cargo-smart-release/commit/9eae29037d598263e6690ce53a30207bd0b2cf53))
+    - [smart-release #162] use TreeRef capabilities to lookup path ([`7a2ed98`](https://github.com/Byron/cargo-smart-release/commit/7a2ed98d5573228e94d865a88028979420c61bbd))
+    - [repository #162] finally let smart-release use the correct abstraction for peeling ([`33e8a5e`](https://github.com/Byron/cargo-smart-release/commit/33e8a5ec2509e46a2359dcfc62a0340645a2a666))
+    - [repository #162] Add id field to ObjectRef… ([`55f8f38`](https://github.com/Byron/cargo-smart-release/commit/55f8f382f1f052b8d69027c220287b2342c53ed4))
+    - [repository #162] experiment with finding objects… ([`0a82358`](https://github.com/Byron/cargo-smart-release/commit/0a82358bd89ceec05a3dc9a5813bb07fa5bbd4f9))
+    - [repository #162] Cannot ever store a RefCell Ref in an object… ([`3e577df`](https://github.com/Byron/cargo-smart-release/commit/3e577df9ae6565a701ef01ad42e58fdd5d0892ce))
+    - [repository #162] experiemnt with optionally keeping data in Object ([`f5876fe`](https://github.com/Byron/cargo-smart-release/commit/f5876fe7a5f8b4f07cefd1c97d837ff36b359a14))
+    - [smart-release #162] Fix short flags ([`01fc50f`](https://github.com/Byron/cargo-smart-release/commit/01fc50f4cb1428960586cbf586f4c744061bdd7f))
+    - [smart-release #162] don't throw away work… ([`4771395`](https://github.com/Byron/cargo-smart-release/commit/4771395f0db2f480724d4b9666e7a0364be60e16))
+    - [smart-release #162] refactor ([`9c61e3a`](https://github.com/Byron/cargo-smart-release/commit/9c61e3ac90625c6f35ebf0713428fae4a930582a))
+    - [smart-release #162] peeling objects to a certain target kind… ([`f70f0e9`](https://github.com/Byron/cargo-smart-release/commit/f70f0e9887679fac3533176c53ad216ad6388d36))
+    - [smart-release #162] a single import path for ReferenceExt ([`e1e9616`](https://github.com/Byron/cargo-smart-release/commit/e1e96160d99704c58565eba0a36d979303b2b07f))
+    - [smart-release #162] replace reference peeling with git_easy ([`42802a2`](https://github.com/Byron/cargo-smart-release/commit/42802a2af9fdba2b6fa34b5661bd17654bb85efd))
+    - [smart-release #162] smart-release uses Easy repository in 'plumbing' mode ([`ff3f077`](https://github.com/Byron/cargo-smart-release/commit/ff3f07742f53d53d5d1bd1faa9d8b2f163eece19))
+</details>
 
 ## v0.3.0 (2021-08-27)
 
@@ -2862,6 +2821,105 @@ For more information, run `cargo changelog -h`.
 ### Breaking
 
 - Use short flag for `--no-bump-on-demand` in `--bump-dependencies`
+
+## 0.8.2 (2021-08-17)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 74 commits contributed to the release over the course of 4 calendar days.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 5 times to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - [smart-release #164] improve handling of empty commits ([`70b8543`](https://github.com/Byron/cargo-smart-release/commit/70b85433bf26d738731665951dacd51b2e9edb00))
+    - [smart-release #164] Make it easier to change a single crate's version only ([`5d7990f`](https://github.com/Byron/cargo-smart-release/commit/5d7990f78225ba012a02a14ed12ab111ffe036cc))
+    - [smart-release #162] only warn if there is working tree modifications in dry-run mode… ([`8ebef73`](https://github.com/Byron/cargo-smart-release/commit/8ebef732039ec95bca733dc060dd19f0db3af78b))
+    - [smart-release #162] clearer messages ([`01a5fd1`](https://github.com/Byron/cargo-smart-release/commit/01a5fd17bdec2c383741eb741a673df7958880a1))
+    - Thanks clippy ([`c87ea9d`](https://github.com/Byron/cargo-smart-release/commit/c87ea9d15839cd4600501b5d405a026eaeab8ff4))
+    - [smart-release #162] top-level crate uses version-only tag ([`1b913d7`](https://github.com/Byron/cargo-smart-release/commit/1b913d79aa6b413b1bdd134f74c69f8376b23e01))
+    - [smart-release #162] FAIL: single-crate workspaces use version-only tags ([`d8147eb`](https://github.com/Byron/cargo-smart-release/commit/d8147eb62b9a58b9812f831ab8b2a591ac634b9f))
+    - [smart-release] better --verbosity handling ([`07ca1bd`](https://github.com/Byron/cargo-smart-release/commit/07ca1bd9679e69071dea28a6f2b0f238c603b3b3))
+    - [smart-release] properly obtain top-level crate name using manifest ([`bf4a890`](https://github.com/Byron/cargo-smart-release/commit/bf4a890268fe57ecdd13d7dd706305ceac1701d4))
+    - Apply nightly rustfmt rules. ([`df13c6b`](https://github.com/Byron/cargo-smart-release/commit/df13c6bf1f57b41bf56bb180213417dae952a8c7))
+    - Release cargo-smart-release v0.2.4 ([`6716f9d`](https://github.com/Byron/cargo-smart-release/commit/6716f9d864cb80a02375049914641a484dbdf96f))
+    - [smart-release #160] fix auto-push issue ([`844960f`](https://github.com/Byron/cargo-smart-release/commit/844960f076a9e2631962591a0843b27bff0bdd1e))
+    - Release cargo-smart-release v0.2.3 ([`438896d`](https://github.com/Byron/cargo-smart-release/commit/438896d0387c376d987af09a7fb4995c2fd7a13a))
+    - [smart-release #160] update chnagelog ([`9b5b321`](https://github.com/Byron/cargo-smart-release/commit/9b5b3216de230ef95c22f6b9c9a4a9e207242b7b))
+    - [smart-release #160] Add the --skip-push flag… ([`1a8de98`](https://github.com/Byron/cargo-smart-release/commit/1a8de986345193aadecf997c2f375b17925e221c))
+    - [smart-release #160] Push after creating a single tag ([`e418201`](https://github.com/Byron/cargo-smart-release/commit/e4182017cd19fdf138de297b246c81b477b2ef7c))
+    - [smart-release #160] a seemingly nice '--verbose' mode… ([`dff05e1`](https://github.com/Byron/cargo-smart-release/commit/dff05e1a52e4501251088d87dacec13c268b3b83))
+    - Thanks clippy ([`74e42d1`](https://github.com/Byron/cargo-smart-release/commit/74e42d1db7167c2b023fbc19643eb0067a935ae0))
+    - [smart-release #160] avoid trying to use an empty path when detecting changes… ([`9a24d05`](https://github.com/Byron/cargo-smart-release/commit/9a24d05977b8fdc65cfb29c9fdd1ff5b1dfba174))
+    - Release cargo-smart-release v0.2.2 ([`79a43c9`](https://github.com/Byron/cargo-smart-release/commit/79a43c9e9bf9630bd76944e9c25a7517f0992103))
+    - Release cargo-smart-release v0.2.1 ([`72d4613`](https://github.com/Byron/cargo-smart-release/commit/72d4613262c001d2aa1a5ececdf4ec35f90b8b30))
+    - [smart-release #155] Another note ([`a1eca1d`](https://github.com/Byron/cargo-smart-release/commit/a1eca1dfccfb2ec0f549acf4634d5e6ece4bd3e7))
+    - [smart-release #155] how to increase version numbers ([`79613c0`](https://github.com/Byron/cargo-smart-release/commit/79613c0c264d231202d64d2acce339bdf52c2e11))
+    - Release cargo-smart-release v0.2.0 ([`be09a0e`](https://github.com/Byron/cargo-smart-release/commit/be09a0e29328dc97023b45d767b7a1844057985f))
+    - [smart-release #155] keep dependency versions by default ([`c37cdb6`](https://github.com/Byron/cargo-smart-release/commit/c37cdb60a8a03bdb106e6420cd292c5e8cdd41c7))
+    - [smart-release #155] fix bug :D ([`2231523`](https://github.com/Byron/cargo-smart-release/commit/2231523efc217bfd7b9d432b1f694839c09b7980))
+    - [smart-release #155] workflow notes and inversion of flag for comfort ([`db48d23`](https://github.com/Byron/cargo-smart-release/commit/db48d23ef1924dee4bfe7034376bf4276e344c1f))
+    - Thanks clippy ([`defc689`](https://github.com/Byron/cargo-smart-release/commit/defc689daf6bf7b6a7f1f3a857e91ee4576b91ea))
+    - [smart-release #155] inform about latest features ([`cf2138f`](https://github.com/Byron/cargo-smart-release/commit/cf2138ff9943b6ec249775d832985e45d98ff844))
+    - [smart-release #155] refactor ([`8e8dc1d`](https://github.com/Byron/cargo-smart-release/commit/8e8dc1d53437df1349d84c8d6a62dd5da5385b36))
+    - [smart-release #155] prepare release ([`0501dc1`](https://github.com/Byron/cargo-smart-release/commit/0501dc147b8aa9e89ce38d6ad6616d362ce3882d))
+    - [smart-release #155] even smarter bumping ([`b337224`](https://github.com/Byron/cargo-smart-release/commit/b337224112be54d7cb9ada7fe3ad599250cf4f8a))
+    - [smart-release #155] --bump-dependencies only ([`173d737`](https://github.com/Byron/cargo-smart-release/commit/173d7378f8b34a0b2b1156205afd793cb4003420))
+    - [smart-release #155] incorporate crates-index for additional version check ([`81de864`](https://github.com/Byron/cargo-smart-release/commit/81de8640bb6fa843315c4f9e8ce3f94f8366117b))
+    - [smart-release #155] prepare for crates-index; refactor ([`5670924`](https://github.com/Byron/cargo-smart-release/commit/5670924a0571abedeecb112e6204fbe9868d0cf4))
+    - [smart-release #155] make it an actual depth-first traversal :D ([`349ef3a`](https://github.com/Byron/cargo-smart-release/commit/349ef3ab8761d54af87a3cbea0aa2fa4f827e16a))
+    - [smart-release #155] sanity check for dry-run/no-dry-run-cargo-publish ([`3d89d39`](https://github.com/Byron/cargo-smart-release/commit/3d89d39ce663e6f21acedaadbb421808c6c011f3))
+    - [smart-release #155] update README, add changelog ([`283c6f1`](https://github.com/Byron/cargo-smart-release/commit/283c6f100777547ad09272ceec3648d1193c86bb))
+    - Thanks clippy ([`4e249c2`](https://github.com/Byron/cargo-smart-release/commit/4e249c297fb824ef89635ea4882297d3a6210e0f))
+    - [smart-release #155] graceful handling of unspecified crate to publish ([`56eb633`](https://github.com/Byron/cargo-smart-release/commit/56eb633639a101f051906f1772a26d380750e770))
+    - [smart-release #155] rely only on cargo metadata for root paths ([`e8e452e`](https://github.com/Byron/cargo-smart-release/commit/e8e452eb38e0285ed42c49ea84cdb01a7589cd68))
+    - [smart-release #155] also ignore provided crate names if they didn't change ([`eccab32`](https://github.com/Byron/cargo-smart-release/commit/eccab323992efee858083cb8ca515d8ceea2fe9c))
+    - [smart-release #155] gracefully fail when encountering unknown comparators ([`2ad38b9`](https://github.com/Byron/cargo-smart-release/commit/2ad38b9d5b068307d6a1564b91d2720135010872))
+    - [smart-release #155] don't set versions if the new ones match ([`65fbe63`](https://github.com/Byron/cargo-smart-release/commit/65fbe634187f16252605d8ed0e0419aecba63035))
+    - [smart-release #155] refactor ([`943d241`](https://github.com/Byron/cargo-smart-release/commit/943d241c76177ec19381fd71bdc4f0c89f374f45))
+    - [smart-release #155] remove dia-semver ([`bd92266`](https://github.com/Byron/cargo-smart-release/commit/bd92266a4e34f13004a3788361e5bc790f7c5b68))
+    - [smart-release #155] don't set versions where there are none when fixing manifests ([`577999e`](https://github.com/Byron/cargo-smart-release/commit/577999e7bf1e6c1aea7ed449cb30718a5d725be9))
+    - [smart-release #155] also find renamed dependencies when updating versions ([`ee99c1c`](https://github.com/Byron/cargo-smart-release/commit/ee99c1c876674b04bb3d13f2a04a73589b10c81a))
+    - [smart-release #155] a note ([`8408641`](https://github.com/Byron/cargo-smart-release/commit/8408641352080e5ba6212c221517b1305e8d380c))
+    - [smart-release #155] invert meaning of cargo-publish dryrun flag ([`d325d2b`](https://github.com/Byron/cargo-smart-release/commit/d325d2b5791c1069ed61fc1275353d815c71d181))
+    - [smart-release #155] allow dry-running cargo publish, too… ([`e3ae915`](https://github.com/Byron/cargo-smart-release/commit/e3ae915dba62a5e8ab3f352a717cf0a0a052bf32))
+    - [smart-release #155] allow dry-running cargo-publish, too ([`63045a0`](https://github.com/Byron/cargo-smart-release/commit/63045a0aeeb5b7e499e17b95529e6e366c6e6d84))
+    - [smart-release #155] Flag to auto-publish dependent stable crates as well ([`8916cd5`](https://github.com/Byron/cargo-smart-release/commit/8916cd58f7a255876d54f9982b144ff77f906c8e))
+    - [smart-release #155] don't auto-add stable crates but suggest to do something about it ([`71efbfc`](https://github.com/Byron/cargo-smart-release/commit/71efbfc7be3614108af6a7109c638a28f7e059c2))
+    - [smart-release #155] refactor ([`df1bf66`](https://github.com/Byron/cargo-smart-release/commit/df1bf66c6bc4914a2ad5580d040f1f9dc6948e9e))
+    - Thanks clippy ([`7d7a89c`](https://github.com/Byron/cargo-smart-release/commit/7d7a89c7b90b4bc47207fcfef43e15c3c19cabd8))
+    - [smart-release #155] refactor ([`27827c3`](https://github.com/Byron/cargo-smart-release/commit/27827c3226ffe1392dbea8bd21f2a3dcf4c4c11e))
+    - [smart-release #155] don't rely on cargo resolution order for cyclic case/publish groups ([`f9cb14f`](https://github.com/Byron/cargo-smart-release/commit/f9cb14f1fc6d667ec10c70c0d719ea5e032d6ba6))
+    - [smart-release #155] avoid using cargo resolution order ([`1fdc475`](https://github.com/Byron/cargo-smart-release/commit/1fdc475908b8d92da024afb2417ea28c43472775))
+    - [smart-release #155] properly handle multi-crate dependencies (if there is no cycle) ([`016c4f4`](https://github.com/Byron/cargo-smart-release/commit/016c4f4da2c83833b29e40e64ee4cf44309c30c4))
+    - [smart-release #155] trust our own resolution order more… ([`514301c`](https://github.com/Byron/cargo-smart-release/commit/514301c6d231d79e71e72dfdcaf4adce2d7a44a3))
+    - [smart-release #155] refactor ([`f03b79a`](https://github.com/Byron/cargo-smart-release/commit/f03b79ae01d69b173ae3de1d6618fa550446d370))
+    - [smart-release #155] don't check cycles on dependencies without version ([`b68a1f8`](https://github.com/Byron/cargo-smart-release/commit/b68a1f8995ac3f67971b3fb56d1bb8f4c26a753c))
+    - [smart-release #155] refactor ([`00a364b`](https://github.com/Byron/cargo-smart-release/commit/00a364bbaf49bb636bd3cc842e7c13feffa1bccd))
+    - [smart-release #155] refactor ([`56c04b3`](https://github.com/Byron/cargo-smart-release/commit/56c04b32c20b504d409c3b1526ce584e1ff6a329))
+    - [smart-release #155] refactor ([`c610e0f`](https://github.com/Byron/cargo-smart-release/commit/c610e0ffc9f135731a9d88cce9edf80ca3ab3c3c))
+    - Remove dev-dependency cycles by removing their version ([`ece1d05`](https://github.com/Byron/cargo-smart-release/commit/ece1d055fa341512cec42270f2e8c07cd878bb5f))
+    - [smart-release #155] prepare release ([`fe3cb77`](https://github.com/Byron/cargo-smart-release/commit/fe3cb772a8761bfabcd17ff1ec614bb72b0bdd93))
+    - [smart-release #155] cargo compatibility ([`c3982a7`](https://github.com/Byron/cargo-smart-release/commit/c3982a7cecf7261391ee32a86c9d14c2a3d803ef))
+    - [smart-release #155] add readme ([`5534a5c`](https://github.com/Byron/cargo-smart-release/commit/5534a5c24b08e9ffa8f0da6dcc50840bc271c734))
+    - [smart-release #155] --skip-tag flag ([`2420c87`](https://github.com/Byron/cargo-smart-release/commit/2420c87db321e8b6ce695e6f241de650697c8eca))
+    - [smart-release #155] --bump option ([`c57f2d0`](https://github.com/Byron/cargo-smart-release/commit/c57f2d0da7fba779390bb1116a020e626a8615b1))
+    - [smart-release #155] remove subcommands ([`2f84447`](https://github.com/Byron/cargo-smart-release/commit/2f8444794ad214f6f7ec81118bdfa076edba4826))
+    - [smart-release #155] rename from 'utils' ([`035224d`](https://github.com/Byron/cargo-smart-release/commit/035224ddabf75d6d14c65237f28c8bf426e16735))
+</details>
 
 ## v0.2.4 (2021-08-15)
 
