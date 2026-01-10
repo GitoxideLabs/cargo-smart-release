@@ -159,7 +159,9 @@ impl Section {
                         track_unknown_event(event, &mut unknown);
                     }
                 }
-                Event::Html(text) | Event::InlineHtml(text) if text.starts_with(section::segment::Conventional::REMOVED_HTML_PREFIX) => {
+                Event::Html(text) | Event::InlineHtml(text)
+                    if text.starts_with(section::segment::Conventional::REMOVED_HTML_PREFIX) =>
+                {
                     if let Some(id) = parse_message_id(text.as_ref()) {
                         if !removed_messages.contains(&id) {
                             removed_messages.push(id);
@@ -426,7 +428,9 @@ fn make_user_message_and_consume_item(
         .push(section::segment::conventional::Message::User {
             markdown: markdown[range].trim_end().to_owned(),
         });
-    events.take_while(|(e, _)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item))).count();
+    events
+        .take_while(|(e, _)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item)))
+        .count();
 }
 
 fn parse_message_id(html: &str) -> Option<gix::hash::ObjectId> {
@@ -466,13 +470,10 @@ fn track_unknown_event(unknown_event: Event<'_>, unknown: &mut String) {
         | Event::Code(text)
         | Event::Text(text)
         | Event::FootnoteReference(text)
-        | Event::Start(
-            Tag::FootnoteDefinition(text)
-            | Tag::CodeBlock(pulldown_cmark::CodeBlockKind::Fenced(text)),
-        ) => unknown.push_str(text.as_ref()),
-        Event::Start(Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. }) => {
-            unknown.push_str(dest_url.as_ref())
+        | Event::Start(Tag::FootnoteDefinition(text) | Tag::CodeBlock(pulldown_cmark::CodeBlockKind::Fenced(text))) => {
+            unknown.push_str(text.as_ref())
         }
+        Event::Start(Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. }) => unknown.push_str(dest_url.as_ref()),
         _ => {}
     }
 }
