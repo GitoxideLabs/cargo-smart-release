@@ -151,22 +151,24 @@ impl Section {
         let mut removed_messages = Vec::new();
         while let Some((e, range)) = events.next() {
             match e {
-                Event::Html(text) if text.starts_with(Section::UNKNOWN_TAG_START) => {
+                Event::Html(text) | Event::InlineHtml(text) if text.starts_with(Section::UNKNOWN_TAG_START) => {
                     record_unknown_range(&mut segments, unknown_range.take(), &body);
                     for (event, _range) in events.by_ref().take_while(
-                        |(e, _range)| !matches!(e, Event::Html(text) if text.starts_with(Section::UNKNOWN_TAG_END)),
+                        |(e, _range)| !matches!(e, Event::Html(text) | Event::InlineHtml(text) if text.starts_with(Section::UNKNOWN_TAG_END)),
                     ) {
                         track_unknown_event(event, &mut unknown);
                     }
                 }
-                Event::Html(text) if text.starts_with(section::segment::Conventional::REMOVED_HTML_PREFIX) => {
+                Event::Html(text) | Event::InlineHtml(text) if text.starts_with(section::segment::Conventional::REMOVED_HTML_PREFIX) => {
                     if let Some(id) = parse_message_id(text.as_ref()) {
                         if !removed_messages.contains(&id) {
                             removed_messages.push(id);
                         }
                     }
                 }
-                Event::Start(Tag::Heading(indent, _, _)) => {
+                // Ignore HtmlBlock start/end tags - the actual HTML content is in Event::Html or Event::InlineHtml
+                Event::Start(Tag::HtmlBlock) | Event::End(pulldown_cmark::TagEnd::HtmlBlock) => {}
+                Event::Start(Tag::Heading { level: indent, .. }) => {
                     record_unknown_range(&mut segments, unknown_range.take(), &body);
                     enum State {
                         ParseConventional { title: String },
@@ -221,7 +223,7 @@ impl Section {
                             if matches!(state, State::ConsiderUserAuthored) {
                                 update_unknown_range(&mut unknown_range, range.clone());
                             }
-                            !matches!(e, Event::End(Tag::Heading(_, _, _)))
+                            !matches!(e, Event::End(pulldown_cmark::TagEnd::Heading(_)))
                         })
                         .count();
                     match state {
@@ -262,7 +264,7 @@ impl Section {
 fn parse_conventional_to_next_section_title(
     markdown: &str,
     title: String,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
+    events: &mut Peekable<OffsetIter<'_>>,
     level: HeadingLevel,
     unknown: &mut String,
 ) -> Segment {
@@ -289,11 +291,11 @@ fn parse_conventional_to_next_section_title(
     };
     while let Some((event, _range)) = events.peek() {
         match event {
-            Event::Start(Tag::Heading(indent, _, _)) if *indent == level => break,
+            Event::Start(Tag::Heading { level: indent, .. }) if *indent == level => break,
             _ => {
                 let (event, _range) = events.next().expect("peeked before so event is present");
                 match event {
-                    Event::Html(ref tag) => match parse_message_id(tag.as_ref()) {
+                    Event::Html(ref tag) | Event::InlineHtml(ref tag) => match parse_message_id(tag.as_ref()) {
                         Some(id) => {
                             if !conventional.removed.contains(&id) {
                                 conventional.removed.push(id)
@@ -310,7 +312,7 @@ fn parse_conventional_to_next_section_title(
                                             Event::Start(Tag::Paragraph) => {
                                                 if let Some((possibly_html, _)) = events.next() {
                                                     match possibly_html {
-                                                        Event::Html(tag) => {
+                                                        Event::Html(tag) | Event::InlineHtml(tag) => {
                                                             parse_id_fallback_to_user_message(
                                                                 markdown,
                                                                 events,
@@ -328,7 +330,7 @@ fn parse_conventional_to_next_section_title(
                                                     }
                                                 }
                                             }
-                                            Event::Html(tag) => {
+                                            Event::Html(tag) | Event::InlineHtml(tag) => {
                                                 parse_id_fallback_to_user_message(
                                                     markdown,
                                                     events,
@@ -346,7 +348,7 @@ fn parse_conventional_to_next_section_title(
                                         }
                                     }
                                 }
-                                Event::End(Tag::List(_)) => break,
+                                Event::End(pulldown_cmark::TagEnd::List(_)) => break,
                                 event => track_unknown_event(event, unknown),
                             }
                         }
@@ -362,7 +364,7 @@ fn parse_conventional_to_next_section_title(
 
 fn parse_id_fallback_to_user_message(
     markdown: &str,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
+    events: &mut Peekable<OffsetIter<'_>>,
     conventional: &mut Conventional,
     item_range: Range<usize>,
     tag: CowStr<'_>,
@@ -371,7 +373,7 @@ fn parse_id_fallback_to_user_message(
         Some(id) => {
             let mut events = events
                 .by_ref()
-                .take_while(|(e, _r)| !matches!(e, Event::End(Tag::Item)))
+                .take_while(|(e, _r)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item)))
                 .map(|(_, r)| r);
             let start = events.next();
             let end = events.last().or_else(|| start.clone());
@@ -415,7 +417,7 @@ fn parse_id_fallback_to_user_message(
 
 fn make_user_message_and_consume_item(
     markdown: &str,
-    events: &mut Peekable<OffsetIter<'_, '_>>,
+    events: &mut Peekable<OffsetIter<'_>>,
     conventional: &mut Conventional,
     range: Range<usize>,
 ) {
@@ -424,7 +426,7 @@ fn make_user_message_and_consume_item(
         .push(section::segment::conventional::Message::User {
             markdown: markdown[range].trim_end().to_owned(),
         });
-    events.take_while(|(e, _)| !matches!(e, Event::End(Tag::Item))).count();
+    events.take_while(|(e, _)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item))).count();
 }
 
 fn parse_message_id(html: &str) -> Option<gix::hash::ObjectId> {
@@ -460,23 +462,25 @@ fn track_unknown_event(unknown_event: Event<'_>, unknown: &mut String) {
     log::trace!("Cannot handle {unknown_event:?}");
     match unknown_event {
         Event::Html(text)
+        | Event::InlineHtml(text)
         | Event::Code(text)
         | Event::Text(text)
         | Event::FootnoteReference(text)
         | Event::Start(
             Tag::FootnoteDefinition(text)
-            | Tag::CodeBlock(pulldown_cmark::CodeBlockKind::Fenced(text))
-            | Tag::Link(_, text, _)
-            | Tag::Image(_, text, _),
+            | Tag::CodeBlock(pulldown_cmark::CodeBlockKind::Fenced(text)),
         ) => unknown.push_str(text.as_ref()),
+        Event::Start(Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. }) => {
+            unknown.push_str(dest_url.as_ref())
+        }
         _ => {}
     }
 }
 
-fn skip_to_next_section_title(events: &mut Peekable<OffsetIter<'_, '_>>, level: HeadingLevel) {
+fn skip_to_next_section_title(events: &mut Peekable<OffsetIter<'_>>, level: HeadingLevel) {
     while let Some((event, _range)) = events.peek() {
         match event {
-            Event::Start(Tag::Heading(indent, _, _)) if *indent == level => break,
+            Event::Start(Tag::Heading { level: indent, .. }) if *indent == level => break,
             _ => {
                 events.next();
                 continue;
