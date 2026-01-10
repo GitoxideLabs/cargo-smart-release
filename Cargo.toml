@@ -55,7 +55,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 
 [dev-dependencies]
 insta = "1.45.1"
-gix-testtools = "0.16.1"
+gix-testtools = "0.17.0"
 testing_logger = "0.1.1"
 
 [workspace]

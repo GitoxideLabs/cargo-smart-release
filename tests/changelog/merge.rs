@@ -465,14 +465,14 @@ fn dated_release_insertion_with_undated_sections() {
     };
 
     let merged = parsed.merge_generated(generated).expect("works");
-    
-    // Verify that the dated release (0.8.0, Jun 1) is inserted BEFORE 
+
+    // Verify that the dated release (0.8.0, Jun 1) is inserted BEFORE
     // the undated release (0.5.0), not at the end
     assert_eq!(merged.sections.len(), 4);
-    
+
     // First section should be the verbatim preamble
     assert!(matches!(merged.sections[0], Section::Verbatim { .. }));
-    
+
     // Second should be 1.0.0 (Sep 15) - newest dated
     if let Section::Release { name, date, .. } = &merged.sections[1] {
         assert_eq!(*name, changelog::Version::Semantic("1.0.0".parse().unwrap()));
@@ -480,7 +480,7 @@ fn dated_release_insertion_with_undated_sections() {
     } else {
         panic!("Expected Release section at index 1");
     }
-    
+
     // Third should be 0.8.0 (Jun 1) - older dated, inserted before undated
     if let Section::Release { name, date, .. } = &merged.sections[2] {
         assert_eq!(*name, changelog::Version::Semantic("0.8.0".parse().unwrap()));
@@ -488,7 +488,7 @@ fn dated_release_insertion_with_undated_sections() {
     } else {
         panic!("Expected Release section at index 2");
     }
-    
+
     // Fourth should be 0.5.0 (undated) - comes after all dated sections
     if let Section::Release { name, date, .. } = &merged.sections[3] {
         assert_eq!(*name, changelog::Version::Semantic("0.5.0".parse().unwrap()));
@@ -497,4 +497,3 @@ fn dated_release_insertion_with_undated_sections() {
         panic!("Expected Release section at index 3");
     }
 }
-
