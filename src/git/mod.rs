@@ -34,7 +34,7 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
     let repo_relative_crate_dir = ctx.repo_relative_path(package);
     Ok(match ctx.repo.head()?.try_into_peeled_id()? {
         Some(current_commit) => {
-            let released_target = tag_ref.peel_to_id_in_place()?;
+            let released_target = tag_ref.peel_to_id()?;
 
             match repo_relative_crate_dir
                 // If it's a top-level crate, use the src-directory for now

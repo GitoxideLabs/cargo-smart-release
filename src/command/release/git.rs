@@ -71,7 +71,7 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
     if !cmd.status()?.success() {
         bail!("Failed to commit changed manifests");
     }
-    Ok(Some(ctx.repo.find_reference("HEAD")?.peel_to_id_in_place()?))
+    Ok(Some(ctx.repo.find_reference("HEAD")?.peel_to_id()?))
 }
 
 pub(in crate::command::release_impl) fn create_version_tag<'repo>(

@@ -24,7 +24,7 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 allow-emoji = ["unicode-properties"]
 
 [dependencies]
-gix = { version = "0.73.0", default-features = false, features = [
+gix = { version = "0.77.0", default-features = false, features = [
     "max-performance",
     "interrupt",
     "index"

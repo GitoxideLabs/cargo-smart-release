@@ -34,7 +34,7 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>
     handle.object_cache_size(64 * 1024);
     let mut head = handle.head()?;
     let id = head
-        .try_peel_to_id_in_place()?
+        .try_peel_to_id()?
         .context("Refusing to operate on a unborn head.")?;
     let reference = match head.kind {
         head::Kind::Detached { .. } => return Ok(None),
@@ -56,7 +56,12 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>
                 let object = commit.object()?;
                 let commit = object.decode()?;
                 let parent = commit.parents().next();
-                (commit.message.to_vec(), commit.tree(), commit.committer.time()?, parent)
+                (
+                    commit.message.to_vec(),
+                    commit.tree(),
+                    commit.committer()?.time()?,
+                    parent,
+                )
             };
             (
                 message,
