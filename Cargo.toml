@@ -37,7 +37,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
 ] }
 cargo_metadata = "0.23.1"
 log = "0.4.29"
-toml_edit = "0.23.9"
+toml_edit = "0.24"
 semver = "1.0.27"
 crates-index = { version = "3.11.0", default-features = false, features = [
     "git-performance",
@@ -47,7 +47,7 @@ cargo_toml = "0.22.3"
 winnow = "0.7.14"
 git-conventional = "0.12.0"
 jiff = "0.2.17"
-pulldown-cmark = { version = "0.9.6", default-features = false }
+pulldown-cmark = { version = "0.13", default-features = false }
 bitflags = "2"
 unicode-properties = { version = "0.1.4", optional = true, features = [
     "emoji",
