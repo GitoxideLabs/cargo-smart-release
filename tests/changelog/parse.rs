@@ -118,3 +118,36 @@ fn known_and_unknown_sections_are_sorted() {
         ],
     )
 }
+
+#[test]
+fn releases_are_sorted_by_date() {
+    let fixture = fixture("releases-sorted-by-date.md").unwrap();
+    let log = ChangeLog::from_markdown(&fixture);
+    
+    // Extract the version numbers and dates from the parsed sections
+    let release_versions: Vec<_> = log
+        .sections
+        .iter()
+        .filter_map(|s| match s {
+            Section::Release { name: Version::Semantic(v), date, .. } => Some((v.clone(), date.clone())),
+            _ => None,
+        })
+        .collect();
+    
+    // Verify they are sorted by date (newest first): 0.77.0, 0.76.0, 0.75.0, 0.74.1, 0.74.0
+    assert_eq!(release_versions.len(), 5);
+    assert_eq!(release_versions[0].0, semver::Version::parse("0.77.0").unwrap());
+    assert_eq!(release_versions[1].0, semver::Version::parse("0.76.0").unwrap());
+    assert_eq!(release_versions[2].0, semver::Version::parse("0.75.0").unwrap());
+    assert_eq!(release_versions[3].0, semver::Version::parse("0.74.1").unwrap());
+    assert_eq!(release_versions[4].0, semver::Version::parse("0.74.0").unwrap());
+    
+    // Verify dates are in descending order
+    if let Some(first_date) = &release_versions[0].1 {
+        for i in 1..release_versions.len() {
+            if let Some(current_date) = &release_versions[i].1 {
+                assert!(first_date > current_date, "Dates should be in descending order");
+            }
+        }
+    }
+}
