@@ -46,21 +46,23 @@ impl ChangeLog {
                 Section::Verbatim { .. } => {
                     bail!("BUG: generated logs may only have verbatim sections at the beginning")
                 }
-                Section::Release { ref name, .. } => match find_target_section(name, sections, first_release_pos) {
-                    Insertion::MergeWith(pos) => sections[pos].merge(section_to_merge)?,
-                    Insertion::At(pos) => {
-                        if let Section::Release {
-                            heading_level,
-                            version_prefix,
-                            ..
-                        } = &mut section_to_merge
-                        {
-                            *heading_level = first_release_indentation;
-                            version_prefix.clone_from(&first_version_prefix);
+                Section::Release { ref name, ref date, .. } => {
+                    match find_target_section(name, date, sections, first_release_pos) {
+                        Insertion::MergeWith(pos) => sections[pos].merge(section_to_merge)?,
+                        Insertion::At(pos) => {
+                            if let Section::Release {
+                                heading_level,
+                                version_prefix,
+                                ..
+                            } = &mut section_to_merge
+                            {
+                                *heading_level = first_release_indentation;
+                                version_prefix.clone_from(&first_version_prefix);
+                            }
+                            sections.insert(pos, section_to_merge);
                         }
-                        sections.insert(pos, section_to_merge);
                     }
-                },
+                }
             }
         }
 
@@ -242,7 +244,12 @@ enum Insertion {
     At(usize),
 }
 
-fn find_target_section(wanted: &Version, sections: &[Section], first_release_index: usize) -> Insertion {
+fn find_target_section(
+    wanted: &Version,
+    wanted_date: &Option<jiff::Zoned>,
+    sections: &[Section],
+    first_release_index: usize,
+) -> Insertion {
     if sections.is_empty() {
         return Insertion::At(0);
     }
@@ -254,37 +261,90 @@ fn find_target_section(wanted: &Version, sections: &[Section], first_release_ind
         Some(res) => res,
         None => match wanted {
             Version::Unreleased => Insertion::At(first_release_index),
-            Version::Semantic(version) => {
-                let (mut pos, min_distance) = sections
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, section)| {
-                        (
-                            idx,
+            Version::Semantic(_version) => {
+                // Find insertion position based on date (newest first)
+                // If the new section has a date, insert it before the first section with an older date
+                // If the new section has no date, insert by version distance as fallback
+                match wanted_date {
+                    Some(new_date) => {
+                        // Find the position where this section should be inserted based on date
+                        // Iterate through existing sections and find where to insert
+                        let mut insert_pos = sections.len(); // Default to end
+                        let mut first_undated_pos = None; // Track first undated section position
+
+                        for (idx, section) in sections.iter().enumerate().skip(first_release_index) {
                             match section {
-                                Section::Verbatim { .. } => MAX_DISTANCE,
-                                Section::Release { name, .. } => version_distance(name, version),
-                            },
-                        )
-                    })
-                    .fold(
-                        (usize::MAX, MAX_DISTANCE),
-                        |(mut pos, mut dist), (cur_pos, cur_dist)| {
-                            if abs_distance(cur_dist) < abs_distance(dist) {
-                                dist = cur_dist;
-                                pos = cur_pos;
+                                Section::Verbatim { .. } => continue,
+                                // Skip Unreleased sections - they always come first
+                                Section::Release {
+                                    name: Version::Unreleased,
+                                    ..
+                                } => continue,
+                                Section::Release {
+                                    date: Some(existing_date),
+                                    ..
+                                } => {
+                                    // If the new release is newer than this one, insert before it
+                                    if new_date > existing_date {
+                                        insert_pos = idx;
+                                        break;
+                                    }
+                                }
+                                Section::Release { date: None, .. } => {
+                                    // Track the first undated section we encounter
+                                    // Dated sections should always come before undated ones
+                                    if first_undated_pos.is_none() {
+                                        first_undated_pos = Some(idx);
+                                    }
+                                }
                             }
-                            (pos, dist)
-                        },
-                    );
-                if pos == usize::MAX {
-                    // We had nothing to compare against, append to the end
-                    pos = sections.len();
-                }
-                if min_distance < (0, 0, 0) {
-                    Insertion::At(pos + 1)
-                } else {
-                    Insertion::At(pos)
+                        }
+
+                        // If we didn't find an older dated section but found undated sections,
+                        // insert before the first undated section to maintain the invariant
+                        // that dated sections come before undated sections
+                        if insert_pos == sections.len() {
+                            if let Some(undated_pos) = first_undated_pos {
+                                insert_pos = undated_pos;
+                            }
+                        }
+
+                        Insertion::At(insert_pos)
+                    }
+                    None => {
+                        // Fallback to version-based insertion for sections without dates
+                        let (mut pos, min_distance) = sections
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, section)| {
+                                (
+                                    idx,
+                                    match section {
+                                        Section::Verbatim { .. } => MAX_DISTANCE,
+                                        Section::Release { name, .. } => version_distance(name, _version),
+                                    },
+                                )
+                            })
+                            .fold(
+                                (usize::MAX, MAX_DISTANCE),
+                                |(mut pos, mut dist), (cur_pos, cur_dist)| {
+                                    if abs_distance(cur_dist) < abs_distance(dist) {
+                                        dist = cur_dist;
+                                        pos = cur_pos;
+                                    }
+                                    (pos, dist)
+                                },
+                            );
+                        if pos == usize::MAX {
+                            // We had nothing to compare against, append to the end
+                            pos = sections.len();
+                        }
+                        if min_distance < (0, 0, 0) {
+                            Insertion::At(pos + 1)
+                        } else {
+                            Insertion::At(pos)
+                        }
+                    }
                 }
             }
         },

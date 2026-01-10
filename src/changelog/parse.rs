@@ -91,7 +91,37 @@ impl ChangeLog {
             }
         }
         release_sections.sort_by(|lhs, rhs| match (lhs, rhs) {
-            (Section::Release { name: lhs, .. }, Section::Release { name: rhs, .. }) => lhs.cmp(rhs).reverse(),
+            (
+                Section::Release {
+                    name: lhs_name,
+                    date: lhs_date,
+                    ..
+                },
+                Section::Release {
+                    name: rhs_name,
+                    date: rhs_date,
+                    ..
+                },
+            ) => {
+                match (lhs_name, rhs_name) {
+                    // Unreleased sections always come first
+                    (changelog::Version::Unreleased, changelog::Version::Unreleased) => std::cmp::Ordering::Equal,
+                    (changelog::Version::Unreleased, _) => std::cmp::Ordering::Less,
+                    (_, changelog::Version::Unreleased) => std::cmp::Ordering::Greater,
+                    // For released versions, sort by date (newest first)
+                    (changelog::Version::Semantic(_), changelog::Version::Semantic(_)) => {
+                        match (lhs_date, rhs_date) {
+                            // Both have dates: sort by date descending
+                            (Some(lhs_d), Some(rhs_d)) => rhs_d.cmp(lhs_d),
+                            // If one has no date, put it after those with dates
+                            (Some(_), None) => std::cmp::Ordering::Less,
+                            (None, Some(_)) => std::cmp::Ordering::Greater,
+                            // Both have no date: fall back to version comparison (descending)
+                            (None, None) => lhs_name.cmp(rhs_name).reverse(),
+                        }
+                    }
+                }
+            }
             _ => unreachable!("BUG: there are only release sections here"),
         });
         let mut sections = Vec::from_iter(non_release_sections.drain(..insert_sorted_at_pos));

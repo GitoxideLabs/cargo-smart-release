@@ -185,8 +185,8 @@ fn segment_head_time(segment: &commit::history::Segment<'_>, repo: &gix::Reposit
         .object()
         .expect("object exists")
         .to_commit_ref()
-        .committer
-        .time()
+        .committer()
+        .map(|commit| commit.time().unwrap_or_default())
         .unwrap_or_default();
 
     time_to_zoned_time(time).expect("always valid time (in range)")
