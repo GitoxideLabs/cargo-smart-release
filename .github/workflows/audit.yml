@@ -30,8 +30,8 @@ jobs:
     continue-on-error: true  # Prevent sudden announcement of a new advisory from failing CI.
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: taiki-e/install-action@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: taiki-e/install-action@83961fc0a2afe7f045535b5741d9a6418d7e1168 # v2.66.0
       with:
         tool: cargo-audit
     - name: Stub out `cargo generate-lockfile` to work around actions-rs/audit-check#163
@@ -53,7 +53,7 @@ jobs:
         EOF
 
         chmod +x cargo
-    - uses: actions-rs/audit-check@v1
+    - uses: actions-rs/audit-check@35b7b53b1e25b55642157ac01b4adceb5b9ebef3 # v1.2.0
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -67,8 +67,8 @@ jobs:
         checks:
         - bans licenses sources
     steps:
-    - uses: actions/checkout@v6
-    - uses: EmbarkStudios/cargo-deny-action@v2
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2.0.15
       with:
         command: check ${{ matrix.checks }}
         rust-version: stable

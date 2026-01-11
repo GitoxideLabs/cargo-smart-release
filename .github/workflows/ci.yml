@@ -38,15 +38,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: Swatinem/rust-cache@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Build
       run: cargo test --no-run --workspace --all-features
     - name: Default features
       run: cargo test --workspace
     - name: All features
       run: cargo test --workspace --all-features
-    - uses: extractions/setup-just@v3
+    - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
     - name: No-default features
       run: cargo test --workspace --no-default-features
     - name: Journey
@@ -57,8 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: Swatinem/rust-cache@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: "Is lockfile updated?"
       run: cargo fetch --locked
 
@@ -67,8 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: Swatinem/rust-cache@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Check documentation
       env:
         RUSTDOCFLAGS: -D warnings
@@ -79,8 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: Swatinem/rust-cache@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Check formatting
       run: cargo fmt --all -- --check
 
@@ -91,8 +91,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - uses: Swatinem/rust-cache@v2
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Install SARIF tools
       run: cargo install clippy-sarif
     - name: Install SARIF tools
@@ -105,7 +105,7 @@ jobs:
         | sarif-fmt
       continue-on-error: true
     - name: Upload
-      uses: github/codeql-action/upload-sarif@v4
+      uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
       with:
         sarif_file: clippy-results.sarif
         wait-for-processing: true
