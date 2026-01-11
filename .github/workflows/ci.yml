@@ -24,7 +24,10 @@ jobs:
     needs: [test, docs, rustfmt, clippy]
     runs-on: ubuntu-latest
     steps:
-    - name: Done
+    - name: Fail if ANY dependency has failed or cancelled
+      if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      run: exit 1
+    - name: OK
       run: exit 0
 
   test:
