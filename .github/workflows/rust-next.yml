@@ -27,12 +27,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
-        toolchain: ${{ matrix.rust }}
-    - uses: Swatinem/rust-cache@v2
+        persist-credentials: false
+    - name: Install Rust
+      env:
+        RUST: ${{ matrix.rust }}
+      shell: bash  # Use `bash` on all OSes, for `$` expansion and `set -e` behavior.
+      run: |
+        rustup update "$RUST"
+        rustup default "$RUST"
+    - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Default features
       run: cargo test --workspace
     - name: All features
@@ -45,12 +50,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
-        toolchain: stable
-    - uses: Swatinem/rust-cache@v2
+        persist-credentials: false
+    - name: Install Rust
+      run: |
+        rustup update stable
+        rustup default stable
     - name: Update dependencies
       run: cargo update
     - name: Default features
