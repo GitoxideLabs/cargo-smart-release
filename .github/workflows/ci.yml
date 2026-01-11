@@ -19,9 +19,8 @@ env:
 
 jobs:
   ci:
-    permissions:
-      contents: none
     name: CI
+    permissions: {}
     needs: [test, docs, rustfmt, clippy]
     runs-on: ubuntu-latest
     steps:
@@ -84,9 +83,9 @@ jobs:
 
   clippy:
     name: clippy
-    runs-on: ubuntu-latest
     permissions:
-      security-events: write # to upload sarif results
+      security-events: write  # To upload SARIF results.
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6

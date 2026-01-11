@@ -24,11 +24,10 @@ env:
 jobs:
   security_audit:
     permissions:
-      issues: write # to create issues (actions-rs/audit-check)
-      checks: write # to create check (actions-rs/audit-check)
+      issues: write  # To create issues (actions-rs/audit-check).
+      checks: write  # To create check (actions-rs/audit-check).
     runs-on: ubuntu-latest
-    # Prevent sudden announcement of a new advisory from failing ci:
-    continue-on-error: true
+    continue-on-error: true  # Prevent sudden announcement of a new advisory from failing CI.
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -60,8 +59,8 @@ jobs:
 
   cargo_deny:
     permissions:
-      issues: write # to create issues (actions-rs/audit-check)
-      checks: write # to create check (actions-rs/audit-check)
+      issues: write  # To create issues (actions-rs/audit-check).
+      checks: write  # To create check (actions-rs/audit-check).
     runs-on: ubuntu-latest
     strategy:
       matrix:
