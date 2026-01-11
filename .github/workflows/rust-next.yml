@@ -31,9 +31,12 @@ jobs:
       with:
         persist-credentials: false
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
+      env:
+        RUST: ${{ matrix.rust }}
+      shell: bash  # Use `bash` on all OSes, for `$` expansion and `set -e` behavior.
+      run: |
+        rustup update "$RUST"
+        rustup default "$RUST"
     - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Default features
       run: cargo test --workspace
@@ -51,9 +54,9 @@ jobs:
       with:
         persist-credentials: false
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: stable
+      run: |
+        rustup update stable
+        rustup default stable
     - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
     - name: Update dependencies
       run: cargo update
