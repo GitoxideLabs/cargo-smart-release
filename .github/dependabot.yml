@@ -8,7 +8,6 @@ updates:
     prefix: ''
   allow:
   - dependency-type: all
-  ignore:
   groups:
     cargo:
       patterns: ['*']
