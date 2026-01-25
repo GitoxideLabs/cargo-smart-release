@@ -1,0 +1,20 @@
+---
+source: tests/changelog/write_and_parse/mod.rs
+expression: md
+---
+## v1.0.0 (1970-01-01)
+
+### Bug Fixes
+
+ - <csr-id-0000000000000000000000000000000000000001/> Remove hidden bogosort functionality
+   If users turn out to be depending on bogosort, we may:
+   
+   - Add instructions for using an earlier version.
+   - Add back bogosort and document it properly.
+   
+   We defaulted to bogosort on Tuesdays based on these mistaken beliefs:
+   
+   - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.
+   - The software can never be run on Tuesday.
+ - <csr-id-0000000000000000000000000000000000000002/> Time zones are remembered across sessions
+
