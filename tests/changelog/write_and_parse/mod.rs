@@ -9,6 +9,104 @@ use gix_testtools::bstr::ByteSlice;
 
 use crate::{changelog::hex_to_id, Result};
 
+/// Top-level unordered lists in commit message bodies should not
+/// be flattened into separate changelog entries.
+///
+/// When a conventional commit has a body containing a top-level unordered list like:
+/// ```
+/// fix: Remove hidden bogosort functionality
+///
+/// If users turn out to be depending on bogosort, we may:
+///
+/// - Add instructions for using an earlier version.
+/// - Add back bogosort and document it properly.
+/// ```
+///
+/// The list items in the body should remain as part of the same changelog entry,
+/// not become separate top-level entries in the changelog.
+#[test]
+fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
+    let log = ChangeLog {
+        sections: vec![Section::Release {
+            heading_level: 2,
+            version_prefix: Section::DEFAULT_PREFIX.into(),
+            date: Some(jiff::Timestamp::new(0, 0)?.to_zoned(jiff::tz::TimeZone::UTC)),
+            name: changelog::Version::Semantic("1.0.0".parse()?),
+            removed_messages: vec![],
+            segments: vec![section::Segment::Conventional(section::segment::Conventional {
+                kind: "fix",
+                is_breaking: false,
+                removed: vec![],
+                messages: vec![
+                    conventional::Message::Generated {
+                        id: hex_to_id("0000000000000000000000000000000000000001"),
+                        title: "Remove hidden bogosort functionality".into(),
+                        body: Some(
+                            "If users turn out to be depending on bogosort, we may:\n\n\
+                             - Add instructions for using an earlier version.\n\
+                             - Add back bogosort and document it properly.\n\n\
+                             We defaulted to bogosort on Tuesdays based on these mistaken beliefs:\n\n\
+                             - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.\n\
+                             - The software can never be run on Tuesday."
+                                .into(),
+                        ),
+                    },
+                    conventional::Message::Generated {
+                        id: hex_to_id("0000000000000000000000000000000000000002"),
+                        title: "Time zones are remembered across sessions".into(),
+                        body: None,
+                    },
+                ],
+            })],
+            unknown: String::new(),
+        }],
+    };
+
+    // Write the changelog to markdown
+    let mut md = String::new();
+    log.write_to(
+        &mut md,
+        &changelog::write::Linkables::AsText,
+        changelog::write::Components::all(),
+        false,
+    )?;
+
+    // Verify the markdown structure: There should be exactly 2 top-level bullet points
+    // (one for each conventional::Message::Generated), not 6 (as would happen if
+    // the list items in the body were flattened).
+    let top_level_bullets = md.lines().filter(|line| line.starts_with(" - ")).count();
+    assert_eq!(
+        top_level_bullets, 2,
+        "Expected 2 top-level bullet points (one per message), but got {}.\n\
+         The body's list items may have been flattened into separate entries.\n\
+         Markdown:\n{}",
+        top_level_bullets, md
+    );
+
+    // Parse back and verify round-trip stability
+    let parsed_log = ChangeLog::from_markdown(&md);
+    assert_eq!(parsed_log, log, "should round-trip losslessly");
+
+    insta::assert_snapshot!(md, @"
+    ## v1.0.0 (1970-01-01)
+
+    ### Bug Fixes
+
+     - <csr-id-0000000000000000000000000000000000000001/> Remove hidden bogosort functionality
+       If users turn out to be depending on bogosort, we may:
+       
+       - Add instructions for using an earlier version.
+       - Add back bogosort and document it properly.
+       
+       We defaulted to bogosort on Tuesdays based on these mistaken beliefs:
+       
+       - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.
+       - The software can never be run on Tuesday.
+     - <csr-id-0000000000000000000000000000000000000002/> Time zones are remembered across sessions
+    ");
+    Ok(())
+}
+
 #[test]
 fn conventional_write_empty_messages() -> Result {
     let first_message = hex_to_id("0000000000000000000000000000000000000001");
