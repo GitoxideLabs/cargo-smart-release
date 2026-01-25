@@ -9,7 +9,7 @@ use gix_testtools::bstr::ByteSlice;
 
 use crate::{changelog::hex_to_id, Result};
 
-/// Test for issue #30: Top-level unordered lists in commit message bodies should not
+/// Top-level unordered lists in commit message bodies should not
 /// be flattened into separate changelog entries.
 ///
 /// When a conventional commit has a body containing a top-level unordered list like:
@@ -87,7 +87,23 @@ fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
     let parsed_log = ChangeLog::from_markdown(&md);
     assert_eq!(parsed_log, log, "should round-trip losslessly");
 
-    insta::assert_snapshot!(md);
+    insta::assert_snapshot!(md, @"
+    ## v1.0.0 (1970-01-01)
+
+    ### Bug Fixes
+
+     - <csr-id-0000000000000000000000000000000000000001/> Remove hidden bogosort functionality
+       If users turn out to be depending on bogosort, we may:
+       
+       - Add instructions for using an earlier version.
+       - Add back bogosort and document it properly.
+       
+       We defaulted to bogosort on Tuesdays based on these mistaken beliefs:
+       
+       - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.
+       - The software can never be run on Tuesday.
+     - <csr-id-0000000000000000000000000000000000000002/> Time zones are remembered across sessions
+    ");
     Ok(())
 }
 

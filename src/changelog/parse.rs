@@ -393,13 +393,16 @@ fn parse_id_fallback_to_user_message(
                         title: lines.next().map_or("", |l| l.trim()).to_owned(),
                         body: lines
                             .map(|l| {
-                                // Strip exactly 3 leading spaces (the indentation we add during writing),
-                                // preserving any additional indentation for nested lists.
-                                // This fixes issue #30 where nested list items were being flattened.
-                                const INDENT_TO_STRIP: usize = 3;
-                                let leading_spaces = l.chars().take_while(|c| *c == ' ').count();
-                                let chars_to_strip = leading_spaces.min(INDENT_TO_STRIP);
-                                &l[chars_to_strip..]
+                                match l
+                                    .chars()
+                                    .take_while(|c| *c == ' ' || *c == '\t')
+                                    .enumerate()
+                                    .map(|(idx, _)| idx)
+                                    .last()
+                                {
+                                    Some(last_pos_to_truncate) => &l[last_pos_to_truncate + 1..],
+                                    None => l,
+                                }
                             })
                             .fold(None::<String>, |mut acc, l| {
                                 acc.get_or_insert_with(String::new).push_str(l);
