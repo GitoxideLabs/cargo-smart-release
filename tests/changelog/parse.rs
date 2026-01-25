@@ -179,9 +179,7 @@ fn nested_list_items_with_csr_id_round_trips_stably() {
     // Verify the nested list items are properly captured in the body
     assert_eq!(log.sections.len(), 1);
     match &log.sections[0] {
-        Section::Release {
-            segments, unknown, ..
-        } => {
+        Section::Release { segments, unknown, .. } => {
             // unknown should be empty - no accumulation
             assert!(unknown.is_empty(), "unknown should be empty, got: {unknown:?}");
             // There should be exactly one Conventional segment
@@ -254,9 +252,7 @@ fn user_message_with_nested_list_round_trips_stably() {
     // Verify it parses as a User message (not Generated, since no csr-id)
     assert_eq!(log.sections.len(), 1);
     match &log.sections[0] {
-        Section::Release {
-            segments, unknown, ..
-        } => {
+        Section::Release { segments, unknown, .. } => {
             assert!(unknown.is_empty(), "unknown should be empty");
             assert_eq!(segments.len(), 1);
             match &segments[0] {
@@ -265,10 +261,7 @@ fn user_message_with_nested_list_round_trips_stably() {
                     match &messages[0] {
                         segment::conventional::Message::User { markdown } => {
                             // The user markdown should preserve the nested list structure
-                            assert!(
-                                markdown.contains("`is_empty`"),
-                                "markdown should contain is_empty"
-                            );
+                            assert!(markdown.contains("`is_empty`"), "markdown should contain is_empty");
                             assert!(markdown.contains("`len`"), "markdown should contain len");
                         }
                         _ => panic!("Expected User message"),
@@ -290,5 +283,8 @@ fn user_message_with_nested_list_round_trips_stably() {
     log2.write_to(&mut output2, &Linkables::AsText, Components::all(), false)
         .unwrap();
 
-    assert_eq!(output1, output2, "User message with nested list should round-trip stably");
+    assert_eq!(
+        output1, output2,
+        "User message with nested list should round-trip stably"
+    );
 }
