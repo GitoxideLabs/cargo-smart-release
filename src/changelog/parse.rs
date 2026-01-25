@@ -373,12 +373,10 @@ fn parse_id_fallback_to_user_message(
 ) {
     match parse_message_id(tag.as_ref()) {
         Some(id) => {
-            let mut events = events
-                .by_ref()
-                .take_while(|(e, _r)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item)))
-                .map(|(_, r)| r);
-            let start = events.next();
-            let end = events.last().or_else(|| start.clone());
+            let mut ranges = Vec::new();
+            consume_item_events(events, |range| ranges.push(range));
+            let start = ranges.first();
+            let end = ranges.last().or(start);
             if let Some(title_and_body) = start
                 .map(|r| r.start)
                 .and_then(|start| end.map(|r| markdown[start..r.end].trim()))
@@ -428,9 +426,27 @@ fn make_user_message_and_consume_item(
         .push(section::segment::conventional::Message::User {
             markdown: markdown[range].trim_end().to_owned(),
         });
-    events
-        .take_while(|(e, _)| !matches!(e, Event::End(pulldown_cmark::TagEnd::Item)))
-        .count();
+    consume_item_events(events, |_| {});
+}
+
+/// Consume events until the end of the current list item, properly handling nested items.
+/// We start at depth 1 because we're already inside one Item.
+/// The callback is invoked with the range of each event consumed.
+fn consume_item_events(events: &mut Peekable<OffsetIter<'_>>, mut on_event: impl FnMut(Range<usize>)) {
+    let mut item_depth: usize = 1;
+    for (event, range) in events.by_ref() {
+        match &event {
+            Event::Start(Tag::Item) => item_depth += 1,
+            Event::End(pulldown_cmark::TagEnd::Item) => {
+                item_depth -= 1;
+                if item_depth == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        on_event(range);
+    }
 }
 
 fn parse_message_id(html: &str) -> Option<gix::hash::ObjectId> {
