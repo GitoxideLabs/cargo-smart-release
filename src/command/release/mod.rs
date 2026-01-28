@@ -19,8 +19,8 @@ use crate::{
 mod cargo;
 mod git;
 mod github;
+mod gitlab;
 mod manifest;
-
 pub(crate) struct Context {
     base: crate::Context,
     changelog_links: Linkables,
