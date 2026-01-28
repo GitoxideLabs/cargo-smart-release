@@ -23,7 +23,7 @@ impl Default for Support {
 impl Support {
     fn new() -> Self {
         Support {
-            glab: Program::named("gh"),
+            glab: Program::named("glab"),
         }
     }
 }
