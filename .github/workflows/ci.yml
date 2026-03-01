@@ -48,7 +48,7 @@ jobs:
       run: cargo test --workspace
     - name: All features
       run: cargo test --workspace --all-features
-    - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+    - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
     - name: No-default features
       run: cargo test --workspace --no-default-features
     - name: Journey
@@ -115,7 +115,7 @@ jobs:
         | sarif-fmt
       continue-on-error: true
     - name: Upload
-      uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
+      uses: github/codeql-action/upload-sarif@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
       with:
         sarif_file: clippy-results.sarif
         wait-for-processing: true
