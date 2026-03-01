@@ -29,9 +29,9 @@ gix = { version = "0.78.0", default-features = false, features = [
     "interrupt",
     "index"
 ] }
-anyhow = "1.0.100"
-clap = { version = "4.5.53", features = ["derive", "cargo"] }
-env_logger = { version = "0.11.6", default-features = false, features = [
+anyhow = "1.0.102"
+clap = { version = "4.5.60", features = ["derive", "cargo"] }
+env_logger = { version = "0.11.9", default-features = false, features = [
     "humantime",
     "auto-color",
 ] }
@@ -45,8 +45,8 @@ crates-index = { version = "3.11.0", default-features = false, features = [
 ] }
 cargo_toml = "0.22.3"
 winnow = "0.7.14"
-git-conventional = "0.12.0"
-jiff = "0.2.17"
+git-conventional = "1.0.0"
+jiff = "0.2.20"
 pulldown-cmark = { version = "0.13", default-features = false }
 bitflags = "2"
 unicode-properties = { version = "0.1.4", optional = true, features = [
@@ -54,7 +54,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 ], default-features = false }
 
 [dev-dependencies]
-insta = "1.46.1"
+insta = "1.46.3"
 gix-testtools = "0.18.0"
 testing_logger = "0.1.1"
 
