@@ -113,6 +113,23 @@ pub fn has_tracked_modifications(repo: &gix::Repository) -> anyhow::Result<bool>
     Ok(false)
 }
 
+pub fn has_staged_changes(repo: &gix::Repository) -> anyhow::Result<bool> {
+    let head_tree_id = repo.head_tree_id_or_empty()?;
+    let index = repo.index_or_empty()?;
+    let mut has_staged_changes = false;
+    repo.tree_index_status(
+        &head_tree_id,
+        &index,
+        None,
+        gix::status::tree_index::TrackRenames::Disabled,
+        |_, _, _| {
+            has_staged_changes = true;
+            Ok::<_, std::convert::Infallible>(std::ops::ControlFlow::Break(()))
+        },
+    )?;
+    Ok(has_staged_changes)
+}
+
 pub fn remote_url(repo: &gix::Repository) -> anyhow::Result<Option<gix::Url>> {
     Ok(repo
         .head()?

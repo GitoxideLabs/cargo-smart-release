@@ -74,10 +74,10 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
 
     let output = cmd.output()?;
     if !output.status.success() {
-        if crate::git::has_tracked_modifications(repo)? {
+        if crate::git::has_tracked_modifications(repo)? || crate::git::has_staged_changes(repo)? {
             bail!("Failed to commit changed manifests");
         }
-        log::info!("No tracked manifest changes remained to commit; assuming the release commit already exists.");
+        log::info!("No tracked or staged changes remained to commit; assuming the release commit already exists.");
     }
     Ok(Some(repo.find_reference("HEAD")?.peel_to_id()?))
 }

@@ -603,9 +603,10 @@ fn depth_first_traversal<'meta>(
     Ok(())
 }
 
-/// Ensure workspace crates that depend on already adjusted crates are included
-/// as well, so dependency declarations remain consistent with the version or
-/// manifest changes that will be applied elsewhere in the workspace.
+/// Ensure workspace crates that depend on crates whose own release version is
+/// changing are included as well, so dependency declarations remain
+/// consistent with the version updates that will be applied elsewhere in the
+/// workspace.
 ///
 /// To do that, `ctx` provides the workspace membership and dependency graph,
 /// and `crates` is updated in place with any newly affected packages.
@@ -620,36 +621,44 @@ fn adjust_workspace_crates_depending_on_adjusted_crates<'meta>(
     crates: &mut Vec<Dependency<'meta>>,
     bump_when_needed: bool,
 ) -> anyhow::Result<()> {
-    let adjusted_workspace_crates: Vec<_> = crates
-        .iter()
-        .filter(|c| c.mode.manifest_will_change())
-        .map(|c| c.package)
-        .collect();
+    loop {
+        let version_adjusted_workspace_crates: Vec<_> = crates
+            .iter()
+            .filter(|c| c.mode.version_adjustment_bump().is_some())
+            .map(|c| c.package)
+            .collect();
+        let mut changed = false;
 
-    for wsp in ctx.meta.workspace_members.iter().map(|id| package_by_id(&ctx.meta, id)) {
-        let depends_on_adjusted_crate = wsp.dependencies.iter().any(|dependency| {
-            adjusted_workspace_crates
-                .iter()
-                .any(|adjusted| package_eq_dependency_ignore_dev_without_version(adjusted, dependency))
-        });
-        if !depends_on_adjusted_crate {
-            continue;
+        for wsp in ctx.meta.workspace_members.iter().map(|id| package_by_id(&ctx.meta, id)) {
+            let depends_on_adjusted_crate = wsp.dependencies.iter().any(|dependency| {
+                version_adjusted_workspace_crates
+                    .iter()
+                    .any(|adjusted| package_eq_dependency_ignore_dev_without_version(adjusted, dependency))
+            });
+            if !depends_on_adjusted_crate {
+                continue;
+            }
+
+            match crates.iter_mut().find(|c| c.package.id == wsp.id) {
+                Some(existing) => {
+                    changed |= maybe_promote_selected_dependency(existing, ctx, bump_when_needed)?;
+                }
+                None => {
+                    crates.push(Dependency {
+                        kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                        package: wsp,
+                        mode: dependency::Mode::NotForPublishing {
+                            adjustment: ManifestAdjustment::DueToDependencyChange.into(),
+                            reason: dependency::NoPublishReason::Unchanged,
+                        },
+                    });
+                    changed = true;
+                }
+            }
         }
 
-        match crates.iter_mut().find(|c| c.package.id == wsp.id) {
-            Some(existing) => {
-                maybe_promote_selected_dependency(existing, ctx, bump_when_needed)?;
-            }
-            None => {
-                crates.push(Dependency {
-                    kind: dependency::Kind::DependencyOrDependentOfUserSelection,
-                    package: wsp,
-                    mode: dependency::Mode::NotForPublishing {
-                        adjustment: ManifestAdjustment::DueToDependencyChange.into(),
-                        reason: dependency::NoPublishReason::Unchanged,
-                    },
-                });
-            }
+        if !changed {
+            break;
         }
     }
     Ok(())

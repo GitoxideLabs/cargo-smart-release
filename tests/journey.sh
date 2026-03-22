@@ -177,6 +177,10 @@ title "smart-release"
             WITH_SNAPSHOT="$snapshot/b-dry-run-success-indirect-change" \
             expect_run $SUCCESSFULLY "$exe" smart-release b --no-push --no-publish -v --allow-dirty
           }
+          it "propagates promoted dependency changes transitively" && {
+            WITH_SNAPSHOT="$snapshot/b-dry-run-success-indirect-change-transitive" \
+            expect_run $SUCCESSFULLY "$exe" smart-release b --no-push --no-publish -v --allow-dirty -b minor --no-bump-on-demand --auto-publish-of-stable-crates
+          }
           git reset --hard HEAD~1 &>/dev/null
           git tag -d a-v0.8.0 b-v0.8.0 c-v8.0.0 &>/dev/null
         )

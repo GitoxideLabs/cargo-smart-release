@@ -1,0 +1,19 @@
+[WARN ] Crates.io index doesn't exist. Consider using --update-crates-index to help determining if release versions are published already
+[INFO ] WOULD auto-bump dependent package 'a' from 0.8.0 to 0.8.1 for publishing
+[INFO ] WOULD minor-bump provided package 'b' from 0.8.0 to 0.9.0 for publishing
+[INFO ] WOULD adjust version constraints in manifest of 1 package as direct dependencies are changing: c
+[INFO ] WOULD modify existing changelog for 'a'.
+[INFO ] WOULD modify existing changelog for 'b'.
+[TRACE] Pending 'a' manifest version update: "0.8.1"
+[TRACE] Pending 'b' manifest version update: "0.9.0"
+[TRACE] Pending 'b' conservative manifest dependencies update: 'a = "^0.8.1"' (from  "0.8.0" )
+[TRACE] Pending 'c' manifest dependencies update: 'b = "^0.9.0"' (from  "0.8.0" )
+[TRACE] WOULD persist changes to 3 manifests and 2 changelogs with: "Adjusting changelogs prior to release of a v0.8.1, b v0.9.0"
+[INFO ] Up to 2 changelogs would be previewed if the --execute is set and --no-changelog-preview is unset.
+[WARN ] WOULD ask for review after commit as the changelog entry is empty for crate: b
+[WARN ] To fix the changelog manually, run: cargo changelog --write b
+[TRACE] WOULD run "git" "commit" "-am" "Adjusting changelogs prior to release of a v0.8.1, b v0.9.0"
+[TRACE] WOULD create tag object a-v0.8.1 with changelog message, first line is: '### New Features'
+[TRACE] WOULD create tag object b-v0.9.0 with changelog message, first line is: ''
+[TRACE] WOULD run "gh" "release" "create" "a-v0.8.1" "--title" "a v0.8.1" "--notes" "### New Features\n\n - n…" [note truncated]
+[TRACE] WOULD run "gh" "release" "create" "b-v0.9.0" "--title" "b v0.9.0" "--notes" "…" [note truncated]
