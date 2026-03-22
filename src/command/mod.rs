@@ -29,6 +29,7 @@ pub mod release {
         pub capitalize_commit: bool,
         pub registry: Option<String>,
         pub target: Option<String>,
+        pub publish_uses_docs_rs_metadata: bool,
         pub signoff: bool,
         pub commit_prefix: Option<String>,
     }

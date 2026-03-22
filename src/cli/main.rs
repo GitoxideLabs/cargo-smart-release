@@ -65,6 +65,7 @@ fn main() -> anyhow::Result<()> {
             capitalize_commit,
             registry,
             target,
+            publish_uses_docs_rs_metadata,
             signoff,
             commit_prefix,
         } => {
@@ -97,6 +98,7 @@ fn main() -> anyhow::Result<()> {
                     capitalize_commit,
                     registry,
                     target,
+                    publish_uses_docs_rs_metadata,
                     signoff,
                     commit_prefix,
                 },

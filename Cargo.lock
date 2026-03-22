@@ -170,6 +170,7 @@ dependencies = [
  "log",
  "pulldown-cmark",
  "semver",
+ "serde_json",
  "testing_logger",
  "toml_edit",
  "unicode-properties",

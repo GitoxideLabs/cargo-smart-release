@@ -205,3 +205,32 @@ title "smart-release"
     )
   )
 )
+
+(sandbox
+  set-static-git-environment
+  export CARGO_HOME="$(mktemp -t cargo-home.XXXXXX -d)"
+
+  snapshot="$snapshot/triple-depth-workspace"
+  cp -R $fixtures/tri-depth-workspace/* .
+  { echo 'target/' > .gitignore && init-git-repo; } &>/dev/null
+
+  cat <<'EOF' >> a/Cargo.toml
+
+[features]
+docs-rs-feature = []
+
+[package.metadata.docs.rs]
+features = ["docs-rs-feature"]
+all-features = true
+no-default-features = true
+EOF
+
+  (with_program gh
+    (with "docs.rs publish metadata"
+      it "forwards docs.rs feature flags to cargo publish" && {
+        expect_run_sh $SUCCESSFULLY \
+          "\"$exe\" smart-release a --no-push -v --allow-dirty -b minor --publish-uses-docs-rs-metadata 2>&1 | grep -F '\"cargo\" \"publish\" \"--features\" \"docs-rs-feature\" \"--all-features\" \"--no-default-features\"'"
+      }
+    )
+  )
+)
