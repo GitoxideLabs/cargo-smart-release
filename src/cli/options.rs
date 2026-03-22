@@ -158,6 +158,12 @@ pub enum SubCommands {
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         target: Option<String>,
 
+        /// When invoking `cargo publish`, also mirror feature selection from `package.metadata.docs.rs`.
+        ///
+        /// Currently this forwards `features`, `all-features`, and `no-default-features`.
+        #[clap(long, help_heading = Some("CUSTOMIZATION"))]
+        publish_uses_docs_rs_metadata: bool,
+
         /// Pass --no-verify to 'cargo publish' which should only be a last resort when fixing up packages that
         /// otherwise wouldn't publish, but need to be publish to resolve the situation.
         #[clap(long, help_heading = Some("EXPERT"))]

@@ -61,11 +61,19 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
                 entry_store = entry;
                 entry_store.get_mut()
             }
-            Entry::Vacant(entry) => entry.insert(gix::lock::File::acquire_to_update_resource(
-                &package.manifest_path,
-                gix::lock::acquire::Fail::Immediately,
-                None,
-            )?),
+            Entry::Vacant(entry) => entry.insert(
+                gix::lock::File::acquire_to_update_resource(
+                    &package.manifest_path,
+                    gix::lock::acquire::Fail::Immediately,
+                    None,
+                )
+                .with_context(|| {
+                    format!(
+                        "While locking manifest '{}' to update versions and dependency requirements for crate '{}'",
+                        package.manifest_path, package.name
+                    )
+                })?,
+            ),
         };
         made_change |= set_version_and_update_package_dependency(
             package,
@@ -115,7 +123,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         !made_change,
         opts.signoff,
         &changelog_paths,
-        &ctx.base,
+        &ctx.base.repo,
     )?;
     if let Some(bail_message) = bail_message {
         bail!(bail_message);
@@ -416,7 +424,13 @@ fn gather_changelog_data<'meta>(
             &publishee.manifest_path,
             gix::lock::acquire::Fail::Immediately,
             None,
-        )?;
+        )
+        .with_context(|| {
+            format!(
+                "While locking manifest '{}' during changelog preparation for crate '{}'",
+                publishee.manifest_path, publishee.name
+            )
+        })?;
         let previous = locks_by_manifest_path.insert(&publishee.manifest_path, lock);
         assert!(previous.is_none(), "publishees are unique so insertion always happens");
         if let Some(history) = ctx.base.history.as_ref() {

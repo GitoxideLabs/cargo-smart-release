@@ -168,6 +168,22 @@ title "smart-release"
             }
           )
         )
+        (with 'existing release tags and an adjusted direct dependency'
+          git tag a-v0.8.0
+          git tag b-v0.8.0
+          git tag c-v8.0.0
+          (cd a && touch feat && git add feat && git commit -m "feat: new") &>/dev/null
+          it "publishes unchanged selected crates indirectly" && {
+            WITH_SNAPSHOT="$snapshot/b-dry-run-success-indirect-change" \
+            expect_run $SUCCESSFULLY "$exe" smart-release b --no-push --no-publish -v --allow-dirty
+          }
+          it "propagates promoted dependency changes transitively" && {
+            WITH_SNAPSHOT="$snapshot/b-dry-run-success-indirect-change-transitive" \
+            expect_run $SUCCESSFULLY "$exe" smart-release b --no-push --no-publish -v --allow-dirty -b minor --no-bump-on-demand --auto-publish-of-stable-crates
+          }
+          git reset --hard HEAD~1 &>/dev/null
+          git tag -d a-v0.8.0 b-v0.8.0 c-v8.0.0 &>/dev/null
+        )
       )
       (with '--execute but without side-effects'
         it "succeeds" && {
@@ -194,3 +210,31 @@ title "smart-release"
   )
 )
 
+(sandbox
+  set-static-git-environment
+  export CARGO_HOME="$(mktemp -t cargo-home.XXXXXX -d)"
+
+  snapshot="$snapshot/triple-depth-workspace"
+  cp -R $fixtures/tri-depth-workspace/* .
+  { echo 'target/' > .gitignore && init-git-repo; } &>/dev/null
+
+  cat <<'EOF' >> a/Cargo.toml
+
+[features]
+docs-rs-feature = []
+
+[package.metadata.docs.rs]
+features = ["docs-rs-feature"]
+all-features = true
+no-default-features = true
+EOF
+
+  (with_program gh
+    (with "docs.rs publish metadata"
+      it "forwards docs.rs feature flags to cargo publish" && {
+        expect_run_sh $SUCCESSFULLY \
+          "\"$exe\" smart-release a --no-push -v --allow-dirty -b minor --publish-uses-docs-rs-metadata 2>&1 | grep -F '\"cargo\" \"publish\" \"--features\" \"docs-rs-feature\" \"--all-features\" \"--no-default-features\"'"
+      }
+    )
+  )
+)

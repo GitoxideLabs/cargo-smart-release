@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use cargo_metadata::{camino::Utf8Path, Package};
 use gix::{
     bstr::{BStr, ByteSlice},
@@ -93,6 +93,41 @@ pub fn assure_clean_working_tree() -> anyhow::Result<()> {
         return Err(err.context("Found untracked files which would possibly be packaged when publishing."));
     }
     Ok(())
+}
+
+pub fn has_tracked_modifications(repo: &gix::Repository) -> anyhow::Result<bool> {
+    let mut status = repo
+        .status(gix::progress::Discard)?
+        .untracked_files(gix::status::UntrackedFiles::None)
+        .index_worktree_rewrites(None)
+        .index_worktree_submodules(None)
+        .into_index_worktree_iter(None)
+        .context("While creating git status for tracked modifications")?;
+
+    for item in &mut status {
+        match item.context("While reading git status for tracked modifications")? {
+            item if item.summary().is_some() => return Ok(true),
+            _ => {}
+        }
+    }
+    Ok(false)
+}
+
+pub fn has_staged_changes(repo: &gix::Repository) -> anyhow::Result<bool> {
+    let head_tree_id = repo.head_tree_id_or_empty()?;
+    let index = repo.index_or_empty()?;
+    let mut has_staged_changes = false;
+    repo.tree_index_status(
+        &head_tree_id,
+        &index,
+        None,
+        gix::status::tree_index::TrackRenames::Disabled,
+        |_, _, _| {
+            has_staged_changes = true;
+            Ok::<_, std::convert::Infallible>(std::ops::ControlFlow::Break(()))
+        },
+    )?;
+    Ok(has_staged_changes)
 }
 
 pub fn remote_url(repo: &gix::Repository) -> anyhow::Result<Option<gix::Url>> {

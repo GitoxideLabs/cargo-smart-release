@@ -47,9 +47,13 @@ pub mod dependency {
 
     #[derive(Clone, Debug)]
     pub enum VersionAdjustment {
-        /// The crate changed and should see a version change
+        /// The crate changed directly or indirectly and should see a version change.
         Changed {
-            change: git::PackageChangeKind,
+            /// The direct git change detected for this crate, if any.
+            ///
+            /// This stays `None` when the version adjustment is only propagated from
+            /// elsewhere in the graph.
+            change: Option<git::PackageChangeKind>,
             bump: version::Bump,
         },
         /// One of the crates dependencies signalled breaking changes, and is published because of that.
@@ -187,7 +191,7 @@ pub fn dependencies(
                     mode: if package_may_be_published(package) {
                         dependency::Mode::ToBePublished {
                             adjustment: VersionAdjustment::Changed {
-                                change: user_package_change,
+                                change: Some(user_package_change),
                                 bump: version::bump_package(package, ctx, bump_when_needed)?,
                             },
                         }
@@ -228,7 +232,7 @@ pub fn dependencies(
             allow_auto_publish_of_stable_crates,
         )?;
     }
-    crates.extend(find_workspace_crates_depending_on_adjusted_crates(ctx, &crates));
+    adjust_workspace_crates_depending_on_adjusted_crates(ctx, &mut crates, bump_when_needed)?;
     Ok(crates)
 }
 
@@ -279,22 +283,41 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
                     continue;
                 }
                 seen.insert(&dependant.id);
-                let crate_is_known_already = crates
-                    .iter()
-                    .find_map(|c| {
-                        (c.package.id == dependant.id).then(|| c.mode.version_adjustment_bump().map(Bump::is_breaking))
-                    })
-                    .flatten();
-
                 let bump = breaking_version_bump(ctx, dependant, bump_when_needed)?;
                 if bump.next_release_changes_manifest() {
-                    if crate_is_known_already.is_some() {
-                        let is_breaking = crate_is_known_already.unwrap_or(false);
-                        if !is_breaking {
-                            log::debug!(
-                                "Wanted to mark '{}' for breaking manifest change, but its already known without breaking change.",
-                                dependant.name
-                            );
+                    // Propagate a breaking dependency bump to an already-known dependant,
+                    // but only upgrade entries that were explicitly selected by the user
+                    // and previously stayed unchanged. Any crate that already carries its
+                    // own adjustment is left alone so this pass doesn't overwrite an
+                    // earlier decision with a weaker or conflicting one.
+                    if let Some(existing_idx) = crates.iter().position(|c| c.package.id == dependant.id) {
+                        let existing = &mut crates[existing_idx];
+                        match (&existing.kind, &existing.mode) {
+                            (
+                                dependency::Kind::UserSelection,
+                                dependency::Mode::NotForPublishing {
+                                    reason: dependency::NoPublishReason::Unchanged,
+                                    adjustment: None,
+                                },
+                            ) if is_pre_release_version(&dependant.version) || allow_auto_publish_of_stable_crates => {
+                                existing.mode = dependency::Mode::ToBePublished {
+                                    adjustment: VersionAdjustment::Breakage {
+                                        bump,
+                                        change: None,
+                                        causing_dependency_names: vec![dependee.package.name.to_string()],
+                                    },
+                                };
+                            }
+                            _ => {
+                                let is_breaking =
+                                    existing.mode.version_adjustment_bump().is_some_and(Bump::is_breaking);
+                                if !is_breaking {
+                                    log::debug!(
+                                        "Wanted to mark '{}' for breaking manifest change, but its already known without breaking change.",
+                                        dependant.name
+                                    );
+                                }
+                            }
                         }
                     } else if is_pre_release_version(&dependant.version) || allow_auto_publish_of_stable_crates {
                         let kind = if ctx.crate_names.contains(&dependant.name) {
@@ -463,7 +486,7 @@ fn make_breaking(adjustment: &mut VersionAdjustment, breaking_bump: Bump, breaki
             bump.next_release = breaking_bump.next_release;
             *adjustment = VersionAdjustment::Breakage {
                 bump: bump.clone(),
-                change: Some(change.clone()),
+                change: change.clone(),
                 causing_dependency_names: breaking_crate_names,
             };
         }
@@ -551,7 +574,7 @@ fn depth_first_traversal<'meta>(
                         kind: dependency::Kind::DependencyOrDependentOfUserSelection,
                         mode: dependency::Mode::ToBePublished {
                             adjustment: VersionAdjustment::Changed {
-                                change,
+                                change: Some(change),
                                 bump: version::bump_package(workspace_dependency, ctx, bump_when_needed)?,
                             },
                         },
@@ -580,30 +603,99 @@ fn depth_first_traversal<'meta>(
     Ok(())
 }
 
-fn find_workspace_crates_depending_on_adjusted_crates<'meta>(
+/// Ensure workspace crates that depend on crates whose own release version is
+/// changing are included as well, so dependency declarations remain
+/// consistent with the version updates that will be applied elsewhere in the
+/// workspace.
+///
+/// To do that, `ctx` provides the workspace membership and dependency graph,
+/// and `crates` is updated in place with any newly affected packages.
+///
+/// `bump_when_needed` matters when an existing entry must be promoted from
+/// unchanged to publishable: instead of always computing a fresh bump, it
+/// allows the promotion to keep the version already present in the manifest
+/// when that version is already ahead of the latest published release and is
+/// sufficient for the required change.
+fn adjust_workspace_crates_depending_on_adjusted_crates<'meta>(
     ctx: &'meta Context,
-    crates: &[Dependency<'_>],
-) -> Vec<Dependency<'meta>> {
-    ctx.meta
-        .workspace_members
-        .iter()
-        .map(|id| package_by_id(&ctx.meta, id))
-        .filter(|wsp| crates.iter().all(|c| c.package.id != wsp.id))
-        .filter(|wsp| {
-            wsp.dependencies.iter().any(|d| {
-                crates
+    crates: &mut Vec<Dependency<'meta>>,
+    bump_when_needed: bool,
+) -> anyhow::Result<()> {
+    loop {
+        let version_adjusted_workspace_crates: Vec<_> = crates
+            .iter()
+            .filter(|c| c.mode.version_adjustment_bump().is_some())
+            .map(|c| c.package)
+            .collect();
+        let mut changed = false;
+
+        for wsp in ctx.meta.workspace_members.iter().map(|id| package_by_id(&ctx.meta, id)) {
+            let depends_on_adjusted_crate = wsp.dependencies.iter().any(|dependency| {
+                version_adjusted_workspace_crates
                     .iter()
-                    .filter(|c| c.mode.manifest_will_change())
-                    .any(|c| package_eq_dependency_ignore_dev_without_version(c.package, d))
-            })
-        })
-        .map(|wsp| Dependency {
-            kind: dependency::Kind::DependencyOrDependentOfUserSelection,
-            package: wsp,
-            mode: dependency::Mode::NotForPublishing {
-                adjustment: ManifestAdjustment::DueToDependencyChange.into(),
-                reason: dependency::NoPublishReason::Unchanged,
-            },
-        })
-        .collect()
+                    .any(|adjusted| package_eq_dependency_ignore_dev_without_version(adjusted, dependency))
+            });
+            if !depends_on_adjusted_crate {
+                continue;
+            }
+
+            match crates.iter_mut().find(|c| c.package.id == wsp.id) {
+                Some(existing) => {
+                    changed |= maybe_promote_selected_dependency(existing, ctx, bump_when_needed)?;
+                }
+                None => {
+                    crates.push(Dependency {
+                        kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                        package: wsp,
+                        mode: dependency::Mode::NotForPublishing {
+                            adjustment: ManifestAdjustment::DueToDependencyChange.into(),
+                            reason: dependency::NoPublishReason::Unchanged,
+                        },
+                    });
+                    changed = true;
+                }
+            }
+        }
+
+        if !changed {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// Promote `dependency` from `NotForPublishing` to `ToBePublished` only when
+/// it already exists in the traversal result but is still considered
+/// effectively untouched: the crate must have been a direct `UserSelection`,
+/// still carry the `Unchanged` reason, have no prior manifest or version
+/// adjustment recorded, and remain publishable according to its manifest.
+///
+/// If all of these conditions hold, the function computes a version adjustment
+/// with `bump_when_needed` and returns `true`; otherwise it leaves the entry as
+/// is and returns `false`.
+fn maybe_promote_selected_dependency(
+    dependency: &mut Dependency<'_>,
+    ctx: &Context,
+    bump_when_needed: bool,
+) -> anyhow::Result<bool> {
+    match &mut dependency.mode {
+        dependency::Mode::ToBePublished { .. } => Ok(false),
+        dependency::Mode::NotForPublishing { reason, adjustment } => {
+            if dependency.kind == dependency::Kind::UserSelection
+                && adjustment.is_none()
+                && *reason == dependency::NoPublishReason::Unchanged
+                && package_may_be_published(dependency.package)
+            {
+                dependency.mode = dependency::Mode::ToBePublished {
+                    adjustment: VersionAdjustment::Changed {
+                        change: None,
+                        bump: version::bump_package(dependency.package, ctx, bump_when_needed)?,
+                    },
+                };
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+    }
 }

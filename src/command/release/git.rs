@@ -13,13 +13,13 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
     empty_commit_possible: bool,
     signoff: bool,
     changelog_paths: &[impl AsRef<Path>],
-    ctx: &'a crate::Context,
+    repo: &'a gix::Repository,
 ) -> anyhow::Result<Option<Id<'a>>> {
+    let workdir = repo.workdir().context("Can only work in non-bare repositories")?;
     // Add changelog files that are not yet tracked in git index.
     // `git commit -am` only stages tracked files, so we need to explicitly add new ones.
     if !changelog_paths.is_empty() {
-        let index = ctx.repo.open_index()?;
-        let workdir = ctx.repo.workdir().context("Can only work in non-bare repositories")?;
+        let index = repo.index_or_empty()?;
 
         let untracked_paths: Vec<_> = changelog_paths
             .iter()
@@ -43,14 +43,17 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
                 git_add.arg(path);
             }
             log::trace!("{} run {:?}", will(dry_run), git_add);
-            let output = git_add.output()?;
-            if !dry_run && !output.status.success() {
-                let paths: Vec<_> = untracked_paths.iter().map(|p| p.to_string_lossy()).collect();
-                bail!(
-                    "Failed to add new changelog files to git: {}: {err}",
-                    paths.join(", "),
-                    err = output.stderr.to_str_lossy()
-                );
+            if !dry_run {
+                git_add.current_dir(workdir);
+                let output = git_add.output()?;
+                if !output.status.success() {
+                    let paths: Vec<_> = untracked_paths.iter().map(|p| p.to_string_lossy()).collect();
+                    bail!(
+                        "Failed to add new changelog files to git: {}: {err}",
+                        paths.join(", "),
+                        err = output.stderr.to_str_lossy()
+                    );
+                }
             }
         }
     }
@@ -67,11 +70,16 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
     if dry_run {
         return Ok(None);
     }
+    cmd.current_dir(workdir);
 
-    if !cmd.status()?.success() {
-        bail!("Failed to commit changed manifests");
+    let output = cmd.output()?;
+    if !output.status.success() {
+        if crate::git::has_tracked_modifications(repo)? || crate::git::has_staged_changes(repo)? {
+            bail!("Failed to commit changed manifests");
+        }
+        log::info!("No tracked or staged changes remained to commit; assuming the release commit already exists.");
     }
-    Ok(Some(ctx.repo.find_reference("HEAD")?.peel_to_id()?))
+    Ok(Some(repo.find_reference("HEAD")?.peel_to_id()?))
 }
 
 pub(in crate::command::release_impl) fn create_version_tag<'repo>(
@@ -159,60 +167,5 @@ pub fn push_tags_and_head(
         Ok(())
     } else {
         bail!("'git push' invocation failed. Try to push manually and repeat the smart-release invocation to resume, possibly with --skip-push.");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use log::Level;
-
-    use super::*;
-
-    #[test]
-    #[ignore = "TBD: isolate properly, worked in PR, but stopped working in CI"]
-    fn test_commit_changes() {
-        let ctx = crate::Context::new(
-            vec![],
-            false,
-            crate::version::BumpSpec::Auto,
-            crate::version::BumpSpec::Auto,
-        )
-        .unwrap();
-        let message = "commit message";
-        let empty: &[&std::path::Path] = &[];
-        testing_logger::setup();
-        let _ = commit_changes(message, true, false, false, empty, &ctx).unwrap();
-        testing_logger::validate(|captured_logs| {
-            assert_eq!(captured_logs.len(), 1);
-            assert_eq!(
-                captured_logs[0].body,
-                "WOULD run \"git\" \"commit\" \"-am\" \"commit message\""
-            );
-            assert_eq!(captured_logs[0].level, Level::Trace);
-        });
-    }
-
-    #[test]
-    #[ignore = "TBD: isolate properly, worked in PR, but stopped working in CI"]
-    fn test_commit_changes_with_signoff() {
-        let ctx = crate::Context::new(
-            vec![],
-            false,
-            crate::version::BumpSpec::Auto,
-            crate::version::BumpSpec::Auto,
-        )
-        .unwrap();
-        let message = "commit message";
-        let empty: &[&std::path::Path] = &[];
-        testing_logger::setup();
-        let _ = commit_changes(message, true, false, true, empty, &ctx).unwrap();
-        testing_logger::validate(|captured_logs| {
-            assert_eq!(captured_logs.len(), 1);
-            assert_eq!(
-                captured_logs[0].body,
-                "WOULD run \"git\" \"commit\" \"-am\" \"commit message\" \"--signoff\""
-            );
-            assert_eq!(captured_logs[0].level, Level::Trace);
-        });
     }
 }
