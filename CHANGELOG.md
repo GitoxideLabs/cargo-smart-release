@@ -5,7 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.11 (2026-03-22)
+
+### New Features
+
+ - <csr-id-21a6204048ba3b182c25e9b10e88cc5ce4adacea/> Add flag to opt-in to using `docs.rs` metadata for publishing
+   That way, 'special' crates that need a feature specified can be made
+   to build.
+   
+   This also has the advantage that one can double-check that docs.rs
+   would (probably) be able to build the crate.
+
+### Bug Fixes
+
+ - <csr-id-8ebbf60b15f1011dbc7b50ef92fd2928d15d6495/> don't fail if there is nothing to commit
+   Instead, validate that there was nothing to commit and only
+   fail if truly needed.
+ - <csr-id-648311febac50ab77b1ab46c661731035853b7a6/> Preserve nested list indentation in changelog body
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 44 commits contributed to the release.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#103](https://github.com/Byron/cargo-smart-release/issues/103), [#30](https://github.com/Byron/cargo-smart-release/issues/30)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#103](https://github.com/Byron/cargo-smart-release/issues/103)**
+    - Reproduce 'nested list items accumulate in changelog' and fix it ([`1c9c999`](https://github.com/Byron/cargo-smart-release/commit/1c9c999ed8be34d52a1fc23ce4ee8566e08c7ca8))
+ * **[#30](https://github.com/Byron/cargo-smart-release/issues/30)**
+    - Preserve nested list indentation in changelog body ([`648311f`](https://github.com/Byron/cargo-smart-release/commit/648311febac50ab77b1ab46c661731035853b7a6))
+ * **Uncategorized**
+    - Merge pull request #114 from GitoxideLabs/manual-bump ([`37c72d0`](https://github.com/Byron/cargo-smart-release/commit/37c72d04d88f855f52690d698d27318c0d421573))
+    - Address auto-review ([`352200f`](https://github.com/Byron/cargo-smart-release/commit/352200fbdb8c32649dbfe92100fb1b962f7d10ea))
+    - Don't fail if there is nothing to commit ([`8ebbf60`](https://github.com/Byron/cargo-smart-release/commit/8ebbf60b15f1011dbc7b50ef92fd2928d15d6495))
+    - Add flag to opt-in to using `docs.rs` metadata for publishing ([`21a6204`](https://github.com/Byron/cargo-smart-release/commit/21a6204048ba3b182c25e9b10e88cc5ce4adacea))
+    - Fix unchanged selected crates being refused when dependencies changed ([`14c7d6a`](https://github.com/Byron/cargo-smart-release/commit/14c7d6ab0f5cdebfeb236de0814fa3b2a389598e))
+    - Merge pull request #113 from GitoxideLabs/dependabot/cargo/tar-0.4.45 ([`3ff4ceb`](https://github.com/Byron/cargo-smart-release/commit/3ff4ceb0f4dcb0b6830b172dffb1b2888909fb64))
+    - Bump tar from 0.4.44 to 0.4.45 ([`3739c3f`](https://github.com/Byron/cargo-smart-release/commit/3739c3f08248b6b7d7ab91b46fa4787c42ad8793))
+    - Merge pull request #112 from GitoxideLabs/dependabot/github_actions/github-actions-0f21655cda ([`35ee779`](https://github.com/Byron/cargo-smart-release/commit/35ee779dbcf240768d64d2e839bed144b4542717))
+    - Bump the github-actions group across 1 directory with 3 updates ([`397a8c6`](https://github.com/Byron/cargo-smart-release/commit/397a8c64ec6b7e9f5fb0b6d359533d49a0383384))
+    - Merge pull request #111 from GitoxideLabs/dependabot/cargo/cargo-000197f46d ([`32e4a2c`](https://github.com/Byron/cargo-smart-release/commit/32e4a2c103620564fb85add5b7421f608f10c4e8))
+    - Bump the cargo group with 30 updates ([`547de54`](https://github.com/Byron/cargo-smart-release/commit/547de545a6e529bdd7701e8a3ccbb2f88b9b0336))
+    - Merge pull request #109 from GitoxideLabs/dependabot/cargo/bytes-1.11.1 ([`34573c6`](https://github.com/Byron/cargo-smart-release/commit/34573c6320e75cb26c5eda8fc6095a85b1adb845))
+    - Bump bytes from 1.11.0 to 1.11.1 ([`915aa32`](https://github.com/Byron/cargo-smart-release/commit/915aa32152b00718cb6dd7e316557a5a1b48d7e3))
+    - Merge pull request #107 from GitoxideLabs/dependabot/github_actions/github-actions-da358dd489 ([`ae7505c`](https://github.com/Byron/cargo-smart-release/commit/ae7505c72ec57502b2180e4a49931f9f1858eae4))
+    - Bump the github-actions group with 2 updates ([`753e8b6`](https://github.com/Byron/cargo-smart-release/commit/753e8b62f4a3bfbc2bddad266c6482cd4a5e8782))
+    - Merge pull request #108 from GitoxideLabs/dependabot/cargo/cargo-dfdfb0782a ([`ce7fa64`](https://github.com/Byron/cargo-smart-release/commit/ce7fa6407d083e7ccb9d4569779e4524e921813a))
+    - Bump the cargo group with 17 updates ([`a28d0db`](https://github.com/Byron/cargo-smart-release/commit/a28d0dba8ca3012912ee6634fd3211e42d06173d))
+    - Merge pull request #105 from GitoxideLabs/copilot/add-test-for-conventional-commits ([`595d5b9`](https://github.com/Byron/cargo-smart-release/commit/595d5b924022ca6c55fa86920f5ed610306edbaf))
+    - Refactor ([`6c6b786`](https://github.com/Byron/cargo-smart-release/commit/6c6b78655ba99a225408a368020dec56e8621008))
+    - Merge pull request #104 from GitoxideLabs/copilot/fix-changelog-issue ([`536d48f`](https://github.com/Byron/cargo-smart-release/commit/536d48f77658aed520698a1e4bf009c2a60069fb))
+    - Refactor ([`9aa1bce`](https://github.com/Byron/cargo-smart-release/commit/9aa1bcec9649d48d1a488309106e9eef3148441f))
+    - Merge pull request #102 from GitoxideLabs/codeql ([`d9f2ae0`](https://github.com/Byron/cargo-smart-release/commit/d9f2ae08e230d14c60ff1db7fa11f020859b073f))
+    - Small style consistency improvement ([`91f75a9`](https://github.com/Byron/cargo-smart-release/commit/91f75a98879309395e8608b3c2125ba583d7b14a))
+    - Enable the `security-extended` and `security-and-quality` packs ([`f6f9011`](https://github.com/Byron/cargo-smart-release/commit/f6f9011f84f85309685273be4157913d86c42555))
+    - General customizations to CodeQL workflow ([`0dc30f0`](https://github.com/Byron/cargo-smart-release/commit/0dc30f076d0e3610862cf51ee55ac38d1597f513))
+    - Switch to CodeQL advanced setup ([`dc7f235`](https://github.com/Byron/cargo-smart-release/commit/dc7f235dc73d035895d58afb31be480e9519bf1f))
+    - Merge pull request #101 from GitoxideLabs/dependabot/github_actions/github-actions-2507bcfa80 ([`92c234b`](https://github.com/Byron/cargo-smart-release/commit/92c234b3ba73fd9a5121d6c5c4582d9cbd15e9ab))
+    - Bump actions/checkout from 6.0.0 to 6.0.1 in the github-actions group ([`255b549`](https://github.com/Byron/cargo-smart-release/commit/255b549d0db376b6eba0369aa9215e57c75b1735))
+    - Merge pull request #100 from EliahKagan/zizmor-next ([`0ff37f6`](https://github.com/Byron/cargo-smart-release/commit/0ff37f698335ce53113f6645f5a086481a6eaae8))
+    - Fix `dependabot.yml` syntax error ([`4c035d8`](https://github.com/Byron/cargo-smart-release/commit/4c035d88c122f4a14556cc9f897b039479ea91ca))
+    - Merge pull request #99 from EliahKagan/zizmor ([`ed66f82`](https://github.com/Byron/cargo-smart-release/commit/ed66f823674ba00de95c7757d2e6398737ccee74))
+    - Use `pedantic` Zizmor persona, with some exclusions ([`f9c4d44`](https://github.com/Byron/cargo-smart-release/commit/f9c4d4470c64e2e58c8099a03b6493a45ec8904e))
+    - Don't cache across runs of the "Check latest dependencies" job ([`8f73928`](https://github.com/Byron/cargo-smart-release/commit/8f73928d2128066c5832eeef32a10a882d3d7c84))
+    - Replace `dtolnay/rust-toolchain` with manual `rustup` commands ([`ce1c9de`](https://github.com/Byron/cargo-smart-release/commit/ce1c9dee5d168a86b438e9e56004b4718daa170d))
+    - Don't persist GitHub authentication token on CI ([`5a8bc75`](https://github.com/Byron/cargo-smart-release/commit/5a8bc7547a3168808659b233ca342add4f046fb4))
+    - Attempt a best-effort 7-day cooldown for dependency updates ([`8d69913`](https://github.com/Byron/cargo-smart-release/commit/8d699134ad3a9ab07fb7856af4aec2d89355e1b0))
+    - Pin readily pinnable actions ([`911e5ce`](https://github.com/Byron/cargo-smart-release/commit/911e5ce3a283e9fffd09522a7e32ef26b884b722))
+    - Fix the "CI" collector job so it fails if its dependencies fail ([`a34e900`](https://github.com/Byron/cargo-smart-release/commit/a34e900cb4d2b68302f53d9208a9897254bf0aea))
+    - Improve other workflows' permissions comments and style consistency ([`b1c5727`](https://github.com/Byron/cargo-smart-release/commit/b1c57277c77a43a4882abaeb7c2ddbc19778993a))
+    - Customize Zizmor workflow ([`8cedfda`](https://github.com/Byron/cargo-smart-release/commit/8cedfdab9cca3d254f04a6e648abc0f74b5ab727))
+    - Add Zizmor workflow ([`5d7468d`](https://github.com/Byron/cargo-smart-release/commit/5d7468d380fd433139e7c469ae9cfd54a73489b6))
+    - Don't hold `pulldown-cmark` back in `dependabot.yml` anymore ([`bac999a`](https://github.com/Byron/cargo-smart-release/commit/bac999ab46e24b0c3f3137baf5d4120a7df77739))
+</details>
+
 ## 0.21.10 (2026-01-10)
+
+<csr-id-b0b86accb3ec7e8b79b9bbbf5e2e124675188c55/>
 
 ### Chore
 
@@ -26,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 18 commits contributed to the release.
+ - 19 commits contributed to the release.
  - 53 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#5](https://github.com/Byron/cargo-smart-release/issues/5)
@@ -40,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#5](https://github.com/Byron/cargo-smart-release/issues/5)**
     - Add git add for untracked CHANGELOG.md files before commit ([`acde47d`](https://github.com/Byron/cargo-smart-release/commit/acde47de1a43f6af47902cf4bce1ecf402da9336))
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.10 ([`df6ca90`](https://github.com/Byron/cargo-smart-release/commit/df6ca9092601316524d03a64f061ae283b0a5a45))
     - Merge pull request #98 from GitoxideLabs/copilot/upgrade-dependencies-pulldown-cmark-toml-edit ([`c8bf252`](https://github.com/Byron/cargo-smart-release/commit/c8bf252721f5f62cdb27cba92e09a959f20420db))
     - Refactor ([`aba48f7`](https://github.com/Byron/cargo-smart-release/commit/aba48f7fc7533e84efa83c677db70d682f3db241))
     - Upgrade pulldown-cmark to 0.13.0 and toml_edit to 0.24.0 ([`b0b86ac`](https://github.com/Byron/cargo-smart-release/commit/b0b86accb3ec7e8b79b9bbbf5e2e124675188c55))
@@ -168,9 +252,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Add emoji handling for commit parsing ([`282445f`](https://github.com/Byron/cargo-smart-release/commit/282445f6806b361cfa177b843faecc7641ad41b1))
     - Merge pull request #72 from GitoxideLabs/fix ([`82d1d24`](https://github.com/Byron/cargo-smart-release/commit/82d1d24d0e76a5e48948b69758864c51839d7424))
 </details>
-
-<csr-unknown>
-refactor(commit): enhance message parsing with emoji support add emoji handling for commit parsing<csr-unknown/>
 
 ## 0.21.8 (2025-08-03)
 
