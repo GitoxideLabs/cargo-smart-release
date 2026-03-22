@@ -123,7 +123,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         !made_change,
         opts.signoff,
         &changelog_paths,
-        &ctx.base,
+        &ctx.base.repo,
     )?;
     if let Some(bail_message) = bail_message {
         bail!(bail_message);

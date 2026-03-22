@@ -27,7 +27,8 @@ allow-emoji = ["unicode-properties"]
 gix = { version = "0.78.0", default-features = false, features = [
     "max-performance",
     "interrupt",
-    "index"
+    "index",
+    "status"
 ] }
 anyhow = "1.0.102"
 clap = { version = "4.5.60", features = ["derive", "cargo"] }
