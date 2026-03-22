@@ -63,7 +63,13 @@ impl ChangeLog {
         );
         let changelog_path = path_from_manifest(&package.manifest_path);
         let lock =
-            gix::lock::File::acquire_to_update_resource(&changelog_path, gix::lock::acquire::Fail::Immediately, None)?;
+            gix::lock::File::acquire_to_update_resource(&changelog_path, gix::lock::acquire::Fail::Immediately, None)
+                .with_context(|| {
+                format!(
+                    "While locking changelog '{}' for crate '{}'",
+                    changelog_path, package.name
+                )
+            })?;
         let (log, state, previous_content) = if let Ok(markdown) = std::fs::read_to_string(changelog_path) {
             let existing_log = ChangeLog::from_markdown(&markdown);
             let copy_of_existing = existing_log.clone();

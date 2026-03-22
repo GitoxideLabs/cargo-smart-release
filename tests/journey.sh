@@ -168,6 +168,18 @@ title "smart-release"
             }
           )
         )
+        (with 'existing release tags and an adjusted direct dependency'
+          git tag a-v0.8.0
+          git tag b-v0.8.0
+          git tag c-v8.0.0
+          (cd a && touch feat && git add feat && git commit -m "feat: new") &>/dev/null
+          it "publishes unchanged selected crates indirectly" && {
+            WITH_SNAPSHOT="$snapshot/b-dry-run-success-indirect-change" \
+            expect_run $SUCCESSFULLY "$exe" smart-release b --no-push --no-publish -v --allow-dirty
+          }
+          git reset --hard HEAD~1 &>/dev/null
+          git tag -d a-v0.8.0 b-v0.8.0 c-v8.0.0 &>/dev/null
+        )
       )
       (with '--execute but without side-effects'
         it "succeeds" && {
@@ -193,4 +205,3 @@ title "smart-release"
     )
   )
 )
-
