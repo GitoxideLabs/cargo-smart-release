@@ -59,7 +59,7 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
         opts.changelog
     };
 
-    if opts.update_crates_index {
+    if should_update_crates_index(&opts) {
         // Do this before creating our context to pick up a possibly newly fetched/created index.
         log::info!("Updating crates-io index",);
         crates_index::GitIndex::new_cargo_default()?.update()?;
@@ -76,6 +76,10 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
 
     release_depth_first(ctx, opts)?;
     Ok(())
+}
+
+fn should_update_crates_index(opts: &Options) -> bool {
+    opts.update_crates_index || (!opts.dry_run && !opts.skip_publish && opts.registry.is_none())
 }
 
 impl From<Options> for traverse::Options {
@@ -530,4 +534,67 @@ fn section_to_string(section: &Section, mode: WriteMode, capitalize_commit: bool
         )
         .ok()
         .map(|_| b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::changelog::section::segment;
+
+    fn options(dry_run: bool, skip_publish: bool, update_crates_index: bool) -> Options {
+        Options {
+            dry_run,
+            allow_dirty: false,
+            ignore_instability: false,
+            skip_publish,
+            dry_run_cargo_publish: false,
+            conservative_pre_release_version_handling: true,
+            no_verify: false,
+            skip_tag: false,
+            allow_auto_publish_of_stable_crates: false,
+            update_crates_index,
+            bump_when_needed: true,
+            verbose: false,
+            skip_push: false,
+            dependencies: true,
+            isolate_dependencies_from_breaking_changes: true,
+            changelog: true,
+            preview: true,
+            generator_segments: segment::Selection::empty(),
+            allow_fully_generated_changelogs: false,
+            allow_empty_release_message: false,
+            changelog_links: true,
+            allow_changelog_github_release: true,
+            capitalize_commit: false,
+            registry: None,
+            target: None,
+            publish_uses_docs_rs_metadata: false,
+            signoff: false,
+            commit_prefix: None,
+        }
+    }
+
+    #[test]
+    fn updates_crates_index_for_actual_crates_io_publish() {
+        assert!(should_update_crates_index(&options(false, false, false)));
+    }
+
+    #[test]
+    fn respects_explicit_update_crates_index_without_actual_publish() {
+        assert!(should_update_crates_index(&options(true, true, true)));
+    }
+
+    #[test]
+    fn does_not_force_update_for_dry_run_or_no_publish() {
+        assert!(!should_update_crates_index(&options(true, false, false)));
+        assert!(!should_update_crates_index(&options(false, true, false)));
+    }
+
+    #[test]
+    fn does_not_force_update_when_publishing_to_alternative_registry() {
+        let mut options = options(false, false, false);
+        options.registry = Some("private".into());
+
+        assert!(!should_update_crates_index(&options));
+    }
 }
