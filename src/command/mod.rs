@@ -41,7 +41,7 @@ pub use release_impl::release;
 pub mod changelog {
     use crate::changelog::section::segment;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone)]
     pub struct Options {
         pub dry_run: bool,
         pub dependencies: bool,
@@ -51,6 +51,7 @@ pub mod changelog {
         pub generator_segments: segment::Selection,
         pub no_links: bool,
         pub capitalize_commit: bool,
+        pub registry: Option<String>,
     }
 }
 #[path = "changelog.rs"]
