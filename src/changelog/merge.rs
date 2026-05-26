@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, iter::FromIterator};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    iter::FromIterator,
+};
 
 use anyhow::bail;
 use gix::hash::ObjectId;
@@ -15,7 +18,15 @@ use crate::{
 impl ChangeLog {
     /// Bring `generated` into `self` in such a way that `self` preserves everything while enriching itself from `generated`.
     /// Thus we clearly assume that `self` is parsed and `generated` is generated.
-    pub fn merge_generated(mut self, rhs: Self) -> anyhow::Result<Self> {
+    pub fn merge_generated(self, rhs: Self) -> anyhow::Result<Self> {
+        self.merge_generated_with_conventional_pruning(rhs, true)
+    }
+
+    pub fn merge_generated_with_conventional_pruning(
+        mut self,
+        rhs: Self,
+        prune_stale_generated_conventionals: bool,
+    ) -> anyhow::Result<Self> {
         if self.sections.is_empty() {
             return Ok(rhs);
         }
@@ -48,7 +59,8 @@ impl ChangeLog {
                 }
                 Section::Release { ref name, ref date, .. } => {
                     match find_target_section(name, date, sections, first_release_pos) {
-                        Insertion::MergeWith(pos) => sections[pos].merge(section_to_merge)?,
+                        Insertion::MergeWith(pos) => sections[pos]
+                            .merge_with_conventional_pruning(section_to_merge, prune_stale_generated_conventionals)?,
                         Insertion::At(pos) => {
                             if let Section::Release {
                                 heading_level,
@@ -72,6 +84,14 @@ impl ChangeLog {
 
 impl Section {
     pub fn merge(&mut self, src: Section) -> anyhow::Result<()> {
+        self.merge_with_conventional_pruning(src, true)
+    }
+
+    fn merge_with_conventional_pruning(
+        &mut self,
+        src: Section,
+        prune_stale_generated_conventionals: bool,
+    ) -> anyhow::Result<()> {
         let dest = self;
         match (dest, src) {
             (Section::Verbatim { .. }, _) | (_, Section::Verbatim { .. }) => {
@@ -123,11 +143,13 @@ impl Section {
                         }
                     }
                 }
-                prune_stale_generated_conventional_messages(
-                    removed_messages,
-                    dest_segments,
-                    &expected_conventional_message_ids,
-                );
+                if prune_stale_generated_conventionals {
+                    prune_stale_generated_conventional_messages(
+                        removed_messages,
+                        dest_segments,
+                        &expected_conventional_message_ids,
+                    );
+                }
                 *dest_date = src_date;
             }
         }
@@ -159,7 +181,7 @@ fn merge_read_only_segment(
 
 type ConventionalKey = (&'static str, bool);
 
-fn expected_conventional_message_ids(segments: &[Segment]) -> Vec<(ConventionalKey, Vec<ObjectId>)> {
+fn expected_conventional_message_ids(segments: &[Segment]) -> Vec<(ConventionalKey, BTreeSet<ObjectId>)> {
     segments
         .iter()
         .filter_map(|segment| match segment {
@@ -186,7 +208,7 @@ fn expected_conventional_message_ids(segments: &[Segment]) -> Vec<(ConventionalK
 fn prune_stale_generated_conventional_messages(
     removed_in_release: &[ObjectId],
     dest_segments: &mut Vec<Segment>,
-    expected: &[(ConventionalKey, Vec<ObjectId>)],
+    expected: &[(ConventionalKey, BTreeSet<ObjectId>)],
 ) {
     dest_segments.retain_mut(|segment| match segment {
         Segment::Conventional(section::segment::Conventional {

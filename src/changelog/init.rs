@@ -74,7 +74,10 @@ impl ChangeLog {
             let existing_log = ChangeLog::from_markdown(&markdown);
             let copy_of_existing = existing_log.clone();
             let merged = existing_log
-                .merge_generated(generated)
+                .merge_generated_with_conventional_pruning(
+                    generated,
+                    selection.contains(segment::Selection::GIT_CONVENTIONAL),
+                )
                 .with_context(|| format!("Changelog generation for crate {:?} failed", package.name))?;
             let changed = merged != copy_of_existing;
             (
