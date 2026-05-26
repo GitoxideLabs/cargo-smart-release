@@ -92,6 +92,7 @@ impl Section {
                 },
             ) => {
                 assert!(src_unknown.is_empty(), "shouldn't ever generate 'unknown' portions");
+                let expected_conventional_message_ids = expected_conventional_message_ids(&src_segments);
                 let has_no_read_only_segments = !dest_segments.iter().any(Segment::is_read_only);
                 let mode = if has_no_read_only_segments {
                     ReplaceMode::ReplaceAllOrAppend
@@ -122,6 +123,11 @@ impl Section {
                         }
                     }
                 }
+                prune_stale_generated_conventional_messages(
+                    removed_messages,
+                    dest_segments,
+                    &expected_conventional_message_ids,
+                );
                 *dest_date = src_date;
             }
         }
@@ -149,6 +155,63 @@ fn merge_read_only_segment(
     if !found_one && matches!(mode, ReplaceMode::ReplaceAllOrAppend) {
         dest.push(insert);
     }
+}
+
+type ConventionalKey = (&'static str, bool);
+
+fn expected_conventional_message_ids(segments: &[Segment]) -> Vec<(ConventionalKey, Vec<ObjectId>)> {
+    segments
+        .iter()
+        .filter_map(|segment| match segment {
+            Segment::Conventional(section::segment::Conventional {
+                kind,
+                is_breaking,
+                messages,
+                ..
+            }) => Some((
+                (*kind, *is_breaking),
+                messages
+                    .iter()
+                    .filter_map(|message| match message {
+                        conventional::Message::Generated { id, .. } => Some(*id),
+                        conventional::Message::User { .. } => None,
+                    })
+                    .collect(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+fn prune_stale_generated_conventional_messages(
+    removed_in_release: &[ObjectId],
+    dest_segments: &mut Vec<Segment>,
+    expected: &[(ConventionalKey, Vec<ObjectId>)],
+) {
+    dest_segments.retain_mut(|segment| match segment {
+        Segment::Conventional(section::segment::Conventional {
+            kind,
+            is_breaking,
+            removed,
+            messages,
+        }) => {
+            let expected_ids = expected
+                .iter()
+                .find_map(|((expected_kind, expected_is_breaking), ids)| {
+                    (*expected_kind == *kind && *expected_is_breaking == *is_breaking).then_some(ids)
+                });
+            messages.retain(|message| match message {
+                conventional::Message::User { .. } => true,
+                conventional::Message::Generated { id, .. } => {
+                    expected_ids.is_some_and(|ids| ids.contains(id))
+                        && !removed.contains(id)
+                        && !removed_in_release.contains(id)
+                }
+            });
+            !removed.is_empty() || !messages.is_empty()
+        }
+        _ => true,
+    });
 }
 
 fn merge_conventional(

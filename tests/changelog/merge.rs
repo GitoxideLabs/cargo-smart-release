@@ -414,6 +414,93 @@ fn date_m_d(month: i8, day: i8) -> jiff::Zoned {
 }
 
 #[test]
+fn stale_generated_conventional_messages_are_removed() {
+    let stale_fix_id = hex_to_id("0000000000000000000000000000000000000001");
+    let stale_breaking_id = hex_to_id("0000000000000000000000000000000000000002");
+
+    let parsed = ChangeLog {
+        sections: vec![Section::Release {
+            date: None,
+            name: changelog::Version::Unreleased,
+            heading_level: 2,
+            version_prefix: Section::DEFAULT_PREFIX.into(),
+            removed_messages: vec![],
+            unknown: String::new(),
+            segments: vec![
+                section::Segment::Conventional(section::segment::Conventional {
+                    kind: "fix",
+                    is_breaking: false,
+                    removed: vec![],
+                    messages: vec![
+                        section::segment::conventional::Message::Generated {
+                            id: stale_fix_id,
+                            title: "old generated fix".into(),
+                            body: None,
+                        },
+                        section::segment::conventional::Message::User {
+                            markdown: " - keep this user-authored note".into(),
+                        },
+                    ],
+                }),
+                section::Segment::Conventional(section::segment::Conventional {
+                    kind: "feat",
+                    is_breaking: true,
+                    removed: vec![],
+                    messages: vec![section::segment::conventional::Message::Generated {
+                        id: stale_breaking_id,
+                        title: "old generated breaking feature".into(),
+                        body: None,
+                    }],
+                }),
+            ],
+        }],
+    };
+    let statistics = section::Segment::Statistics(section::Data::Generated(section::segment::CommitStatistics {
+        count: 1,
+        duration: None,
+        time_passed_since_last_release: Some(28),
+        conventional_count: 0,
+        unique_issues: vec![],
+    }));
+    let generated = ChangeLog {
+        sections: vec![Section::Release {
+            date: None,
+            name: changelog::Version::Unreleased,
+            heading_level: 2,
+            version_prefix: Section::DEFAULT_PREFIX.into(),
+            removed_messages: vec![],
+            unknown: String::new(),
+            segments: vec![statistics.clone()],
+        }],
+    };
+
+    let merged = parsed.merge_generated(generated).expect("works");
+
+    assert_eq!(
+        merged.sections,
+        vec![Section::Release {
+            date: None,
+            name: changelog::Version::Unreleased,
+            heading_level: 2,
+            version_prefix: Section::DEFAULT_PREFIX.into(),
+            removed_messages: vec![],
+            unknown: String::new(),
+            segments: vec![
+                section::Segment::Conventional(section::segment::Conventional {
+                    kind: "fix",
+                    is_breaking: false,
+                    removed: vec![],
+                    messages: vec![section::segment::conventional::Message::User {
+                        markdown: " - keep this user-authored note".into(),
+                    }],
+                }),
+                statistics,
+            ],
+        }]
+    );
+}
+
+#[test]
 fn dated_release_insertion_with_undated_sections() {
     // Test that a dated release older than all existing dated releases
     // is inserted before undated sections, not at the end
