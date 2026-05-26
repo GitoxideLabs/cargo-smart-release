@@ -19,14 +19,15 @@ use crate::{
     changelog,
     changelog::{
         section,
-        section::{
-            segment::{conventional::as_headline, Conventional},
-            Segment,
-        },
+        section::{segment::Conventional, Segment},
         Section,
     },
     ChangeLog,
 };
+
+const CONVENTIONAL_KINDS: &[&str] = &[
+    "fix", "add", "feat", "revert", "remove", "change", "docs", "perf", "chore", "test", "refactor", "other", "style",
+];
 
 impl ChangeLog {
     /// Obtain as much information as possible from `input` and keep everything we didn't understand in respective sections.
@@ -194,19 +195,7 @@ impl Section {
                             segments.push(Segment::Details(section::Data::Parsed));
                             State::SkipGenerated
                         }
-                        Some((Event::Text(title), _range))
-                            if title.starts_with(as_headline("feat").expect("valid"))
-                                || title.starts_with(as_headline("add").expect("valid"))
-                                || title.starts_with(as_headline("revert").expect("valid"))
-                                || title.starts_with(as_headline("remove").expect("valid"))
-                                || title.starts_with(as_headline("change").expect("valid"))
-                                || title.starts_with(as_headline("docs").expect("valid"))
-                                || title.starts_with(as_headline("perf").expect("valid"))
-                                || title.starts_with("refactor")
-                                || title.starts_with("other")
-                                || title.starts_with("style")
-                                || title.starts_with(as_headline("fix").expect("valid")) =>
-                        {
+                        Some((Event::Text(title), _range)) if is_conventional_title(&title) => {
                             State::ParseConventional {
                                 title: title.into_string(),
                             }
@@ -271,19 +260,8 @@ fn parse_conventional_to_next_section_title(
     unknown: &mut String,
 ) -> Segment {
     let is_breaking = title.ends_with(section::segment::Conventional::BREAKING_TITLE_ENCLOSED);
-    let kind = [
-        "fix", "add", "feat", "revert", "remove", "change", "docs", "perf", "refactor", "other", "style",
-    ]
-    .iter()
-    .find(|kind| {
-        let headline = section::segment::conventional::as_headline(kind).unwrap_or(*kind);
-        let common_len = headline.len().min(title.len());
-        title
-            .get(..common_len)
-            .and_then(|t| headline.get(..common_len).map(|h| t.eq_ignore_ascii_case(h)))
-            .unwrap_or(false)
-    })
-    .expect("BUG: this list needs an update too if new kinds of conventional messages are added");
+    let kind = conventional_kind_for_title(&title)
+        .expect("BUG: this list needs an update too if new kinds of conventional messages are added");
 
     let mut conventional = section::segment::Conventional {
         kind,
@@ -362,6 +340,20 @@ fn parse_conventional_to_next_section_title(
         }
     }
     section::Segment::Conventional(conventional)
+}
+
+fn is_conventional_title(title: &str) -> bool {
+    conventional_kind_for_title(title).is_some()
+}
+
+fn conventional_kind_for_title(title: &str) -> Option<&'static str> {
+    CONVENTIONAL_KINDS.iter().copied().find(|kind| {
+        let headline = section::segment::conventional::as_headline(kind).unwrap_or(*kind);
+        title
+            .get(..headline.len())
+            .map(|title_prefix| title_prefix.eq_ignore_ascii_case(headline))
+            .unwrap_or(false)
+    })
 }
 
 fn parse_id_fallback_to_user_message(

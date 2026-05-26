@@ -8,6 +8,8 @@ use cargo_smart_release::{
     ChangeLog,
 };
 
+use crate::changelog::hex_to_id;
+
 #[cfg(not(windows))]
 fn fixup(v: String) -> String {
     v
@@ -148,6 +150,84 @@ fn releases_are_sorted_by_date() {
     assert_eq!(release_versions[2].0, semver::Version::parse("0.75.0").unwrap());
     assert_eq!(release_versions[3].0, semver::Version::parse("0.74.1").unwrap());
     assert_eq!(release_versions[4].0, semver::Version::parse("0.74.0").unwrap());
+}
+
+#[test]
+fn title_case_refactor_breaking_section_parses_as_conventional() {
+    let input = r#"## Unreleased
+
+### Refactor (BREAKING)
+
+ - <csr-id-829393ac596bf2684bd8a837ae931773b24ee033/> ErrorExt::raise_iter to raise_all + remove Frame::downcast
+   Be more compatible to `exn`.
+ - <csr-id-f8517bedcbb9b3328f435aa37f4c63bd30b19fc0/> catch up Exn designs with the upstream
+   refactor!: rename `Exn::from_iter` to `raise_all`
+"#;
+
+    let log = ChangeLog::from_markdown(input);
+
+    let Section::Release { segments, unknown, .. } = &log.sections[0] else {
+        panic!("expected release");
+    };
+    assert!(unknown.is_empty(), "unknown should be empty, got: {unknown:?}");
+    assert_eq!(segments.len(), 1);
+
+    let Segment::Conventional(segment::Conventional {
+        kind,
+        is_breaking,
+        messages,
+        ..
+    }) = &segments[0]
+    else {
+        panic!("expected conventional segment, got {:?}", segments[0]);
+    };
+
+    assert_eq!(*kind, "refactor");
+    assert!(*is_breaking);
+    assert_eq!(messages.len(), 2);
+    assert!(matches!(
+        &messages[0],
+        segment::conventional::Message::Generated {
+            id,
+            title,
+            body: Some(body),
+        } if *id == hex_to_id("829393ac596bf2684bd8a837ae931773b24ee033")
+            && title == "ErrorExt::raise_iter to raise_all + remove Frame::downcast"
+            && body == "Be more compatible to `exn`."
+    ));
+    assert!(matches!(
+        &messages[1],
+        segment::conventional::Message::Generated {
+            id,
+            title,
+            body: Some(body),
+        } if *id == hex_to_id("f8517bedcbb9b3328f435aa37f4c63bd30b19fc0")
+            && title == "catch up Exn designs with the upstream"
+            && body == "refactor!: rename `Exn::from_iter` to `raise_all`"
+    ));
+}
+
+#[test]
+fn partial_conventional_headline_prefix_is_preserved_as_user_markdown() {
+    let input = r#"## Unreleased
+
+### Re
+
+This is a user-authored heading, not a generated refactor section.
+"#;
+
+    let log = ChangeLog::from_markdown(input);
+
+    let Section::Release { segments, unknown, .. } = &log.sections[0] else {
+        panic!("expected release");
+    };
+    assert!(unknown.is_empty(), "unknown should be empty, got: {unknown:?}");
+    assert_eq!(
+        segments,
+        &[Segment::User {
+            markdown: "### Re\n\nThis is a user-authored heading, not a generated refactor section.\n".into()
+        }]
+    );
 }
 
 /// Test for issue #103: Nested unordered list items should not repeat on each release.
