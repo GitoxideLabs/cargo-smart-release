@@ -37,7 +37,7 @@ env_logger = { version = "0.11.10", default-features = false, features = [
     "auto-color",
 ] }
 cargo_metadata = "0.23.1"
-log = "0.4.29"
+log = "0.4.30"
 toml_edit = "0.25"
 semver = "1.0.28"
 crates-index = { version = "3.11.0", default-features = false, features = [
@@ -45,10 +45,10 @@ crates-index = { version = "3.11.0", default-features = false, features = [
     "git-https",
 ] }
 cargo_toml = "0.22.3"
-winnow = "1.0.2"
+winnow = "1.0.3"
 git-conventional = "1.1.0"
-jiff = "0.2.24"
-serde_json = "1.0.149"
+jiff = "0.2.27"
+serde_json = "1.0.150"
 pulldown-cmark = { version = "0.13", default-features = false }
 bitflags = "2"
 unicode-properties = { version = "0.1.4", optional = true, features = [
@@ -57,7 +57,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 
 [dev-dependencies]
 insta = "1.47.2"
-gix-testtools = "0.18.0"
+gix-testtools = "0.19.0"
 testing_logger = "0.1.1"
 
 [workspace]
