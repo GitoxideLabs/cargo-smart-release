@@ -41,7 +41,7 @@ cargo_metadata = "0.23.1"
 log = "0.4.30"
 toml_edit = "0.25"
 semver = "1.0.28"
-crates-index = { version = "3.11.0", default-features = false, features = [
+crates-index = { version = "3.14.0", default-features = false, features = [
     "git-performance",
     "git-https",
 ] }
