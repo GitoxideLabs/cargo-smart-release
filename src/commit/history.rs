@@ -21,9 +21,14 @@ mod tests {
 
     #[test]
     fn size_of_item() {
+        // The expected size is for the *test* build: the `gix-testtools` dev-dependency
+        // enables `gix-hash/sha256`, so `gix::ObjectId` is its wider SHA-1/SHA-256 enum
+        // (33 bytes) here and `Item` holds three ids; a production (sha1-only) build is
+        // ~200. Growth from either our fields or gix's types trips this deliberately, so
+        // the bump can be reviewed.
         assert_eq!(
             std::mem::size_of::<Item>(),
-            200,
+            240,
             "there are plenty of these loaded at a time and we should not let it grow unnoticed."
         )
     }

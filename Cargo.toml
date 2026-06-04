@@ -28,6 +28,7 @@ gix = { version = "0.83.0", default-features = false, features = [
     "max-performance",
     "interrupt",
     "index",
+    "sha1",
     "status"
 ] }
 anyhow = "1.0.102"

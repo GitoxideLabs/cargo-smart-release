@@ -144,10 +144,17 @@ pub fn author() -> anyhow::Result<gix::actor::Signature> {
         .arg("GIT_AUTHOR_IDENT")
         .output()?
         .stdout;
-    Ok(gix::actor::SignatureRef::from_bytes::<()>(&stdout)
-        .ok()
-        .ok_or_else(|| anyhow!("Could not parse author from GIT_AUTHOR_IDENT='{}'", stdout.as_bstr()))?
-        .to_owned()?)
+    let author = parse_author(&stdout)?;
+    Ok(author.to_owned()?)
+}
+
+fn parse_author(stdout: &[u8]) -> anyhow::Result<gix::actor::SignatureRef<'_>> {
+    gix::actor::SignatureRef::from_bytes(stdout).map_err(|err| {
+        anyhow!(
+            "Could not parse author from GIT_AUTHOR_IDENT='{}': {err}",
+            stdout.as_bstr()
+        )
+    })
 }
 
 pub fn strip_tag_path(name: &FullNameRef) -> &BStr {
@@ -156,4 +163,21 @@ pub fn strip_tag_path(name: &FullNameRef) -> &BStr {
 
 pub fn try_strip_tag_path(name: &FullNameRef) -> Option<&BStr> {
     name.as_bstr().strip_prefix(b"refs/tags/").map(ByteSlice::as_bstr)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_author;
+    use gix::bstr::ByteSlice;
+
+    #[test]
+    fn author_parser_accepts_git_var_output() {
+        let author = parse_author(b"Jane Doe <jane@example.com> 1234567890 +0000\n").expect("valid author");
+        assert_eq!(author.name, b"Jane Doe".as_bstr());
+        assert_eq!(author.email, b"jane@example.com".as_bstr());
+        // `git var GIT_AUTHOR_IDENT` emits a trailing newline; ensure the time field
+        // is parsed without it, as this is the part most exposed to future
+        // gix-actor parsing changes (e.g. time-byte / trailing-whitespace handling).
+        assert_eq!(author.time, "1234567890 +0000");
+    }
 }
