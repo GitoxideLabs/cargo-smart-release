@@ -231,11 +231,11 @@ fn add_item_if_package_changed<'a>(
     match filter {
         Filter::None => history.push(item),
         Filter::Fast { name } => {
-            let current = gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&item.tree_id])
+            let current = gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&item.tree_id], item.tree_id.kind())
                 .filter_map(Result::ok)
                 .find(|e| e.filename == name.as_ref());
             let parent = item.parent_tree_id.and_then(|parent| {
-                gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&parent])
+                gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&parent], parent.kind())
                     .filter_map(Result::ok)
                     .find(|e| e.filename == name.as_ref())
             });
@@ -247,7 +247,7 @@ fn add_item_if_package_changed<'a>(
                 }
                 (Some(current), None) => {
                     if let Some(prev_item) = item.parent_tree_id.and_then(|parent| {
-                        gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&parent])
+                        gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&parent], parent.kind())
                             .filter_map(Result::ok)
                             .find(|e| e.oid == current.oid)
                     }) {
