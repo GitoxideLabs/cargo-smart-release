@@ -24,7 +24,7 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 allow-emoji = ["unicode-properties"]
 
 [dependencies]
-gix = { version = "0.83.0", default-features = false, features = [
+gix = { version = "0.84.0", default-features = false, features = [
     "max-performance",
     "interrupt",
     "index",
@@ -45,7 +45,7 @@ crates-index = { version = "3.14.0", default-features = false, features = [
     "git-performance",
     "git-https",
 ] }
-cargo_toml = "0.22.3"
+cargo_toml = "1.0.0"
 winnow = "1.0.3"
 git-conventional = "1.1.0"
 jiff = "0.2.27"
