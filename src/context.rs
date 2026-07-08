@@ -14,6 +14,7 @@ pub struct Context {
     pub history: Option<crate::commit::History>,
     pub bump: BumpSpec,
     pub bump_dependencies: BumpSpec,
+    pub registry: Option<String>,
 }
 
 impl Context {
@@ -22,6 +23,7 @@ impl Context {
         force_history_segmentation: bool,
         bump: BumpSpec,
         bump_dependencies: BumpSpec,
+        registry: Option<String>,
     ) -> anyhow::Result<Self> {
         let meta = cargo_metadata::MetadataCommand::new().exec()?;
         let root = meta.workspace_root.clone();
@@ -42,6 +44,7 @@ impl Context {
             history,
             bump,
             bump_dependencies,
+            registry,
         })
     }
 
