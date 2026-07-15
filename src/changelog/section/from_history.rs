@@ -99,16 +99,8 @@ impl Section {
                         .ok()?;
                     Some(span.get_days())
                 });
-                let time_passed_since_last_release = prev_date_time.and_then(|prev_time| {
-                    let span = date_time
-                        .since(
-                            jiff::ZonedDifference::new(&prev_time)
-                                .smallest(jiff::Unit::Day)
-                                .largest(jiff::Unit::Day),
-                        )
-                        .ok()?;
-                    Some(span.get_days())
-                });
+                let time_passed_since_last_release =
+                    prev_date_time.and_then(|prev_time| days_between_releases(&date_time, &prev_time));
                 segments.push(Segment::Statistics(section::Data::Generated(
                     section::segment::CommitStatistics {
                         count: history.len(),
@@ -190,4 +182,31 @@ fn segment_head_time(segment: &commit::history::Segment<'_>, repo: &gix::Reposit
         .unwrap_or_default();
 
     time_to_zoned_time(time).expect("always valid time (in range)")
+}
+
+fn days_between_releases(current: &jiff::Zoned, previous: &jiff::Zoned) -> Option<i32> {
+    let span = current.date().since(previous.date()).ok()?;
+    Some(span.get_days())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::days_between_releases;
+    use crate::utils::time_to_zoned_time;
+
+    #[test]
+    fn days_between_releases_across_different_utc_offsets() {
+        let previous = time_to_zoned_time(gix::date::Time {
+            seconds: 1_748_777_400,
+            offset: 2 * 60 * 60,
+        })
+        .unwrap();
+        let current = time_to_zoned_time(gix::date::Time {
+            seconds: 1_764_588_600,
+            offset: 60 * 60,
+        })
+        .unwrap();
+
+        assert_eq!(days_between_releases(&current, &previous), Some(183));
+    }
 }
