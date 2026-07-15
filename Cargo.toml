@@ -24,21 +24,21 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 allow-emoji = ["unicode-properties"]
 
 [dependencies]
-gix = { version = "0.84.0", default-features = false, features = [
+gix = { version = "0.85.0", default-features = false, features = [
     "max-performance",
     "interrupt",
     "index",
     "sha1",
     "status"
 ] }
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 clap = { version = "4.6.1", features = ["derive", "cargo"] }
-env_logger = { version = "0.11.10", default-features = false, features = [
+env_logger = { version = "0.11.11", default-features = false, features = [
     "humantime",
     "auto-color",
 ] }
 cargo_metadata = "0.23.1"
-log = "0.4.30"
+log = "0.4.33"
 toml_edit = "0.25"
 semver = "1.0.28"
 crates-index = { version = "3.14.0", default-features = false, features = [
@@ -46,9 +46,9 @@ crates-index = { version = "3.14.0", default-features = false, features = [
     "git-https",
 ] }
 cargo_toml = "1.0.0"
-winnow = "1.0.3"
+winnow = "1.0.4"
 git-conventional = "1.1.0"
-jiff = "0.2.27"
+jiff = "0.2.32"
 serde_json = "1.0.150"
 pulldown-cmark = { version = "0.13", default-features = false }
 bitflags = "2"
@@ -57,7 +57,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 ], default-features = false }
 
 [dev-dependencies]
-insta = "1.47.2"
+insta = "1.48.0"
 gix-testtools = "0.19.0"
 testing_logger = "0.1.1"
 
