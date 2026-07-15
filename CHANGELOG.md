@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.12 (2026-07-15)
+
+### Chore
+
+ - <csr-id-f8e3c8b949093418f36e622213bf20f0e97883bf/> update Rust dependencies
+   Refresh all direct dependency requirements to their latest crates.io releases, including gix 0.85, and update the full transitive lockfile with cargo update.
+   
+   Validated with cargo test --all-targets.
+
+### New Features
+
+ - <csr-id-092be5b24656383ac9765b0d9280c9b04805f017/> skip yanked versions when determining latest release from crates index
+   AI disclosure: this change was generated with the help of AI, and reviewed by a human
+   
+   The tool used `highest_version()` which can return yanked versions,
+   which happened in my repo due to an accidental wrong pre-release publish (oops).
+   
+   Now iterates all versions, filters out yanked ones, and takes the max.
+   Falls back to `highest_version()` only if all versions are yanked.
+
+### Bug Fixes
+
+ - <csr-id-4e0e648f21ef4d023fdc35187da2a1da7868489a/> restore days-between-releases statistics
+   Commit statistics silently omitted the days passed between releases when tagged
+   commits used different UTC offsets, even though both tag dates were available. A
+   regression test reproduces this with release timestamps on +0200 and +0100.
+   
+   Compare the releases’ local calendar dates instead of asking Jiff for a Zoned
+   difference across distinct fixed-offset zones. This preserves the intended
+   calendar-day statistic and avoids converting Jiff’s time-zone mismatch error
+   into None.
+ - <csr-id-869cf629c0c79ad653ff410252b088614cbf0ba4/> changelog parsing of title-case conventional sections
+   Recognize generated conventional changelog headings like `Refactor (BREAKING)`
+   using the same case-insensitive kind matching used when extracting the
+   conventional kind. This prevents generated sections from being parsed back as
+   user markdown and later rejected during merge.
+ - <csr-id-7310ea70dbc4917aeaf7cdd85928695658351877/> refresh crates index before publishing to crates.io
+   When `--execute` actually publishes to crates.io, use the same upfront
+   index update as `--update-crates-index`.
+   
+   This keeps dependency traversal and version decisions based on fresh
+   registry data for real crates.io releases, while preserving cheaper
+   dry-run, `--no-publish`, and alternate-registry paths unless users
+   explicitly request the update.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 35 commits contributed to the release.
+ - 115 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #132 from GitoxideLabs/date-in-statistics ([`853e9f4`](https://github.com/Byron/cargo-smart-release/commit/853e9f4d0534f40500d5ec792d4f1b22a549fc80))
+    - Update Rust dependencies ([`f8e3c8b`](https://github.com/Byron/cargo-smart-release/commit/f8e3c8b949093418f36e622213bf20f0e97883bf))
+    - Restore days-between-releases statistics ([`4e0e648`](https://github.com/Byron/cargo-smart-release/commit/4e0e648f21ef4d023fdc35187da2a1da7868489a))
+    - Merge pull request #129 from GitoxideLabs/dependabot/github_actions/github-actions-4bc742a185 ([`f99e88c`](https://github.com/Byron/cargo-smart-release/commit/f99e88c33e0ba35a6832fef5d2793b0e3882145f))
+    - Bump the github-actions group across 1 directory with 7 updates ([`b552268`](https://github.com/Byron/cargo-smart-release/commit/b5522682509c27ac9e7a06552db87c7833e9a726))
+    - Merge pull request #130 from GitoxideLabs/dependabot/cargo/cargo-d26ae947cf ([`d6948cd`](https://github.com/Byron/cargo-smart-release/commit/d6948cdcfe6380b0b899c2405ed8b058fdaca07f))
+    - Bump the cargo group with 36 updates ([`80eaff4`](https://github.com/Byron/cargo-smart-release/commit/80eaff4684dc890d687d96bf6d44ef1e58378929))
+    - Merge pull request #128 from GitoxideLabs/revert-127-ignore-yanked ([`84eef06`](https://github.com/Byron/cargo-smart-release/commit/84eef06b44c4c92695bf7ee66748203d62e6a627))
+    - Revert "feat: skip yanked versions when determining latest release from crates index" ([`6d930da`](https://github.com/Byron/cargo-smart-release/commit/6d930daf2c968d0a19752c14b3de58387ae9cd1e))
+    - Merge pull request #127 from hydro-project/ignore-yanked ([`f5aae6d`](https://github.com/Byron/cargo-smart-release/commit/f5aae6ddabb1a1212fe7f92e96cdae1a1d51cbcf))
+    - Skip yanked versions when determining latest release from crates index ([`092be5b`](https://github.com/Byron/cargo-smart-release/commit/092be5b24656383ac9765b0d9280c9b04805f017))
+    - Merge pull request #124 from GitoxideLabs/dependabot/cargo/gix-0.83.0 ([`27bc4bb`](https://github.com/Byron/cargo-smart-release/commit/27bc4bbada15a59bd8d1180cac3d2b9feabc053e))
+    - Bump crates-index from 3.11.0 to 3.14.0 ([`bbc9f5a`](https://github.com/Byron/cargo-smart-release/commit/bbc9f5a73208fbcd0c3fe7940a30e2bb4749201f))
+    - Adapt to gix 0.83 ([`e818e57`](https://github.com/Byron/cargo-smart-release/commit/e818e57b57f5b710d3776e95c2808e5163afb3f3))
+    - Bump gix from 0.78.0 to 0.83.0 ([`c9e7d04`](https://github.com/Byron/cargo-smart-release/commit/c9e7d04b6a99a6cc7cce51b82e66c00f2eaf953e))
+    - Merge pull request #122 from GitoxideLabs/dependabot/github_actions/github-actions-057305c8dd ([`af35538`](https://github.com/Byron/cargo-smart-release/commit/af35538db2231c90ee0998b003d419db68cffaf9))
+    - Merge pull request #123 from GitoxideLabs/dependabot/cargo/cargo-5af3a338c7 ([`0455ed6`](https://github.com/Byron/cargo-smart-release/commit/0455ed653584d9ac5265c52d441889282aedf85b))
+    - Bump the cargo group with 17 updates ([`3566323`](https://github.com/Byron/cargo-smart-release/commit/3566323f3a6b3ecc620bae61ced22b78beb8056a))
+    - Bump the github-actions group with 4 updates ([`75aa1dd`](https://github.com/Byron/cargo-smart-release/commit/75aa1dd4344ed2bb08fdb6201075ab9fe72551bc))
+    - Merge pull request #121 from GitoxideLabs/dependabot/cargo/tar-0.4.46 ([`2687b38`](https://github.com/Byron/cargo-smart-release/commit/2687b38bbd5c2fa3cee9cb34f9336c4da10a6b4e))
+    - Bump tar from 0.4.45 to 0.4.46 ([`4a1b418`](https://github.com/Byron/cargo-smart-release/commit/4a1b418b79292c90bd03e2519694e416d0e7806d))
+    - Merge pull request #120 from GitoxideLabs/fix-changelog ([`64adfc1`](https://github.com/Byron/cargo-smart-release/commit/64adfc1ca3c617a6dc8bed195e39523e13342de9))
+    - Address auto-review ([`db27049`](https://github.com/Byron/cargo-smart-release/commit/db270492fc2618beda53f0f34eb27a0e2dc38d7b))
+    - Prune stale generated changelog entries ([`83b0d03`](https://github.com/Byron/cargo-smart-release/commit/83b0d030649793ee243b8242f84a1ab42e6326f2))
+    - Changelog parsing of title-case conventional sections ([`869cf62`](https://github.com/Byron/cargo-smart-release/commit/869cf629c0c79ad653ff410252b088614cbf0ba4))
+    - Merge pull request #119 from GitoxideLabs/dependabot/cargo/cargo-259948d64d ([`dc1dcd2`](https://github.com/Byron/cargo-smart-release/commit/dc1dcd2caa978a621b70c4067e0789c82bc33da5))
+    - Merge pull request #118 from GitoxideLabs/dependabot/github_actions/github-actions-b969e0488e ([`b8d3e08`](https://github.com/Byron/cargo-smart-release/commit/b8d3e0838ee591711ec7fdcb899f1d0b79d8c89f))
+    - Bump the cargo group with 28 updates ([`7d7956a`](https://github.com/Byron/cargo-smart-release/commit/7d7956a4d7cce8eb7216ff026255d579bea77ea4))
+    - Bump the github-actions group with 5 updates ([`6d09164`](https://github.com/Byron/cargo-smart-release/commit/6d091645e9a45bd671f13218f45609bdbb5e1250))
+    - Merge pull request #117 from GitoxideLabs/auto-update-index ([`5c94c82`](https://github.com/Byron/cargo-smart-release/commit/5c94c82e1c463a6125fb24194c5b6a98f39e9d78))
+    - Refresh crates index before publishing to crates.io ([`7310ea7`](https://github.com/Byron/cargo-smart-release/commit/7310ea70dbc4917aeaf7cdd85928695658351877))
+    - Merge pull request #115 from GitoxideLabs/dependabot/github_actions/github-actions-260cd744e8 ([`13493e8`](https://github.com/Byron/cargo-smart-release/commit/13493e8525b13beeb483a1c59b0999eb29724230))
+    - Bump the github-actions group with 2 updates ([`8a7d06e`](https://github.com/Byron/cargo-smart-release/commit/8a7d06e9bc45a63956a857fd5f5b5de9abd95c0c))
+    - Merge pull request #116 from GitoxideLabs/dependabot/cargo/cargo-a5f3a49d17 ([`24ee443`](https://github.com/Byron/cargo-smart-release/commit/24ee44354d4577e497eb45c7bec69fc8e85fd979))
+    - Bump the cargo group with 41 updates ([`9a9e4f4`](https://github.com/Byron/cargo-smart-release/commit/9a9e4f4b60cb8c64484d09c5d6ca88c51500304c))
+</details>
+
 ## 0.21.11 (2026-03-22)
 
 ### New Features
@@ -27,7 +125,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 44 commits contributed to the release.
+ - 45 commits contributed to the release.
+ - 71 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#103](https://github.com/Byron/cargo-smart-release/issues/103), [#30](https://github.com/Byron/cargo-smart-release/issues/30)
 
@@ -42,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#30](https://github.com/Byron/cargo-smart-release/issues/30)**
     - Preserve nested list indentation in changelog body ([`648311f`](https://github.com/Byron/cargo-smart-release/commit/648311febac50ab77b1ab46c661731035853b7a6))
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.11 ([`97026f5`](https://github.com/Byron/cargo-smart-release/commit/97026f54313798ba769f3702e27f9ae67966271b))
     - Merge pull request #114 from GitoxideLabs/manual-bump ([`37c72d0`](https://github.com/Byron/cargo-smart-release/commit/37c72d04d88f855f52690d698d27318c0d421573))
     - Address auto-review ([`352200f`](https://github.com/Byron/cargo-smart-release/commit/352200fbdb8c32649dbfe92100fb1b962f7d10ea))
     - Don't fail if there is nothing to commit ([`8ebbf60`](https://github.com/Byron/cargo-smart-release/commit/8ebbf60b15f1011dbc7b50ef92fd2928d15d6495))
@@ -89,17 +189,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.21.10 (2026-01-10)
 
 <csr-id-b0b86accb3ec7e8b79b9bbbf5e2e124675188c55/>
-
-### Chore
-
- - <csr-id-b0b86accb3ec7e8b79b9bbbf5e2e124675188c55/> Upgrade pulldown-cmark to 0.13.0 and toml_edit to 0.24.0
-   - Updated Cargo.toml to use pulldown-cmark 0.13 and toml_edit 0.24
-   - Fixed breaking API changes in pulldown-cmark 0.13.0:
-     - OffsetIter now takes 1 lifetime parameter instead of 2
-     - Tag::Heading, Tag::Link, and Tag::Image changed from tuple variants to struct variants
-     - Event::End now uses TagEnd enum instead of Tag
-     - Added Event::InlineHtml variant for inline HTML (previously all HTML was Event::Html)
-     - Added handling for Tag::HtmlBlock start/end events
 
 ### Bug Fixes
 
@@ -155,26 +244,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Allow specifying a `--target` triple when running `cargo smart-release`, forwarding it to `cargo publish` so crates that don't
    compile for the host can still be released ([#89](https://github.com/GitoxideLabs/cargo-smart-release/issues/89)).
 
-### Style
-
- - <csr-id-4af7d573c5cc57fd559ea96bc8c32c66cc4f1ed5/> reorder import statements
-   Triggered by justfile fmt
-   - move std::io::Write to the top for standard library import consistency
- - <csr-id-9f61801b0f4bc7c62c2bd3efa1f58f51e7f1d0a6/> reorder import statements for consistency
-   Triggered by justfile fmt
-   - organize import statements for better readability
-   - move external crates to the top and internal modules below
- - <csr-id-f1eb1e049bb7f7cdb82b194b5527210e40b5bb73/> reorder imports for better readability
-   Triggered by justfile fmt
-   - move `gix::traverse::commit::simple::CommitTimeOrder` import for logical grouping
-   - adjust crate imports to follow standard ordering conventions
-
-### Other
-
- - <csr-id-a834811e77ce1c0d7663e84cbcc3c46f13a2d2c1/> add unicode-properties library
-   - add unicode-properties version 0.1.3 with emoji feature
-   - enhance string handling capabilities with new library
-
 ### Bug Fixes
 
  - <csr-id-85cf4c751ec1b6548ec5c14d69c38af254230bd9/> enable version flag
@@ -205,6 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 35 commits contributed to the release.
+ - 107 days passed between releases.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#76](https://github.com/Byron/cargo-smart-release/issues/76)
 
@@ -313,128 +383,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-202be0927a17cf20c458fab9cc6eb957d3a81584/>
 <csr-id-9e3257c19dcd12ed556fd173c7211b729a69d1ff/>
 
-### Chore
-
- - <csr-id-919acc2000c694a3f2399fa6992a56803653d003/> bump the cargo group across 1 directory with 5 updates
-   Bumps the cargo group with 5 updates in the / directory:
-   
-   | Package | From | To |
-   | --- | --- | --- |
-   | [clap](https://github.com/clap-rs/clap) | `4.5.36` | `4.5.37` |
-   | [cargo_toml](https://gitlab.com/lib.rs/cargo_toml) | `0.21.0` | `0.22.1` |
-   | [winnow](https://github.com/winnow-rs/winnow) | `0.6.26` | `0.7.6` |
-   | [jiff](https://github.com/BurntSushi/jiff) | `0.1.29` | `0.2.8` |
-   | [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) | `0.9.6` | `0.13.0` |
-   
-   
-   
-   Updates `clap` from 4.5.36 to 4.5.37
-   - [Release notes](https://github.com/clap-rs/clap/releases)
-   - [Changelog](https://github.com/clap-rs/clap/blob/master/CHANGELOG.md)
-   - [Commits](https://github.com/clap-rs/clap/compare/clap_complete-v4.5.36...clap_complete-v4.5.37)
-   
-   Updates `cargo_toml` from 0.21.0 to 0.22.1
-   - [Commits](https://gitlab.com/lib.rs/cargo_toml/commits/v0.22.1)
-   
-   Updates `winnow` from 0.6.26 to 0.7.6
-   - [Changelog](https://github.com/winnow-rs/winnow/blob/main/CHANGELOG.md)
-   - [Commits](https://github.com/winnow-rs/winnow/compare/v0.6.26...v0.7.6)
-   
-   Updates `jiff` from 0.1.29 to 0.2.8
-   - [Release notes](https://github.com/BurntSushi/jiff/releases)
-   - [Changelog](https://github.com/BurntSushi/jiff/blob/master/CHANGELOG.md)
-   - [Commits](https://github.com/BurntSushi/jiff/compare/0.1.29...jiff-static-0.2.8)
-   
-   Updates `pulldown-cmark` from 0.9.6 to 0.13.0
-   - [Release notes](https://github.com/raphlinus/pulldown-cmark/releases)
-   - [Commits](https://github.com/raphlinus/pulldown-cmark/compare/v0.9.6...v0.13.0)
-   
-   ---
-   updated-dependencies:
-   - dependency-name: clap
-     dependency-version: 4.5.37
-     dependency-type: direct:production
-     update-type: version-update:semver-patch
-     dependency-group: cargo
-   - dependency-name: cargo_toml
-     dependency-version: 0.22.1
-     dependency-type: direct:production
-     update-type: version-update:semver-minor
-     dependency-group: cargo
-   - dependency-name: winnow
-     dependency-version: 0.7.6
-     dependency-type: direct:production
-     update-type: version-update:semver-minor
-     dependency-group: cargo
-   - dependency-name: jiff
-     dependency-version: 0.2.8
-     dependency-type: direct:production
-     update-type: version-update:semver-minor
-     dependency-group: cargo
-   - dependency-name: pulldown-cmark
-     dependency-version: 0.13.0
-     dependency-type: direct:production
-     update-type: version-update:semver-minor
-     dependency-group: cargo
-   ...
- - <csr-id-202be0927a17cf20c458fab9cc6eb957d3a81584/> bump crossbeam-channel from 0.5.14 to 0.5.15
-   Bumps [crossbeam-channel](https://github.com/crossbeam-rs/crossbeam) from 0.5.14 to 0.5.15.
-   - [Release notes](https://github.com/crossbeam-rs/crossbeam/releases)
-   - [Changelog](https://github.com/crossbeam-rs/crossbeam/blob/master/CHANGELOG.md)
-   - [Commits](https://github.com/crossbeam-rs/crossbeam/compare/crossbeam-channel-0.5.14...crossbeam-channel-0.5.15)
-   
-   ---
-   updated-dependencies:
-   - dependency-name: crossbeam-channel
-     dependency-version: 0.5.15
-     dependency-type: indirect
-   ...
- - <csr-id-9e3257c19dcd12ed556fd173c7211b729a69d1ff/> bump the github-actions group with 4 updates
-   Bumps the github-actions group with 4 updates: [actions/checkout](https://github.com/actions/checkout), [EmbarkStudios/cargo-deny-action](https://github.com/embarkstudios/cargo-deny-action), [extractions/setup-just](https://github.com/extractions/setup-just) and [github/codeql-action](https://github.com/github/codeql-action).
-   
-   
-   Updates `actions/checkout` from 3 to 4
-   - [Release notes](https://github.com/actions/checkout/releases)
-   - [Changelog](https://github.com/actions/checkout/blob/main/CHANGELOG.md)
-   - [Commits](https://github.com/actions/checkout/compare/v3...v4)
-   
-   Updates `EmbarkStudios/cargo-deny-action` from 1 to 2
-   - [Release notes](https://github.com/embarkstudios/cargo-deny-action/releases)
-   - [Commits](https://github.com/embarkstudios/cargo-deny-action/compare/v1...v2)
-   
-   Updates `extractions/setup-just` from 1 to 3
-   - [Release notes](https://github.com/extractions/setup-just/releases)
-   - [Commits](https://github.com/extractions/setup-just/compare/v1...v3)
-   
-   Updates `github/codeql-action` from 2 to 3
-   - [Release notes](https://github.com/github/codeql-action/releases)
-   - [Changelog](https://github.com/github/codeql-action/blob/main/CHANGELOG.md)
-   - [Commits](https://github.com/github/codeql-action/compare/v2...v3)
-   
-   ---
-   updated-dependencies:
-   - dependency-name: actions/checkout
-     dependency-version: '4'
-     dependency-type: direct:production
-     update-type: version-update:semver-major
-     dependency-group: github-actions
-   - dependency-name: EmbarkStudios/cargo-deny-action
-     dependency-version: '2'
-     dependency-type: direct:production
-     update-type: version-update:semver-major
-     dependency-group: github-actions
-   - dependency-name: extractions/setup-just
-     dependency-version: '3'
-     dependency-type: direct:production
-     update-type: version-update:semver-major
-     dependency-group: github-actions
-   - dependency-name: github/codeql-action
-     dependency-version: '3'
-     dependency-type: direct:production
-     update-type: version-update:semver-major
-     dependency-group: github-actions
-   ...
-
 ### Documentation
 
  - <csr-id-3267581a7f69bbc2c630552d3daf08fdaa4c7992/> Update project URL and add security policy
@@ -459,6 +407,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 49 commits contributed to the release.
+ - 124 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#40](https://github.com/Byron/cargo-smart-release/issues/40)
 
@@ -548,6 +497,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 12 commits contributed to the release.
+ - 115 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#34](https://github.com/Byron/cargo-smart-release/issues/34)
 
@@ -614,11 +564,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-id-056d3065c49de523a1e06b845c270c1d175814d6/>
 
-### Chore
-
- - <csr-id-056d3065c49de523a1e06b845c270c1d175814d6/> upgrade `gix` to 0.66
-   This removes `time` from the dependency list and maybe makes installations work again.
-
 ### New Features
 
  - <csr-id-91120a312eb047c315f7d47f0fdeaf32e63d4a52/> allow changelog generation for moved crates, emit warning message
@@ -633,6 +578,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 16 commits contributed to the release.
+ - 232 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#14](https://github.com/Byron/cargo-smart-release/issues/14)
 
@@ -681,6 +627,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 8 commits contributed to the release.
+ - 84 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -756,10 +703,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-id-431cd880e06fcd9e194700739bd7c7a93575c4a0/>
 
-### Chore
-
- - <csr-id-431cd880e06fcd9e194700739bd7c7a93575c4a0/> update repository to not point at `gitoxide` anymore
-
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
@@ -815,22 +758,6 @@ Please note that due to the rewritten history and tag-name changes, this changel
  - <csr-id-186ab8af0023b419e2df6aa86a102adf10c931b6/> remove `git2` dependency thanks to upgrade to latest version of `crates-index`
    Note that this also removes the `vendored-openssl` feature as it doesn't exist in `crates-index`
    anymore.
-
-### Refactor
-
- - <csr-id-c829ffcf262464b9d963f3415f44fcb3c53d7a47/> Upgrade to winnow 0.5
- - <csr-id-462b3f878b63a5d483094a8a827f740cb59a96f8/> Move off of quietly deprecated names
-   Prep for 0.5
- - <csr-id-7b960c061fda7d371245c52fa94f6957689bbb6a/> Move off deprecated parsers
- - <csr-id-00ad37542abf250ffda04d92cdfbb2db945e58a9/> Switch to ranged take_while
- - <csr-id-7638bb5f5a3e81f7cf62913ad5bd1aac7cff6cbe/> Upgrade to winnow 0.4
- - <csr-id-9658f32181c1c3b3b836eadca5274d38f3dd57c4/> Explicitly parse_next
-   This is prep for 0.4
- - <csr-id-3ccdb43562a35f2556a0ade9fb1beb8d5e33a2eb/> Move off of explicitly complete parsers
- - <csr-id-64801454750b21f0e72b7b571d1318256b11f4a3/> Move to FinishIResilt::finish
- - <csr-id-f2ad685e56caf4612378649b8c68c99ac3225ccc/> Move to Parser inherent functions
- - <csr-id-80cbe46e6710d51a5aa0369bc397ae211eb70dbb/> Move off of tuple/tag
- - <csr-id-bd44a1a34f1f68eb35b043bbf9f3f9bb616e5705/> Switch from nom to winnow 0.3
 
 ### Commit Statistics
 
@@ -972,31 +899,6 @@ Please note that due to the rewritten history and tag-name changes, this changel
 <csr-id-38a07f2ad061f2eba143532c94d23b4254aec438/>
 <csr-id-38e3835b1b1fb90a7596b3cb08dd18c903a5acce/>
 
-### Chore
-
- - <csr-id-bcad5c22049d56a25ef69d6c7a3344e78f9a1d4d/> Add `clippy::redundant-closure-for-method-calls` lint
- - <csr-id-dbc6cbb4363c2532f81b0bd6e351c4577bb9e9a3/> inline format args
-
-### Style (BREAKING)
-
- - <csr-id-03c57aeb4586059a5065c56ff56044f24880af90/> rename --skip-dependencies to --no-dependencies…
-   …to be more inline with existing terminology of other flags.
-
-### Refactor (BREAKING)
-
- - <csr-id-feb40e0f068c299ff3a5204caad0c3834bf0b9c9/> clarify different repository types much better
- - <csr-id-79e37f5a53802f4f2499d426856d0ea0d316599d/> Remove --no-multi-crate-release support entirely
-   As the default is to do multi-crate releases and now having to deal
-   with single-create releases reduces maintenance burden.
-   
-   The solution to this problem is to not specify versions in
-   dev-dependencies to workspace crates.
-   
-   We also don't check for this anymore, which might be re-added
-   at some point if there is demand.
- - <csr-id-96fd2c1b2db3ba7959a97d212f64ac0ed7184132/> Use 'to_*' when converting `easy::Object` to specific object kind
-   This also makes the API more consistent while being more idiomatic.
-
 ### New Features (BREAKING)
 
  - <csr-id-963798af8339ee3d1278aea3c2abca26e1a674c1/> upgrade edition to 2021 in most crates.
@@ -1034,120 +936,9 @@ Please note that due to the rewritten history and tag-name changes, this changel
    This one also contains the first and probably only test for tag object
    creation.
 
-### Style
-
- - <csr-id-d99db2e632b25a8b020491c3e1d40bf2efd3472a/> Match auto-generated style
- - <csr-id-4163ad78c72df3a993bea6084fc05c6a2a44b9c2/> Match auto-generated style
-   This will make reviewing auto-update PRs easier
-
-### Refactor
-
- - <csr-id-4452ea424cf11a56e48ceb0e2764d31f7e2c242e/> split data::output::count::objects into files
-
 ### Other
 
- - <csr-id-45f23a30c715e3da15deeb5c4b808c99e3b80033/> try to auto-udpate crates index with lifetime crazyness
-   Even though it could work, it's too complicated.
- - <csr-id-ee8a2b5fa6dc2e586767d60d141f1abade64fe8f/> try to assure that breaking changes are always published in correct order
-   The problem here is that even though we can turn non-publishable breaks
-   into publishable ones without loosing information, they will not be in
-   the correct order.
-   
-   The solution is to merge dependency trees instead of clearing them with
-   weird logic.
- - <csr-id-f2d2bfad7c65c6d8a961bbbb0970f27de5a5c33e/> :remote_url() is now optional
-   Otherwise it wouldn't work on repos that don't have a remote set yet.
-   Instead of failing, we don't create links.
- - <csr-id-17173c85ac4806e1ecdbd06bacc70b37d5647779/> add git-conventional
- - <csr-id-33a2d9f1ebbfb078649dad5ce07fae0aa1e857b4/> consider nom for custom parsing, but…
-   …realize that the easiest way is definitely the excellent
-   git-conventional crate.
-   
-   This also means we have to stop specifying crates in commit messages
-   or find another way to do that.
- - <csr-id-8ab83d5a84f341c34cc059e27e45019390ec25d5/> refactor
- - <csr-id-85bd41841d2721e857d605f42ac021bd37285ede/> refactor
- - <csr-id-e746ee9791ea086ff98a79efb522d177c64f4846/> refactor
- - <csr-id-4f3808d76a5a732970c5ef744a8375e7ab729357/> a seemingly slow version of path lookup, but…
-   …in debug mode it's faster than the fast path, despite doing more
-   and being the same when it comes to searching path components.
- - <csr-id-489c035a0366e98a0654b824df577ca6287ab964/> fast filter by single-component path
- - <csr-id-4d2e66b2593a1360f4405fd319a290d98e336987/> prepare for fast lookup of paths
- - <csr-id-6d4ba38f7c61860c068bb351c521fdaec4cdcbc6/> configure caches with env vars using `apply_environment()`
- - <csr-id-0bb7f48f2b2c3cdaf4dadac5163f03b923489cf5/> refactor
- - <csr-id-245c84673a59e3569d0ab628a3051959c5c48b7a/> set package cache via RepositoryAccessExt
- - <csr-id-a6e2c581cfcf2e8395b7ead3e4d82a0a5a47d25f/> object-cache to allow for a speed boost…
-   …by avoiding duplicate accesses to hit the object database.
-   However, the cost for the cache are relatively high and involve some
-   memory copying, so hit rates of about 50% is certainly what is needed
-   to get any speed boost at all.
- - <csr-id-4f0c9fb70630abccd83a43beb338d504f62381c2/> actually build the segment vec, without pruning for now
- - <csr-id-689150655fe6b9bd83cb1d6a3c6c461f6bca38a3/> build commit history for later use in changelog generation
- - <csr-id-bfe6febccc3f3631566e6d24b32b5d92e73d49f9/> sketch history acquisition
- - <csr-id-bfc2733b28276e916eabfb2137c983fb07cc6eed/> add 'Head::peeled()' method
- - <csr-id-a2a750c35df6faaeda50db2a61e7b5bfcc21f9be/> some performance logging
- - <csr-id-5a4c43abb465c24a37ebc2697aa2d4675e3bef96/> build ref lookup table
- - <csr-id-721c8f7acdade982f617299077ef3958c379f55b/> loose reference iteration with non-dir prefixes…
-   Previously it was expected for the prefix `Path` to always exist for
-   the prefix to be valid. This, however, is not similar to packed
-   prefixes, which allow non-dir prefixes as well.
-   
-   Now we will check if the prefix is actually a directory, and if not
-   split it into its parent directory and the filename portion. The latter
-   is then used for prefix matching file names within that directory.
- - <csr-id-d847ff8af4d2f82b6aeb8e02bbed17570fff760b/> Add 'references().all().peeled().'…
-   …to not only make typical usage of iterated references more convenient
-   but also work around a double-borrow error one would see otherwise.
- - <csr-id-b0f93567029381414eea9e7752ebaa251da11502/> filter refs correctly, but…
-   …it needs a way to peel references right away without trying
-   to double-borrow. This means the Iterator needs to implement this.
- - <csr-id-aac36685b88075553241fc55e83982da4b4d7e82/> find tag references by name…
-   …even though it's clear that loose refs won't be found with prefixes
-   that aren't directories, but contain a partial file.
-   
-   This is more like a bug to be fixed, as that works naturally for
-   packed-refs for instance.
- - <csr-id-af8eeeb31f33484f84b8e37958802a4e24f58edc/> improve changelog format
- - <csr-id-571c98ed65eb162d6e4d227653bc41e2fa053eb1/> sketch first step of info generation
- - <csr-id-59e477a7dbe738594e00dcba53d685e099933adf/> changelog gets crates to work on
- - <csr-id-505c94854a00fc135cd037ef848ed4eb8a6ade2e/> handle unborn heads
- - <csr-id-12c4b49d956999e9b9151a26bded7f103bea73e1/> fmt
- - <csr-id-11b7ce634faeb68709cf9ee4b36aefed846e3cce/> refactor
- - <csr-id-9d29488b124a37a252db60b9e84ad2911484b44a/> refactor
- - <csr-id-df9204e93d735329a012bd2256945a63980a5590/> refactor
- - <csr-id-62705deb6f8119e30b92af83616292628551f050/> initial test for changelog
-   Which doesn't test that much.
- - <csr-id-4dfdc898f5930bab82bbfb8c871aa1df40b03e88/> very basic support for changelog command…
-   …which shows that it probably just wants to be separate for now before
-   being integrated?
- - <csr-id-0d2cb64ac5d66328449793683fd9bb866b851f02/> add 'cargo changelog' sub-command binary
- - <csr-id-ed56f26e4f09432f4eca4c05638313edb25cd493/> add changelog to most tests
- - <csr-id-da676e5732eec0b633748eb640009a3c64f2e7f7/> assure the current package version is actually breaking
- - <csr-id-ba1ba749b4fa9df368771b64eeed4625d4479dab/> better verbosity handling when comparing to crates-index
- - <csr-id-f6f441479cde179d92b095889797adeda3bce379/> turn off safety bump with its own flag
- - <csr-id-a1db0f1900e465b8bfb521a82691f2567bf357fd/> improved safety bump log message
- - <csr-id-4f9f1f94d950b22d730eaa4d31d91cab7ca5890a/> commit message reveals safety bumps
- - <csr-id-9fd83a0e020cf4c45b1874290dbd7ebdba69d738/> released crates only receive minor bumps…
-   …which signals a change while allowing decendents to pin themselves to
-   patch updates only.
-   
-   This would be users of "unstable" git-repository features for example.
-   which then also don't want to see new minor versions automatically
-   as it may cause breakage.
- - <csr-id-151f10e895145241b91d29e1b9db723409798684/> update changelog
- - <csr-id-8b96c9d7373fc31ba068aefad51c25a4cab3b87c/> way more tests to nail current log output
-   This is the basis for adjusting the output verbosity or information
-   where it matters.
- - <csr-id-de1155bb13e02fcc67eaee6cbdc3f9cf1334e537/> dependency upgrade works
- - <csr-id-9f2900c62a182de085869263289eb06c6624c8a0/> calculate new version of dependent
- - <csr-id-69473e9274034c4f7844fcba6859ae9e3ff84547/> don't claim "conservative" updates for major version change
- - <csr-id-cc08f344687221476d87318b76ded2b0ded488de/> assure we can find non-sequential connections
- - <csr-id-654d64604a455c43547c40bf003eaf19289376fb/> all logic to calculate dependent version bumps
- - <csr-id-6c067c73fd73914d4a135f7072065b9123059d3f/> an algorithm to collect dependencies by 'growing'
- - <csr-id-eab816ae90b83940d549f110d00b69671f699fdb/> foundation for bumping versions
-   The idea is that the dependency traversal may also produce a new version
-   number, which is when it will naturally be set for all dependents later.
- - <csr-id-307bf1b8f11b9d7bc787d7cadf151a6310a15765/> 
+ - <csr-id-307bf1b8f11b9d7bc787d7cadf151a6310a15765/>
 
 ### Documentation
 
@@ -1156,39 +947,8 @@ Please note that due to the rewritten history and tag-name changes, this changel
  - <csr-id-e866c4d97dfbdc6dde52c750f7c3d34c0be43709/> fix minor typos
  - <csr-id-09d6986a15f67e48a0184cbca927dc05c51be604/> fix typos
 
-### Chore
-
- - <csr-id-1cea98086a6676594c099162f72f7c910127f755/> Add `clippy::redundant-closure-for-method-calls` lint
- - <csr-id-b196db6d12a353fbf0b5d5dd61c98099f997866e/> inline format args
- - <csr-id-4d44cd7ca51f05fb06185677642d73c0ff0da079/> Update precommit hooks
- - <csr-id-2b6bb28cd18916a6244a2632a6abcba9362b9fd0/> Catch clippy config failures
- - <csr-id-80d4cdd688e88b897f384b770f9c13268ecb3793/> Remove clippy lint past MSRV (needs 1.67)
- - <csr-id-716170eaa853ddf3032baa9b107eb3e44d6a4124/> Ban rebase merges
- - <csr-id-96297f038d8d931bb9d5ba4dfcdced18d7c81061/> Clarify why map_or is banned
- - <csr-id-60a8ec89e3f97baad0dbe097e03dc0cd30899e02/> Ban for_each
- - <csr-id-afaba35d39c75d13138e2928cddeb0b93601cee3/> Use new minimumReleaseAge field
- - <csr-id-62401b8eafb71d8a928137f6f8dfc25340e39bbf/> Lower the MSRV churn for template
- - <csr-id-2c4a7f574f6fed6655e8b2f25916c22d7bf08ad1/> Delay Renovate PRs until ready
- - <csr-id-563de12d25e777e7244a73308090adcfb8b90014/> Update stabilidyDays to new syntax
- - <csr-id-6c8df60dc4015279cef303cab8f4760efb5ebea8/> Include Cargo.lock
- - <csr-id-d1dd4ae94067be2f3158fa46b0e78504705dfb26/> Expand approved licenses
- - <csr-id-037f37906dad6d39f9fad371bc9a8ab76e8bd5c4/> Remove rustfmt/clippy next jobs
- - <csr-id-afd6a45ef73201bf5d5f3d4f0317f432b17c60d0/> Use workspace inheritance
- - <csr-id-083884043cc08394c6f91df81e6407721b2dc19e/> Update release process
- - <csr-id-2768727452315929d88dda7d0686440d8e668736/> Don't set rustflags by default
-   Doing so can cause unnecessary recompilation
- - <csr-id-afeff23549a05cd0e5997f129e5d7a564ec41866/> Quote strings in yaml
- - <csr-id-fbaab420b9e4e01e60522f87e89e2e0a28250c73/> update msrv to v1.65.0
- - <csr-id-e7b7555d1516d0b274e7269961fce9ec9b30bc98/> First step
- - <csr-id-19b6df4e9d25d502ec4e21cb950a186f8b4300ce/> upgrade to clap 4.1
- - <csr-id-38a07f2ad061f2eba143532c94d23b4254aec438/> remove default link to cargo doc everywhere
- - <csr-id-38e3835b1b1fb90a7596b3cb08dd18c903a5acce/> upgrade all dependencies
-
 ### New Features
 
- - <csr-id-4a244a2c9d1007fa10afa6f5078747bd2b001eb5/> add --capitalize-commit option to capitalize commit message in cargo-smart-release
- - <csr-id-09aae21add04b2edbaa1489f1b47cc0886da0062/> add `vendored-openssl` feature toggle.
-   This should help the build on some platforms.
  - <csr-id-b9312a1e405544517c6ef147f8e42142327a3bc9/> add --capitalize-commit option to capitalize commit message in cargo-smart-release
  - <csr-id-f5649e2cbfc6c369354ea8aff02420d1748693ce/> avoid panics in favor of error handling. That way more information can be provided which helps with a fix.
  - <csr-id-84aeb51fd6099d8cfa6ec4db08b78e06728d0664/> rename tracking for crates in the crate-root.
@@ -1237,8 +997,6 @@ Please note that due to the rewritten history and tag-name changes, this changel
 
 ### Bug Fixes
 
- - <csr-id-3d8d9f36206c7e8dcd2d38a085ad93a6295d3231/> fix docs generation
-   URLs need to be escaped. Plus added doc build to CI without deps
  - <csr-id-147cfe1e13dc60bfefe6b5299b8c01550f1577db/> fix docs generation
    URLs need to be escaped. Plus added doc build to CI without deps
  - <csr-id-f7b990b803a4aa448e81a323df3a54e66d2d8df4/> Fix Renovate regexes
@@ -1377,10 +1135,6 @@ Please note that due to the rewritten history and tag-name changes, this changel
 
 ### Bug Fixes (BREAKING)
 
- - <csr-id-39bcb1d1b2ea4cc9a75f97bc05db642b0a556f8d/> don't auto-publish stable crates by inverting `no-auto-publish-of-stable-crates` (to `auto-publish...`).
-   It turned out that I was happily publishing stable crates even without user-facing changes
-   as this was the default.
-   This will now stop, and is fine if stable crates are not exposing API of unstable crates.
  - <csr-id-018bb93d253d1649c736d54609aa9b2c1f33296d/> don't auto-publish stable crates by inverting `no-auto-publish-of-stable-crates` (to `auto-publish...`).
    It turned out that I was happily publishing stable crates even without user-facing changes
    as this was the default.
@@ -1391,6 +1145,7 @@ Please note that due to the rewritten history and tag-name changes, this changel
 <csr-read-only-do-not-edit/>
 
  - 688 commits contributed to the release.
+ - 677 days passed between releases.
  - 154 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 36 unique issues were worked on: [#192](https://github.com/Byron/cargo-smart-release/issues/192), [#197](https://github.com/Byron/cargo-smart-release/issues/197), [#198](https://github.com/Byron/cargo-smart-release/issues/198), [#200](https://github.com/Byron/cargo-smart-release/issues/200), [#213](https://github.com/Byron/cargo-smart-release/issues/213), [#221](https://github.com/Byron/cargo-smart-release/issues/221), [#222](https://github.com/Byron/cargo-smart-release/issues/222), [#224](https://github.com/Byron/cargo-smart-release/issues/224), [#227](https://github.com/Byron/cargo-smart-release/issues/227), [#228](https://github.com/Byron/cargo-smart-release/issues/228), [#234](https://github.com/Byron/cargo-smart-release/issues/234), [#241](https://github.com/Byron/cargo-smart-release/issues/241), [#259](https://github.com/Byron/cargo-smart-release/issues/259), [#262](https://github.com/Byron/cargo-smart-release/issues/262), [#266](https://github.com/Byron/cargo-smart-release/issues/266), [#270](https://github.com/Byron/cargo-smart-release/issues/270), [#274](https://github.com/Byron/cargo-smart-release/issues/274), [#279](https://github.com/Byron/cargo-smart-release/issues/279), [#287](https://github.com/Byron/cargo-smart-release/issues/287), [#298](https://github.com/Byron/cargo-smart-release/issues/298), [#301](https://github.com/Byron/cargo-smart-release/issues/301), [#308](https://github.com/Byron/cargo-smart-release/issues/308), [#317](https://github.com/Byron/cargo-smart-release/issues/317), [#318](https://github.com/Byron/cargo-smart-release/issues/318), [#331](https://github.com/Byron/cargo-smart-release/issues/331), [#364](https://github.com/Byron/cargo-smart-release/issues/364), [#422](https://github.com/Byron/cargo-smart-release/issues/422), [#427](https://github.com/Byron/cargo-smart-release/issues/427), [#429](https://github.com/Byron/cargo-smart-release/issues/429), [#450](https://github.com/Byron/cargo-smart-release/issues/450), [#470](https://github.com/Byron/cargo-smart-release/issues/470), [#512](https://github.com/Byron/cargo-smart-release/issues/512), [#513](https://github.com/Byron/cargo-smart-release/issues/513), [#560](https://github.com/Byron/cargo-smart-release/issues/560), [#67](https://github.com/Byron/cargo-smart-release/issues/67), [#711](https://github.com/Byron/cargo-smart-release/issues/711)
 
@@ -2684,7 +2439,7 @@ And there is another one showing `cargo smart-release` releasing `gitoxide 0.9.0
  - <csr-id-d1145d1a6219ddafa7a41c82d6149b289f033640/> foundation for bumping versions
    The idea is that the dependency traversal may also produce a new version
    number, which is when it will naturally be set for all dependents later.
- - <csr-id-443f000015de2117eae08fedf7d23f0d1ac6abff/> 
+ - <csr-id-443f000015de2117eae08fedf7d23f0d1ac6abff/>
  - <csr-id-0c355ed24eb230e9834e797d5c8dc72ae21f0c46/> add git-conventional
  - <csr-id-5fc33266b2626a07b19d2f5bd075e2c600204a3d/> consider nom for custom parsing, but…
    …realize that the easiest way is definitely the excellent
@@ -2778,13 +2533,13 @@ actually releasing them along with the crate with `smart-release`.
 
 For more information, run `cargo changelog -h`.
 
-### Other BREAKING Changes
+### Other
 
 - renamed `--skip-*` flags to `--no-*` for consistency
 - rename `--skip-dependencies` to `--no-dependencies` to be more inline with existing terminology of other flags.
 - rename short name for `--execute` to `-e` from `-n` for consistency
 
-### Other Changes
+### Other
 
  - <csr-id-e668bf23ddba9a676a885f1f401d2d2885784eef/> `--no-dependencies` now has `--only` as alias
 
@@ -2799,7 +2554,7 @@ For more information, run `cargo changelog -h`.
 <csr-read-only-do-not-edit/>
 
  - 14 commits contributed to the release over the course of 3 calendar days.
- - 3 days passed between releases.
+ - 4 days passed between releases.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
