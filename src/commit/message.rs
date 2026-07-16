@@ -143,7 +143,7 @@ fn as_static_str(kind: Option<git_conventional::Type<'_>>) -> Option<&'static st
         "feat" | "add" | "added" => "feat",
         "fix" => "fix",
         "revert" | "remove" => "revert",
-        "docs" => "docs",
+        "doc" | "docs" => "docs",
         "style" => "style",
         "refactor" => "refactor",
         "change" => "change",
@@ -231,6 +231,17 @@ mod tests {
                 additions: vec![]
             }
         )
+    }
+
+    #[test]
+    fn doc_is_a_documentation_alias() {
+        let message = Message::from("doc: clarify release order");
+
+        assert_eq!(message.kind, Some("docs"));
+        assert_eq!(
+            crate::changelog::section::segment::conventional::as_headline(message.kind.expect("conventional kind")),
+            Some("Documentation")
+        );
     }
 
     #[cfg(feature = "allow-emoji")]
