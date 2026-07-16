@@ -121,8 +121,7 @@ fn get_message_inner(m: &str) -> Message {
                 Some(c.type_()),
                 c.body().map(Into::into),
                 c.breaking(),
-                c.breaking_description()
-                    .and_then(|d| if d == c.description() { None } else { Some(d) }),
+                c.breaking_description().filter(|&d| d != c.description()),
             )
         },
     );
