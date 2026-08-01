@@ -204,6 +204,7 @@ dependencies = [
  "env_logger",
  "git-conventional",
  "gix 0.86.0",
+ "gix-hash 0.26.0",
  "gix-testtools",
  "insta",
  "jiff",
@@ -1302,6 +1303,7 @@ dependencies = [
  "faster-hex",
  "gix-features 0.49.0",
  "sha1-checked",
+ "sha2",
  "thiserror",
 ]
 
