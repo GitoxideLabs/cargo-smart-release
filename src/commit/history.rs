@@ -21,27 +21,24 @@ mod tests {
 
     #[test]
     fn size_of_item() {
-        // The expected size used to be for the *test* build during the gix 0.83 adaptation:
-        // with `gix-testtools` and `gix` resolving the same `gix-hash` version, Cargo feature
-        // unification enabled `gix-hash/sha256`, making `gix::ObjectId` its wider
-        // SHA-1/SHA-256 enum. With gix 0.86 they can resolve different `gix-hash` versions, so
-        // the main `gix` package follows this crate's explicit production configuration of
-        // `gix/sha1` only. Growth from either our fields or gix's types trips this deliberately,
-        // so the bump can be reviewed.
-        let object_id_size = std::mem::size_of::<gix::ObjectId>();
-        let item_size = std::mem::size_of::<Item>();
-        const SHA1_ONLY_LAYOUT: (usize, usize) = (20, 200);
-        const DUAL_HASH_LAYOUT: (usize, usize) = (33, 240);
-        assert!(
-            matches!(
-                (object_id_size, item_size),
-                SHA1_ONLY_LAYOUT | DUAL_HASH_LAYOUT
-            ),
-            "unexpected sizes: gix::ObjectId={object_id_size}, Item={item_size}; expected SHA-1-only ({}, {}) or SHA-1/SHA-256 ({}, {})",
-            SHA1_ONLY_LAYOUT.0,
-            SHA1_ONLY_LAYOUT.1,
-            DUAL_HASH_LAYOUT.0,
-            DUAL_HASH_LAYOUT.1
+        // `Item` holds three `gix::ObjectId`s, so its size depends on which hash kinds `gix-hash` was
+        // built with: 200 bytes when `ObjectId` is SHA-1 only, 240 when it is the wider SHA-1/SHA-256
+        // enum. Both are expected. This crate enables `gix/sha1` alone, but the `gix-testtools`
+        // dev-dependency enables `gix-hash/sha256`, so whenever `gix` and `gix-testtools` resolve the
+        // *same* `gix-hash`, Cargo's feature unification widens the ids in test builds only. That held
+        // for gix 0.83 through 0.85, and is where 240 came from; since gix 0.86 the two resolve
+        // different `gix-hash` versions, so test builds see the SHA-1-only ids production always had.
+        // Each configuration still pins `Item` exactly, so growth from our own fields or from gix's
+        // types trips this deliberately and the bump can be reviewed.
+        let expected_size = match std::mem::size_of::<gix::ObjectId>() {
+            20 => 200,
+            33 => 240,
+            unexpected => panic!("`gix::ObjectId` is neither SHA-1-only nor SHA-1/SHA-256 sized: {unexpected}"),
+        };
+        assert_eq!(
+            std::mem::size_of::<Item>(),
+            expected_size,
+            "there are plenty of these loaded at a time and we should not let it grow unnoticed."
         )
     }
 }
