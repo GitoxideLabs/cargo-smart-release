@@ -32,6 +32,7 @@ fn main() -> anyhow::Result<()> {
                     dependencies: !no_dependencies,
                     generator_segments: names_to_segment_selection(&without)?,
                     capitalize_commit,
+                    registry: None, // TODO: remove from args? not useful for a changelog
                 },
                 crates,
             )?
