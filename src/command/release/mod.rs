@@ -188,8 +188,14 @@ fn present_and_validate_dependencies(
             .collect();
         crates_by_reason.sort_by_key(|(k, _)| *k);
 
-        log::info!(
-            "Will not publish or alter {} dependent crate{}: {}",
+        let (level, hint) = skipped_dependency_notice(
+            crates_by_reason
+                .iter()
+                .any(|(reason, _)| *reason == dependency::NoPublishReason::DeniedAutopublishOfProductionCrate),
+        );
+        log::log!(
+            level,
+            "Will not publish or alter {} dependent crate{}: {}{}",
             skipped_len,
             if skipped_len != 1 { "s" } else { "" },
             crates_by_reason
@@ -200,7 +206,8 @@ fn present_and_validate_dependencies(
                     names.iter().map(|n| format!("'{n}'")).collect::<Vec<_>>().join(", ")
                 ))
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", "),
+            hint,
         );
     }
 
@@ -387,6 +394,17 @@ fn present_and_validate_dependencies(
             bail!(no_crate_being_published_message)
         }
         Ok(())
+    }
+}
+
+fn skipped_dependency_notice(has_denied_stable_crate: bool) -> (log::Level, &'static str) {
+    if has_denied_stable_crate {
+        (
+            log::Level::Warn,
+            ". Pass --auto-publish-of-stable-crates to publish changed stable dependencies.",
+        )
+    } else {
+        (log::Level::Info, "")
     }
 }
 
@@ -596,5 +614,16 @@ mod tests {
         options.registry = Some("private".into());
 
         assert!(!should_update_crates_index(&options));
+    }
+
+    #[test]
+    fn denied_stable_dependencies_warn_with_a_remedy() {
+        assert_eq!(
+            skipped_dependency_notice(true),
+            (
+                log::Level::Warn,
+                ". Pass --auto-publish-of-stable-crates to publish changed stable dependencies.",
+            )
+        );
     }
 }
