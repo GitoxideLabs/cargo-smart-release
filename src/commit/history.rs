@@ -31,8 +31,8 @@ mod tests {
         // Each configuration still pins `Item` exactly, so growth from our own fields or from gix's
         // types trips this deliberately and the bump can be reviewed.
         let expected_size = match std::mem::size_of::<gix::ObjectId>() {
-            20 => 200,
-            33 => 240,
+            20 => 216,
+            33 => 256,
             unexpected => panic!("`gix::ObjectId` is neither SHA-1-only nor SHA-1/SHA-256 sized: {unexpected}"),
         };
         assert_eq!(

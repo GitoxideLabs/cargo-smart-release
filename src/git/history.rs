@@ -173,7 +173,9 @@ pub fn crate_ref_segments<'h>(
 
     for item in &history.items {
         match tags_by_commit.remove(&item.id) {
-            None => add_item_if_package_changed(ctx, &mut segment, &mut filter, item, &history.data_by_tree_id)?,
+            None => {
+                add_item_if_package_changed(package, ctx, &mut segment, &mut filter, item, &history.data_by_tree_id)?
+            }
             Some(next_ref) => {
                 match scope {
                     SegmentScope::EntireHistory => {
@@ -190,7 +192,7 @@ pub fn crate_ref_segments<'h>(
                         return Ok(segments);
                     }
                 }
-                add_item_if_package_changed(ctx, &mut segment, &mut filter, item, &history.data_by_tree_id)?
+                add_item_if_package_changed(package, ctx, &mut segment, &mut filter, item, &history.data_by_tree_id)?
             }
         }
     }
@@ -221,6 +223,7 @@ enum Filter<'a> {
 }
 
 fn add_item_if_package_changed<'a>(
+    package: &Package,
     ctx: &Context,
     segment: &mut Segment<'a>,
     filter: &mut Filter<'_>,
@@ -228,6 +231,17 @@ fn add_item_if_package_changed<'a>(
     data_by_tree_id: &HashMap<gix::ObjectId, Vec<u8>>,
 ) -> anyhow::Result<()> {
     let history = &mut segment.history;
+    if let Some(scope) = item.message.scope.as_deref().filter(|scope| {
+        ctx.meta
+            .packages
+            .iter()
+            .any(|candidate| candidate.name.as_str() == *scope && ctx.meta.workspace_members.contains(&candidate.id))
+    }) {
+        if package.name.as_str() == scope {
+            history.push(item);
+        }
+        return Ok(());
+    }
     match filter {
         Filter::None => history.push(item),
         Filter::Fast { name } => {
