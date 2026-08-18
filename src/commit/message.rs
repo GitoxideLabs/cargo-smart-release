@@ -104,11 +104,12 @@ fn get_message(m: &str) -> Message {
 }
 
 fn get_message_inner(m: &str) -> Message {
-    let (title, kind, body, breaking, breaking_description) = git_conventional::Commit::parse(m).map_or_else(
+    let (title, kind, scope, body, breaking, breaking_description) = git_conventional::Commit::parse(m).map_or_else(
         |_| {
             let m = gix::objs::commit::MessageRef::from_bytes(m.as_bytes());
             (
                 m.summary().as_ref().to_string().into(),
+                None,
                 None,
                 m.body().map(|b| b.without_trailer().to_str_lossy()),
                 false,
@@ -119,6 +120,7 @@ fn get_message_inner(m: &str) -> Message {
             (
                 c.description().into(),
                 Some(c.type_()),
+                c.scope().map(|scope| scope.to_string().into_boxed_str()),
                 c.body().map(Into::into),
                 c.breaking(),
                 c.breaking_description().filter(|&d| d != c.description()),
@@ -129,6 +131,7 @@ fn get_message_inner(m: &str) -> Message {
     Message {
         title: title.into_owned(),
         kind: as_static_str(kind),
+        scope,
         body: body.map(Cow::into_owned),
         breaking,
         breaking_description: breaking_description.map(ToOwned::to_owned),
@@ -165,6 +168,7 @@ mod tests {
                 title: "hi".into(),
                 body: None,
                 kind: None,
+                scope: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![]
@@ -180,6 +184,7 @@ mod tests {
                 title: "hi ho foo".into(),
                 body: Some("body".into()),
                 kind: None,
+                scope: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![]
@@ -195,6 +200,7 @@ mod tests {
                 title: "hi".into(),
                 body: Some("body\nother".into()),
                 kind: None,
+                scope: None,
                 breaking: false,
                 breaking_description: None,
                 additions: vec![Addition::IssueId("14123".into())]
@@ -210,6 +216,7 @@ mod tests {
                 title: "hi".into(),
                 body: Some("the body".into()),
                 kind: Some("feat"),
+                scope: None,
                 breaking: true,
                 breaking_description: Some("breaks".into()),
                 additions: vec![Addition::IssueId("123".into())]
@@ -225,6 +232,7 @@ mod tests {
                 title: "restructure Cargo.toml for workspace management".into(),
                 body: Some("- transition from single package to workspace format\n- update dependencies and remove obsolete sections".into()),
                 kind: Some("refactor"),
+                scope: Some("workspace".into()),
                 breaking: true,
                 breaking_description: None,
                 additions: vec![]
@@ -252,6 +260,7 @@ mod tests {
                 title: "restructure Cargo.toml for workspace ⚠️management ⚠️ ".into(),
                 body: Some("- transition from single package to workspace format\n- update dependencies and remove obsolete sections".into()),
                 kind: Some("refactor"),
+                scope: Some("workspace".into()),
                 breaking: true,
                 breaking_description: None,
                 additions: vec![]

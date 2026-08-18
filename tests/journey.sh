@@ -66,6 +66,35 @@ title "changelog"
   )
 )
 
+title "conventional scopes route changes"
+(sandbox
+  set-static-git-environment
+  export CARGO_HOME="$(mktemp -t cargo-home.XXXXXX -d)"
+
+  cp -R $fixtures/tri-depth-workspace/* .
+  { echo $'target/' > .gitignore && init-git-repo; } &>/dev/null
+
+  touch b/routed
+  git add b/routed && git commit -q -m "feat(a): routed feature"
+
+  it "uses the routed commit for automatic bumps" && {
+    expect_run_sh $SUCCESSFULLY \
+      "\"$exe\" smart-release a --no-push --no-publish -v --allow-dirty 2>&1 | grep -F 'Bump a v0.8.0'"
+  }
+  it "writes the routed commit only to the named crate" && {
+    expect_run $SUCCESSFULLY "$exe" changelog a b --write --no-preview
+    expect_run $SUCCESSFULLY grep -F "routed feature" a/CHANGELOG.md
+    expect_run 1 grep -F "routed feature" b/CHANGELOG.md
+  }
+
+  touch c/unscoped
+  git add c/unscoped && git commit -q -m "chore(workspace): path-routed change"
+  it "falls back to changed paths for unknown scopes" && {
+    expect_run $SUCCESSFULLY "$exe" changelog c --write --no-preview --allow-dirty
+    expect_run $SUCCESSFULLY grep -F "path-routed change" c/CHANGELOG.md
+  }
+)
+
 title "smart-release"
 (sandbox
   set-static-git-environment

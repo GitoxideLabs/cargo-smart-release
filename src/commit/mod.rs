@@ -9,8 +9,10 @@ pub struct Message {
     pub title: String,
     /// More detailed information about the changes.
     pub body: Option<String>,
-    /// If set, the git-conventional scope to help organizing changes.
+    /// The git-conventional type used to organize changes.
     pub kind: Option<&'static str>,
+    /// The git-conventional scope, if present.
+    pub scope: Option<Box<str>>,
     /// If set, this is a breaking change as indicated git-conventional.
     pub breaking: bool,
     /// If set, this commit message body contains a specific description of the breaking change.
