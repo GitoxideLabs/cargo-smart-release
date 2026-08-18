@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.13 (2026-08-18)
+
+### New Features
+
+ - <csr-id-a718a2b03de2fc1bf64c560ac0c4b10169cfc23e/> route changelogs by conventional commit scope
+   Use `feat!(gix-object)` to place the commit message into the respective
+   crate changelog.
+   
+   <!-- agent -->
+   
+   Preserve conventional commit scopes and treat exact workspace crate names as
+   explicit history routing targets. Unknown scopes retain tree-based detection,
+   and the shared filter keeps changelog generation and automatic bump selection
+   aligned.
+
+### Bug Fixes
+
+ - <csr-id-d4eda79feb13175710f888ace257d99490ac1e7a/> explain denied stable dependencies
+   <!-- agent -->
+   Changed stable workspace dependencies are intentionally skipped unless
+   --auto-publish-of-stable-crates is set, but the release plan reported that
+   decision at INFO level with only the internal "denied" reason.
+   
+   Raise summaries containing a denied stable dependency to WARN and point
+   directly to the opt-in flag. Other skipped-dependency summaries and all release
+   eligibility logic remain unchanged.
+   
+   Validated with just test and a custom-build dry run in dua-cli, which warned
+   about dua-core and suggested --auto-publish-of-stable-crates.
+ - <csr-id-ecc138b4d43ed8e09c6edaae3de2e9e056058fbf/> keep doc-prefixed commits in documentation release notes
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 13 commits contributed to the release.
+ - 34 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Thanks Clippy
+
+<csr-read-only-do-not-edit/>
+
+[Clippy](https://github.com/rust-lang/rust-clippy) helped 1 time to make code idiomatic. 
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #143 from GitoxideLabs/scoped-changelogs ([`8f474f3`](https://github.com/Byron/cargo-smart-release/commit/8f474f32a7ed5d29d2ce56e2eaa9acf2852d66a0))
+    - Route changelogs by conventional commit scope ([`a718a2b`](https://github.com/Byron/cargo-smart-release/commit/a718a2b03de2fc1bf64c560ac0c4b10169cfc23e))
+    - Merge pull request #142 from GitoxideLabs/fix-workspace-crate-mismatch ([`dde04c0`](https://github.com/Byron/cargo-smart-release/commit/dde04c051ded2421248d89677f022441b86d2576))
+    - Explain denied stable dependencies ([`d4eda79`](https://github.com/Byron/cargo-smart-release/commit/d4eda79feb13175710f888ace257d99490ac1e7a))
+    - Merge pull request #135 from GitoxideLabs/dependabot/cargo/cargo-eec3556462 ([`d4e2afc`](https://github.com/Byron/cargo-smart-release/commit/d4e2afce40ff718392ed07773809948217a713d8))
+    - Clarify the `Item` size guard ([`4427283`](https://github.com/Byron/cargo-smart-release/commit/4427283aba26457d493f5fa06a577316214988b0))
+    - Fix gix 0.86 test compatibility ([`4cd792a`](https://github.com/Byron/cargo-smart-release/commit/4cd792a4eb8b160749ed797efb9dba62b563525e))
+    - Bump the cargo group across 1 directory with 38 updates ([`650e48e`](https://github.com/Byron/cargo-smart-release/commit/650e48eda31e7aca0b4ba64687a01dd54e22023d))
+    - Merge pull request #134 from GitoxideLabs/dependabot/github_actions/github-actions-a80b6da297 ([`626e7d9`](https://github.com/Byron/cargo-smart-release/commit/626e7d91365346e93ea722d96f4bbe76c94ee69c))
+    - Bump the github-actions group with 7 updates ([`59db474`](https://github.com/Byron/cargo-smart-release/commit/59db47490cce647a82298424017d9b5ad0b09a07))
+    - Thanks clippy ([`8690112`](https://github.com/Byron/cargo-smart-release/commit/8690112733ef954d997243926f5521a809ad6e88))
+    - Merge pull request #133 from ychampion/fix/doc-conventional-prefix ([`fbac922`](https://github.com/Byron/cargo-smart-release/commit/fbac9225e1a33a5773db8cb14a3b51f5d1c6a2cd))
+    - Keep doc-prefixed commits in documentation release notes ([`ecc138b`](https://github.com/Byron/cargo-smart-release/commit/ecc138b4d43ed8e09c6edaae3de2e9e056058fbf))
+</details>
+
 ## 0.21.12 (2026-07-15)
 
 ### Chore
@@ -54,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 35 commits contributed to the release.
+ - 36 commits contributed to the release.
  - 115 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -66,6 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.12 ([`ce74f3f`](https://github.com/Byron/cargo-smart-release/commit/ce74f3f02680a951d64c9a67da07620555f3bdfe))
     - Merge pull request #132 from GitoxideLabs/date-in-statistics ([`853e9f4`](https://github.com/Byron/cargo-smart-release/commit/853e9f4d0534f40500d5ec792d4f1b22a549fc80))
     - Update Rust dependencies ([`f8e3c8b`](https://github.com/Byron/cargo-smart-release/commit/f8e3c8b949093418f36e622213bf20f0e97883bf))
     - Restore days-between-releases statistics ([`4e0e648`](https://github.com/Byron/cargo-smart-release/commit/4e0e648f21ef4d023fdc35187da2a1da7868489a))
