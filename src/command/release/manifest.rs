@@ -85,7 +85,8 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
     }
 
     let would_stop_release = (!changelog_ids_with_statistical_segments_only.is_empty()
-        && !opts.allow_fully_generated_changelogs)
+        && !opts.allow_fully_generated_changelogs
+        && !opts.allow_empty_release_message)
         || (!changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_empty_release_message);
     let safety_bumped_packages = crates
         .iter()
@@ -157,7 +158,10 @@ fn commit_locks_and_generate_bail_message(
                 || changelog_ids_with_statistical_segments_only.contains(&idx)
             {
                 lock.commit()?;
-                if !allow_fully_generated_changelogs && !changelog_ids_with_statistical_segments_only.is_empty() {
+                if !allow_fully_generated_changelogs
+                    && !allow_empty_release_message
+                    && !changelog_ids_with_statistical_segments_only.is_empty()
+                {
                     packages_whose_changelogs_need_edits
                         .get_or_insert_with(Vec::new)
                         .push(package);
