@@ -2,11 +2,12 @@ use std::{
     borrow::Cow,
     collections::{btree_map::Entry, BTreeMap},
     io::Write,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
 use anyhow::{bail, Context as ContextTrait};
-use cargo_metadata::{camino::Utf8PathBuf, Package};
+use cargo_metadata::Package;
 use gix::{lock::File, Id};
 use semver::{Version, VersionReq};
 
@@ -46,42 +47,73 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         .transpose()?
         .unwrap_or_default();
 
-    let crates_with_version_change: Vec<_> = crates
+    let crates_with_version_change: BTreeMap<_, _> = crates
         .iter()
         .filter_map(|c| c.mode.version_adjustment_bump().map(|b| (c.package, &b.next_release)))
-        .collect();
-    for (package, possibly_new_version) in crates
+        .map(|(package, version)| Ok((std::fs::canonicalize(&package.manifest_path)?, (package, version))))
+        .collect::<std::io::Result<_>>()?;
+    let mut manifests: BTreeMap<_, _> = crates
         .iter()
         .filter(|c| c.mode.manifest_will_change())
-        .map(|c| (c.package, c.mode.version_adjustment_bump().map(|b| &b.next_release)))
-    {
+        .map(|c| Ok((std::fs::canonicalize(&c.package.manifest_path)?, Some(c))))
+        .collect::<std::io::Result<_>>()?;
+    if !crates_with_version_change.is_empty() {
+        for path in tracked_manifest_paths(&ctx.base.repo)? {
+            manifests.entry(path).or_insert(None);
+        }
+    }
+    for (manifest_path, dependency) in manifests {
+        let manifest = std::fs::read_to_string(&manifest_path)
+            .map_err(anyhow::Error::from)
+            .and_then(|manifest| Ok((toml_edit::DocumentMut::from_str(&manifest)?, manifest)));
+        let (doc, manifest) = match manifest {
+            Err(err) if dependency.is_none() => {
+                log::warn!("Skipping manifest '{}': {err}", manifest_path.display());
+                continue;
+            }
+            manifest => manifest.with_context(|| format!("While reading manifest '{}'", manifest_path.display()))?,
+        };
+        let new_manifest = set_version_and_update_package_dependency(
+            &manifest_path,
+            doc,
+            dependency.and_then(|c| c.mode.version_adjustment_bump().map(|b| &b.next_release)),
+            &crates_with_version_change,
+            opts.conservative_pre_release_version_handling,
+        )
+        .with_context(|| format!("While updating manifest '{}'", manifest_path.display()))?;
+        let changed = new_manifest.is_some();
+        if !changed && dependency.is_none() {
+            continue;
+        }
+        let new_manifest = new_manifest.as_deref().unwrap_or(&manifest);
         let mut entry_store;
-        let lock = match locks_by_manifest_path.entry(&package.manifest_path) {
+        let lock = match locks_by_manifest_path.entry(manifest_path.clone()) {
             Entry::Occupied(entry) => {
                 entry_store = entry;
                 entry_store.get_mut()
             }
             Entry::Vacant(entry) => entry.insert(
                 gix::lock::File::acquire_to_update_resource(
-                    &package.manifest_path,
+                    &manifest_path,
                     gix::lock::acquire::Fail::Immediately,
                     None,
                 )
                 .with_context(|| {
                     format!(
-                        "While locking manifest '{}' to update versions and dependency requirements for crate '{}'",
-                        package.manifest_path, package.name
+                        "While locking manifest '{}' to update versions and dependency requirements",
+                        manifest_path.display()
                     )
                 })?,
             ),
         };
-        made_change |= set_version_and_update_package_dependency(
-            package,
-            possibly_new_version,
-            &crates_with_version_change,
-            lock,
-            opts.clone(),
-        )?;
+        if std::fs::read_to_string(&manifest_path)? != manifest {
+            bail!(
+                "Manifest '{}' changed while preparing the release",
+                manifest_path.display()
+            );
+        }
+        lock.write_all(new_manifest.as_bytes())?;
+        made_change |= changed;
     }
 
     let would_stop_release = (!changelog_ids_with_statistical_segments_only.is_empty()
@@ -135,10 +167,43 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
     }
 }
 
+fn tracked_manifest_paths(repo: &gix::Repository) -> anyhow::Result<Vec<PathBuf>> {
+    use gix::index::entry::{Mode, Stage};
+
+    let workdir = repo
+        .workdir()
+        .context("Can only work in non-bare repositories")?
+        .canonicalize()?;
+    let index = repo.index_or_empty()?;
+    let mut paths = Vec::new();
+    for entry in index.entries() {
+        if !matches!(entry.mode, Mode::FILE | Mode::FILE_EXECUTABLE) || entry.stage() != Stage::Unconflicted {
+            continue;
+        }
+        let relative_path = gix::path::from_bstr(entry.path(&index));
+        if relative_path.file_name() != Some(std::ffi::OsStr::new("Cargo.toml")) {
+            continue;
+        }
+        let path = workdir.join(relative_path);
+        if path
+            .symlink_metadata()
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            continue;
+        }
+        match path.canonicalize() {
+            Ok(path) if path.starts_with(&workdir) => paths.push(path),
+            Ok(_) => {}
+            Err(err) => log::warn!("Skipping manifest '{}': {err}", path.display()),
+        }
+    }
+    Ok(paths)
+}
+
 fn commit_locks_and_generate_bail_message(
     ctx: &Context,
     pending_changelogs: Vec<(&Package, bool, File)>,
-    locks_by_manifest_path: BTreeMap<&Utf8PathBuf, File>,
+    locks_by_manifest_path: BTreeMap<PathBuf, File>,
     changelog_ids_with_statistical_segments_only: Vec<usize>,
     changelog_ids_probably_lacking_user_edits: Vec<usize>,
     Options {
@@ -391,7 +456,7 @@ fn generate_commit_message(
 #[derive(Default)]
 pub struct GatherOutcome<'meta> {
     pending_changelogs: Vec<(&'meta Package, bool, File)>,
-    locks_by_manifest_path: BTreeMap<&'meta Utf8PathBuf, File>,
+    locks_by_manifest_path: BTreeMap<PathBuf, File>,
     /// Ids into `pending_changelogs`
     changelog_ids_with_statistical_segments_only: Vec<usize>,
     changelog_ids_probably_lacking_user_edits: Vec<usize>,
@@ -431,7 +496,7 @@ fn gather_changelog_data<'meta>(
                 publishee.manifest_path, publishee.name
             )
         })?;
-        let previous = locks_by_manifest_path.insert(&publishee.manifest_path, lock);
+        let previous = locks_by_manifest_path.insert(std::fs::canonicalize(&publishee.manifest_path)?, lock);
         assert!(previous.is_none(), "publishees are unique so insertion always happens");
         if let Some(history) = ctx.base.history.as_ref() {
             let changelog::init::Outcome {
@@ -536,90 +601,100 @@ fn gather_changelog_data<'meta>(
 }
 
 fn set_version_and_update_package_dependency(
-    package_to_update: &Package,
+    manifest_path: &Path,
+    mut doc: toml_edit::DocumentMut,
     new_package_version: Option<&semver::Version>,
-    crates: &[(&Package, &semver::Version)],
-    mut out: impl std::io::Write,
-    Options {
-        conservative_pre_release_version_handling,
-        ..
-    }: Options,
-) -> anyhow::Result<bool> {
-    let manifest = std::fs::read_to_string(&package_to_update.manifest_path)?;
-    let mut doc = toml_edit::DocumentMut::from_str(&manifest)?;
+    crates: &BTreeMap<PathBuf, (&Package, &semver::Version)>,
+    conservative_pre_release_version_handling: bool,
+) -> anyhow::Result<Option<String>> {
+    let package_name = doc
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml_edit::Item::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| manifest_path.display().to_string());
+    let manifest_dir = manifest_path.parent().context("Manifests have a parent directory")?;
+    let mut changed = false;
 
     if let Some(new_version) = new_package_version {
         let new_version = new_version.to_string();
         if doc["package"]["version"].as_str() != Some(new_version.as_str()) {
             log::trace!(
                 "Pending '{}' manifest version update: \"{}\"",
-                package_to_update.name,
+                package_name,
                 new_version
             );
             doc["package"]["version"] = toml_edit::value(new_version);
+            changed = true;
         }
     }
     for (dep_table, dep_type) in find_dependency_tables(&mut doc) {
-        for (name_to_find, new_version) in crates.iter().map(|(p, nv)| (p.name.as_str(), nv)) {
-            for name_to_find in package_to_update
-                .dependencies
-                .iter()
-                .filter(|dep| dep.name == name_to_find)
-                .map(|dep| dep.rename.as_ref().unwrap_or(&dep.name))
+        for (name, dependency) in dep_table.iter_mut() {
+            let Some(name_table) = dependency.as_table_like_mut() else {
+                continue;
+            };
+            let Some(path) = name_table.get("path").and_then(toml_edit::Item::as_str) else {
+                continue;
+            };
+            let Some((package, new_version)) = manifest_dir
+                .join(path)
+                .join("Cargo.toml")
+                .canonicalize()
+                .ok()
+                .and_then(|path| crates.get(&path))
+            else {
+                continue;
+            };
+            let name_to_find = name.get();
+            if name_table
+                .get("package")
+                .and_then(toml_edit::Item::as_str)
+                .unwrap_or(name_to_find)
+                != package.name.as_str()
             {
-                let Some(name_table) = dep_table
-                    .get_mut(name_to_find)
-                    .and_then(toml_edit::Item::as_inline_table_mut)
-                else {
-                    continue;
-                };
-                if name_table.get("path").is_none() {
-                    log::trace!(
-                        "Skipping '{}' manifest {} update due as it's no local dependency: '{} = \"{}\"'",
-                        package_to_update.name,
-                        dep_type,
-                        name_to_find,
-                        new_version,
-                    );
-                    continue;
-                }
-                if let Some(current_version_req) = name_table.get_mut("version") {
-                    let version_req = VersionReq::parse(current_version_req.as_str().expect("versions are strings"))?;
-                    let force_update = conservative_pre_release_version_handling
+                continue;
+            }
+            if let Some(current_version_req) = name_table.get_mut("version") {
+                let version_req = VersionReq::parse(current_version_req.as_str().with_context(|| {
+                    format!("{package_name}'s {name_to_find} dependency version must be a string")
+                })?)?;
+                let force_update = conservative_pre_release_version_handling
                         && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
                         // don't claim to be conservative if this is necessary anyway
                         && req_as_version(&version_req).is_some_and(|req_version| !version::rhs_is_breaking_bump_for_lhs(&req_version, new_version));
-                    if !version_req.matches(new_version) || force_update {
-                        if !version_req_unset_or_default(&version_req) {
-                            bail!(
+                if !version_req.matches(new_version) || force_update {
+                    if !version_req_unset_or_default(&version_req) {
+                        bail!(
                                 "{} has it's {} dependency set to a version requirement with comparator {} - cannot currently handle that.",
-                                package_to_update.name,
+                                package_name,
                                 name_to_find,
                                 current_version_req
                             );
-                        }
-                        let new_version = format!("^{new_version}");
-                        if version_req.to_string() != new_version {
-                            log::trace!(
-                                "Pending '{}' {}manifest {} update: '{} = \"{}\"' (from {})",
-                                package_to_update.name,
-                                if force_update { "conservative " } else { "" },
-                                dep_type,
-                                name_to_find,
-                                new_version,
-                                current_version_req
-                            );
-                        }
-                        *current_version_req = toml_edit::Value::from(new_version.as_str());
                     }
+                    let new_version = format!("^{new_version}");
+                    if version_req.to_string() != new_version {
+                        log::trace!(
+                            "Pending '{}' {}manifest {} update: '{} = \"{}\"' (from {})",
+                            package_name,
+                            if force_update { "conservative " } else { "" },
+                            dep_type,
+                            name_to_find,
+                            new_version,
+                            current_version_req
+                        );
+                    }
+                    let value = current_version_req
+                        .as_value_mut()
+                        .expect("version was checked to be a string");
+                    changed |= value.as_str() != Some(new_version.as_str());
+                    let mut new_value = toml_edit::Value::from(new_version.as_str());
+                    new_value.decor_mut().clone_from(value.decor());
+                    *value = new_value;
                 }
             }
         }
     }
-    let new_manifest = doc.to_string();
-    out.write_all(new_manifest.as_bytes())?;
-
-    Ok(manifest != new_manifest)
+    Ok(changed.then(|| doc.to_string()))
 }
 
 // Originally copied from [cargo release](https://github.com/crate-ci/cargo-release/blob/9633353ad5a57dbdca9a9ed6a70c1cf78fc5a51f/src/cargo.rs#L235:L263).
@@ -639,8 +714,8 @@ fn find_dependency_tables(
                 .collect::<Vec<_>>(),
             None if k == "target" => v
                 .as_table_like_mut()
-                .expect("pre-checked toml format")
-                .iter_mut()
+                .into_iter()
+                .flat_map(|target| target.iter_mut())
                 .flat_map(|(target, v)| {
                     let target_name = target.get().to_string();
                     v.as_table_like_mut().into_iter().flat_map(move |v| {
@@ -657,6 +732,13 @@ fn find_dependency_tables(
                     })
                 })
                 .collect::<Vec<_>>(),
+            None if k == "workspace" => v
+                .as_table_like_mut()
+                .and_then(|workspace| workspace.get_mut("dependencies"))
+                .and_then(toml_edit::Item::as_table_like_mut)
+                .into_iter()
+                .map(|table| (table, "workspace.dependencies".into()))
+                .collect(),
             None => Vec::new(),
         })
 }
