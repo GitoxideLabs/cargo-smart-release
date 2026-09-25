@@ -168,6 +168,58 @@ fn discovered_dependents_respect_conservative_version_handling() -> gix_testtool
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn workspace_manifest_symlinks_keep_their_dependency_base_directory() -> gix_testtools::Result {
+    let dir = fixture()?;
+    let root = dir.path();
+    let workspace = fs::read_to_string(root.join("release/Cargo.toml"))?;
+    write(
+        root,
+        "release/Cargo.toml",
+        &workspace.replace("[workspace]", "[workspace]\nmembers = [\"dependent\"]"),
+    )?;
+    fs::rename(root.join("release/Cargo.toml"), root.join("release-manifest.toml"))?;
+    std::os::unix::fs::symlink("../release-manifest.toml", root.join("release/Cargo.toml"))?;
+    let dependent = r#"[package]
+name = "workspace-dependent"
+version = "0.0.0"
+publish = false
+
+[dependencies]
+release-test = { path = "..", version = "0.8.0" }
+"#;
+    write(root, "dependent-manifest.toml", dependent)?;
+    write(root, "release/dependent/src/lib.rs", "")?;
+    std::os::unix::fs::symlink(
+        "../../dependent-manifest.toml",
+        root.join("release/dependent/Cargo.toml"),
+    )?;
+    git(root, "add release release-manifest.toml dependent-manifest.toml")?;
+    git(root, "commit -m 'add a workspace member with a symlinked manifest'")?;
+
+    let output = release(root, "minor", &["--execute"])?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    for path in ["release/Cargo.toml", "release/dependent/Cargo.toml"] {
+        assert!(
+            root.join(path).is_symlink(),
+            "workspace manifest symlinks survive the release: {path}"
+        );
+    }
+    assert_eq!(
+        fs::read_to_string(root.join("release/dependent/Cargo.toml"))?,
+        dependent.replace("\"0.8.0\"", "\"^0.9.0\""),
+        "Cargo resolves dependencies relative to the manifest location, not its symlink target"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("dependent-manifest.toml"))?,
+        dependent.replace("\"0.8.0\"", "\"^0.9.0\""),
+        "the dependency edit is written to the symlink target"
+    );
+    assert!(git(root, "diff HEAD --")?.is_empty());
+    Ok(())
+}
+
 fn write(root: &Path, path: &str, content: &str) -> std::io::Result<()> {
     let path = root.join(path);
     fs::create_dir_all(path.parent().expect("fixture files have a parent"))?;
@@ -245,7 +297,6 @@ fn release(root: &Path, bump: &str, args: &[&str]) -> std::io::Result<std::proce
             "--no-publish",
             "--no-push",
             "--no-tag",
-            "--no-changelog",
             "--no-changelog-github-release",
             "--no-bump-on-demand",
             "--bump",

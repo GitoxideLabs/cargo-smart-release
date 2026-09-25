@@ -74,7 +74,8 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
             manifest => manifest.with_context(|| format!("While reading manifest '{}'", manifest_path.display()))?,
         };
         let new_manifest = set_version_and_update_package_dependency(
-            &manifest_path,
+            // Cargo resolves relative dependencies from the manifest location, even when it is a symlink.
+            dependency.map_or(manifest_path.as_path(), |c| c.package.manifest_path.as_std_path()),
             doc,
             dependency.and_then(|c| c.mode.version_adjustment_bump().map(|b| &b.next_release)),
             &crates_with_version_change,
@@ -486,7 +487,7 @@ fn gather_changelog_data<'meta>(
     } = &mut out;
     let next_commit_date = crate::utils::time_to_zoned_time(crate::git::author()?.time).expect("valid time");
     for (publishee, new_version) in crates_and_versions_to_be_published {
-        let lock = gix::lock::File::acquire_to_update_resource(
+        let lock = gix::lock::File::acquire_to_update_resource_following_symlinks(
             &publishee.manifest_path,
             gix::lock::acquire::Fail::Immediately,
             None,
