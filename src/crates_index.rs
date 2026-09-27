@@ -70,19 +70,15 @@ mod tests {
     const ENTRY: &str = r#"{"name":"sparse-test","vers":"1.2.3","deps":[],"cksum":"0000000000000000000000000000000000000000000000000000000000000000","features":{},"yanked":false}"#;
 
     #[test]
-    fn reads_cargo_sparse_cache_without_a_git_index() -> anyhow::Result<()> {
-        const CHILD: &str = "CARGO_SMART_RELEASE_TEST_SPARSE_CACHE";
-        if std::env::var_os(CHILD).is_some() {
-            assert_eq!(
-                Index::new_cargo_default()?
-                    .crate_("sparse-test")?
-                    .map(|krate| krate.highest_version().version().to_owned()),
-                Some("1.2.3".into())
-            );
+    fn reads_cargo_sparse_cache_without_a_git_index() -> gix_testtools::Result {
+        if gix_testtools::run_in_isolated_process()? {
             return Ok(());
         }
 
         let cargo_home = gix_testtools::tempfile::tempdir()?;
+        // Only this test runs in the child, so Cargo's environment can be changed safely.
+        std::env::set_var("CARGO_HOME", cargo_home.path());
+        std::env::set_var("CARGO_REGISTRIES_CRATES_IO_PROTOCOL", "git");
         let (index_path, _) = crates_index::local_path_and_canonical_url_with_hash_kind(
             crates_index::sparse::URL,
             Some(cargo_home.path()),
@@ -101,21 +97,11 @@ mod tests {
             .concat(),
         )?;
 
-        // Isolate CARGO_HOME from other tests without mutating the process environment.
-        let output = std::process::Command::new(std::env::current_exe()?)
-            .args([
-                "--exact",
-                "crates_index::tests::reads_cargo_sparse_cache_without_a_git_index",
-            ])
-            .env(CHILD, "1")
-            .env("CARGO_HOME", cargo_home.path())
-            .env("CARGO_REGISTRIES_CRATES_IO_PROTOCOL", "git")
-            .output()?;
-        assert!(
-            output.status.success(),
-            "{}\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+        assert_eq!(
+            Index::new_cargo_default()?
+                .crate_("sparse-test")?
+                .map(|krate| krate.highest_version().version().to_owned()),
+            Some("1.2.3".into())
         );
         Ok(())
     }

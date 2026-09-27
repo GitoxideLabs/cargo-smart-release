@@ -62,6 +62,11 @@ fn updates_tracked_dependents_outside_the_release_workspace() -> gix_testtools::
     let output = release(root, "minor", &["--execute"])?;
     assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     assert_eq!(
+        git(root, "show -s --format='%an <%ae> %aI%n%cn <%ce> %cI' HEAD")?,
+        git(root, "show -s --format='%an <%ae> %aI%n%cn <%ce> %cI' HEAD^")?,
+        "release commits use the same deterministic signatures as fixture commits"
+    );
+    assert_eq!(
         fs::read_to_string(root.join("tools/fuzz/Cargo.toml"))?,
         FUZZ_MANIFEST.replace("\"0.8.0\"", "\"^0.9.0\""),
         "the standalone fuzz workspace gets dependency edits while preserving comments and its own version"
@@ -272,22 +277,8 @@ fn fixture() -> gix_testtools::Result<tempfile::TempDir> {
 
 fn release(root: &Path, bump: &str, args: &[&str]) -> std::io::Result<std::process::Output> {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
-    // Isolate subprocess Git operations without changing the test process's environment.
-    for (key, _) in std::env::vars_os().filter(|(key, _)| key.to_string_lossy().starts_with("GIT_")) {
-        cmd.env_remove(key);
-    }
-    gix_testtools::apply_git_config_by_environment(
-        &mut cmd,
-        &[
-            ("user.name", "author"),
-            ("user.email", "author@example.com"),
-            ("commit.gpgsign", "false"),
-            ("tag.gpgsign", "false"),
-        ],
-    );
-    cmd.current_dir(root.join("release"))
-        .env("GIT_CONFIG_GLOBAL", if cfg!(windows) { "nul" } else { "/dev/null" })
-        .env("GIT_CONFIG_NOSYSTEM", "1")
+    gix_testtools::configure_git_environment(&mut cmd, root)
+        .current_dir(root.join("release"))
         .env("CARGO_HOME", root.join("cargo-home"))
         .env("CARGO_NET_OFFLINE", "true")
         .env("RUST_LOG", "info,cargo_smart_release=trace")
