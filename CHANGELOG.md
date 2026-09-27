@@ -5,6 +5,113 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.21.14 (2026-09-27)
+
+### Chore
+
+ - <csr-id-e0b498d2c5d3891c6de0d1b57c0a15c9cf7aa4e2/> upgrade gix to 0.88.0
+   <!-- agent -->
+   Use the published release that provides symlink-aware resource locking.
+   Update gix-testtools alongside it to share the same plumbing dependencies.
+   Enable gix's anyhow compatibility and adapt lock error context and the
+   status callback to the new error types.
+ - <csr-id-6ab9b25a0f23a565e33ddf881bf4bbe440907d56/> update gix to 0.87.1
+   Update gix and its lockfile dependency graph to the latest published release so the project builds against the current API-compatible dependency set.
+
+### Bug Fixes
+
+ - <csr-id-cebb4318af76810f4903b58cbbf16aa993f1e6b3/> preserve symlinked workspace manifests
+   Resolve relative dependency paths from Cargo metadata's manifest location,
+   retaining canonical paths for matching and deduplication. Use gix's
+   symlink-following resource lock during changelog preparation so committing
+   an early manifest lock updates the target and preserves Cargo.toml.
+   
+   Keep the regression covering publishing and non-publishing workspace
+   manifests unchanged. Against the gix upgrade alone, it fails on stale
+   dependency requirements; fixing only their base directory exposes the
+   symlink replacement. Both cases pass with these two code-line changes.
+ - <csr-id-4eb233d0fb606fb4ba2a5d534b0f451ec0c67979/> patch tracked manifests outside the release workspace
+   Mostly rubber-stamped after checking in Zed, particularly the tests.
+   Found something to improved, coming in the next commit.
+   
+   <!-- agent -->
+   Fuzz harnesses can declare separate Cargo workspaces, so metadata-based
+   release planning never visits their versioned path dependencies. The
+   regression reproduced releasing 0.8.0 as 0.9.0 while a standalone fuzz
+   manifest kept its 0.8.0 requirements.
+   
+   Discover regular tracked Cargo.toml files through the existing Git index
+   and match dependencies by canonical path and effective package name.
+   Reuse the release requirement policies for inline, expanded, target,
+   and workspace dependency tables. Auxiliary crates stay outside the
+   publishing graph and do not require additional Cargo invocations.
+   
+   Warn and skip unreadable or invalid TOML candidates, but abort invalid
+   matched requirements before persisting any manifests. Preserve dependency
+   comments and leave unrelated files byte-for-byte unchanged, including
+   CRLF files. Include the additional edits in the existing release commit.
+ - <csr-id-6a601b43ab33cee280195f1b4d0a1a09dd5549f3/> query crate versions through the sparse index
+   <!-- agent -->
+   Replace the Git registry index entirely with crates-index's sparse backend
+   so version queries no longer fetch the frequently rewritten Git index.
+   
+   Reuse Cargo's current sparse cache and a blocking reqwest client for
+   conditional HTTP refreshes. Convert crates-index's HTTP requests directly
+   with TryInto, decode gzip responses, and allow HTTP/2 negotiation. Fetch
+   only queried crates, reuse results during release planning, and refresh
+   the same index when retrying version selection. Poll individual entries
+   after publishing, retry temporarily missing crates, and report timeouts.
+   Skip crates.io polling for alternative registries. Remove all Git registry
+   index support and its dependency features.
+   
+   The regression seeds an isolated Cargo sparse cache with version 1.2.3
+   while the Git protocol is configured: it returned None before this fix.
+   Local HTTP coverage verifies redirects, ETags/304s, cache reuse, 404s,
+   server errors, malformed entries, and polling past a cached missing crate.
+ - <csr-id-0f413d1da431aaf5012fd57219068e8b6bccdece/> refresh crates.io index for stable auto-publishing
+   <!-- agent -->
+   Using `--auto-publish-of-stable-crates` with stale registry data can retain a
+   version that collides with an existing changelog release. Release preparation
+   then tries to merge unrelated Unreleased content into that version and correctly
+   refuses.
+   
+   Refresh crates.io before constructing the release context when stable crates may
+   be auto-published. Keep the protective merge refusal and explain the stale-index
+   remedy. Update journey snapshots, normalize live registry versions, and preserve
+   command exit statuses through snapshot filtering.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 14 commits contributed to the release over the course of 26 calendar days.
+ - 40 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Merge pull request #150 from GitoxideLabs/fix-cargo-manifest-patching ([`345dedc`](https://github.com/Byron/cargo-smart-release/commit/345dedc6498992796cc11e86895e95308b512b07))
+    - Pacify audit, and update more dependencies while at it. ([`d5f51eb`](https://github.com/Byron/cargo-smart-release/commit/d5f51eb15d88a842186a37616a18ed8fdc646a5b))
+    - Preserve symlinked workspace manifests ([`cebb431`](https://github.com/Byron/cargo-smart-release/commit/cebb4318af76810f4903b58cbbf16aa993f1e6b3))
+    - Upgrade gix to 0.88.0 ([`e0b498d`](https://github.com/Byron/cargo-smart-release/commit/e0b498d2c5d3891c6de0d1b57c0a15c9cf7aa4e2))
+    - Patch tracked manifests outside the release workspace ([`4eb233d`](https://github.com/Byron/cargo-smart-release/commit/4eb233d0fb606fb4ba2a5d534b0f451ec0c67979))
+    - Merge pull request #149 from GitoxideLabs/use-sparse-index ([`72c3115`](https://github.com/Byron/cargo-smart-release/commit/72c3115fd3d8c920be20b426946a8de539d73cea))
+    - Query crate versions through the sparse index ([`6a601b4`](https://github.com/Byron/cargo-smart-release/commit/6a601b43ab33cee280195f1b4d0a1a09dd5549f3))
+    - Merge pull request #147 from GitoxideLabs/dependabot/cargo/cargo-75222b1cd7 ([`edf5329`](https://github.com/Byron/cargo-smart-release/commit/edf53294276a5ca768323b898bf710907bfbac04))
+    - Merge pull request #146 from GitoxideLabs/dependabot/github_actions/github-actions-1f9468414b ([`26dee31`](https://github.com/Byron/cargo-smart-release/commit/26dee31f8f37288555d1c600ab9d03a899ab64c7))
+    - Bump the cargo group with 21 updates ([`a44e7ef`](https://github.com/Byron/cargo-smart-release/commit/a44e7ef70630c43d760bda425fa13bee8fa9402c))
+    - Bump the github-actions group with 6 updates ([`68927e2`](https://github.com/Byron/cargo-smart-release/commit/68927e20d6bdfc20f643190845019f2086b20edc))
+    - Merge pull request #145 from GitoxideLabs/changelog-prep-detection ([`d340262`](https://github.com/Byron/cargo-smart-release/commit/d340262d9c8917572f37c7d76cdaa1de8c1c349d))
+    - Refresh crates.io index for stable auto-publishing ([`0f413d1`](https://github.com/Byron/cargo-smart-release/commit/0f413d1da431aaf5012fd57219068e8b6bccdece))
+    - Update gix to 0.87.1 ([`6ab9b25`](https://github.com/Byron/cargo-smart-release/commit/6ab9b25a0f23a565e33ddf881bf4bbe440907d56))
+</details>
+
 ## 0.21.13 (2026-08-18)
 
 ### New Features
@@ -40,7 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 13 commits contributed to the release.
+ - 14 commits contributed to the release.
  - 34 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -58,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release cargo-smart-release v0.21.13 ([`c907f3a`](https://github.com/Byron/cargo-smart-release/commit/c907f3a03e872bc139ae07df274d34a01fbbf356))
     - Merge pull request #143 from GitoxideLabs/scoped-changelogs ([`8f474f3`](https://github.com/Byron/cargo-smart-release/commit/8f474f32a7ed5d29d2ce56e2eaa9acf2852d66a0))
     - Route changelogs by conventional commit scope ([`a718a2b`](https://github.com/Byron/cargo-smart-release/commit/a718a2b03de2fc1bf64c560ac0c4b10169cfc23e))
     - Merge pull request #142 from GitoxideLabs/fix-workspace-crate-mismatch ([`dde04c0`](https://github.com/Byron/cargo-smart-release/commit/dde04c051ded2421248d89677f022441b86d2576))
