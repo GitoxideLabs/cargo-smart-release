@@ -63,7 +63,7 @@ cargo install cargo-smart-release --features allow-emoji
 * [x] avoid bumping versions if the current version isn't released, allowing you to control the version by editing the cargo manifest
 * [x] [conventional] commit message drive changelog scaffolding and to automatically derive the crate version to publish
 * [x] automatically release dependent workspace IDP crates along with the desired one if they changed since their last release
-* [x] automatically adjust manifest versions and update manifests of crates which use those whose versions were incremented
+* [x] automatically adjust manifest versions and update manifests of crates which use those whose versions were incremented, including tracked manifests outside the workspace (such as fuzz tests)
 * [x] conservatively bump downstream workspace crates in the light of breaking changes, even though these won't be published, making downstream breakage impossible
 * [x] use git tags to know if a crate changed at all, skipping publishes if there is no code change at all
 * [ ] it's _too eager_ to release and there should be a way to control patch releases.
@@ -89,6 +89,13 @@ Here is what `cargo smart-release` does differently: "It tries really hard to do
 - create changelogs non-destructively, along with annotated tags and GitHub releases
 
 ## Limitations
+
+Dependency updates discover tracked `Cargo.toml` files throughout the Git repository and match local dependencies by
+package name and resolved path. Both inline and expanded dependency tables are supported, including target-specific
+and workspace dependencies. Existing version requirements follow the usual release rules; path-only dependencies
+remain versionless. Additional crates are not published or tagged, and their own package versions, changelogs, and
+lockfiles are left alone. Unreadable extra manifests or invalid TOML are skipped with a warning; errors
+updating a matched dependency stop the release before manifest changes are persisted.
 
 * it requires tables to be used when specifying versions, i.e. `crate = { version = "1" }` instead of `crate = "1".
 * it gracefully fails when encountering version requirement comparators which are not `^`, like `=`
