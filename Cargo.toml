@@ -24,7 +24,8 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 allow-emoji = ["unicode-properties"]
 
 [dependencies]
-gix = { version = "0.87.1", default-features = false, features = [
+gix = { version = "0.88.0", default-features = false, features = [
+    "anyhow",
     "max-performance",
     "interrupt",
     "index",
@@ -63,7 +64,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 
 [dev-dependencies]
 insta = "1.48.0"
-gix-testtools = "0.20.0"
+gix-testtools = "0.21.0"
 testing_logger = "0.1.1"
 
 [workspace]

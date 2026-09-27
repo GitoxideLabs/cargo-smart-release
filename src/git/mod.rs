@@ -124,7 +124,7 @@ pub fn has_staged_changes(repo: &gix::Repository) -> anyhow::Result<bool> {
         gix::status::tree_index::TrackRenames::Disabled,
         |_, _, _| {
             has_staged_changes = true;
-            Ok::<_, std::convert::Infallible>(std::ops::ControlFlow::Break(()))
+            Ok(std::ops::ControlFlow::Break(()))
         },
     )?;
     Ok(has_staged_changes)

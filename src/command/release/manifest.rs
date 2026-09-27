@@ -98,6 +98,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
                     gix::lock::acquire::Fail::Immediately,
                     None,
                 )
+                .map_err(anyhow::Error::from)
                 .with_context(|| {
                     format!(
                         "While locking manifest '{}' to update versions and dependency requirements",
@@ -490,6 +491,7 @@ fn gather_changelog_data<'meta>(
             gix::lock::acquire::Fail::Immediately,
             None,
         )
+        .map_err(anyhow::Error::from)
         .with_context(|| {
             format!(
                 "While locking manifest '{}' during changelog preparation for crate '{}'",
