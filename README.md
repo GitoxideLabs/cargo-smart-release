@@ -38,6 +38,67 @@ There are various other options that shouldn't be needed in the common case, use
 
 [conventional]: https://www.conventionalcommits.org
 
+## Checking an API boundary
+
+Crates can opt into a compatibility checker without changing the release command:
+
+```toml
+[package.metadata.smart-release]
+api-check = ["etc/scripts/check-api.sh"]
+unstable-features = ["unstable"]
+```
+
+`api-check` is an executable and its arguments, without shell interpretation. It
+runs from the workspace root, including in dry runs. `unstable-features` is an
+optional array of existing feature names; an omitted array is empty. The checker
+must validate the supported stable feature configurations, excluding these
+features and aliases that enable them. It should combine API tooling such as
+`cargo-semver-checks` with an audit of public dependency type identities: a
+breaking dependency version can break callers even when the printed types look
+unchanged. Source compatibility checks do not establish behavioral compatibility.
+
+The checker receives this JSON object on standard input:
+
+```json
+{
+  "package": "example",
+  "manifest_path": "/workspace/example/Cargo.toml",
+  "baseline_version": "1.2.3",
+  "baseline_revision": "example-v1.2.3",
+  "unstable_features": ["unstable"],
+  "dependencies": [
+    {"name": "plumbing", "current_version": "0.2.0", "baseline_version": "0.2.0", "next_version": "0.3.0", "breaking": true}
+  ]
+}
+```
+
+The baseline uses the latest published version from the crates index, falling
+back to the manifest version when the index has no entry, and the usual release
+tag naming. A missing baseline or unsupported configuration must fail the check;
+returning success without performing the comparison would waive the guarantee.
+`dependencies` contains **all workspace packages**, including transitive ones,
+with their proposed versions. Each dependency's `baseline_version` is its latest
+published version when known, or its manifest version otherwise; `breaking` compares
+against that baseline so manually pre-bumped manifests are handled too.
+The source manifests have not yet been rewritten,
+so the checker must account for these proposed dependency identities explicitly.
+
+Exit **0** verifies that the stable API is compatible and stops inherited breaking
+bumps at this crate. Exit **10** reports incompatibility and requires its normal
+breaking version bump. Any other exit status, a missing command, or invalid
+metadata aborts before release mutations. Checkers must distinguish tool/build
+failures from compatibility findings, and must not change tracked files. Results
+are reused only for identical requests during one planning pass; changed candidate
+versions trigger another check before anything is published.
+
+Direct breaking conventional commits retain their breaking bumps. Crates without
+this metadata retain conservative dependency propagation. Consumers that enable an
+excluded feature, including defaults, aliases, and feature forwarding, retain
+conservative bumps unless they establish their own checked API boundary. A
+compatible boundary still receives a patch release when its dependencies change.
+Publishing stable crates still requires `--auto-publish-of-stable-crates` unless
+they were selected explicitly.
+
 ## Installation
 
 ### Cargo
