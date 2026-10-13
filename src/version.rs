@@ -180,5 +180,29 @@ pub(crate) fn is_pre_release(semver: &Version) -> bool {
 }
 
 pub(crate) fn rhs_is_breaking_bump_for_lhs(lhs: &Version, rhs: &Version) -> bool {
-    rhs.major > lhs.major || rhs.minor > lhs.minor
+    rhs.major > lhs.major || (lhs.major == 0 && (rhs.minor > lhs.minor || (lhs.minor == 0 && rhs.patch > lhs.patch)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn breaking_version_changes_follow_cargo_compatibility() -> anyhow::Result<()> {
+        for (old, new, breaking) in [
+            ("1.2.3", "1.3.0", false),
+            ("1.2.3", "2.0.0", true),
+            ("0.2.3", "0.3.0", true),
+            ("0.2.3", "0.2.4", false),
+            ("0.0.3", "0.0.4", true),
+            ("1.2.3", "1.2.3", false),
+        ] {
+            assert_eq!(
+                rhs_is_breaking_bump_for_lhs(&Version::parse(old)?, &Version::parse(new)?),
+                breaking,
+                "{old} -> {new} must follow Cargo's compatibility boundary"
+            );
+        }
+        Ok(())
+    }
 }
