@@ -12,6 +12,7 @@ pub mod changelog;
 pub mod command;
 pub(crate) mod commit;
 
+mod api;
 pub(crate) mod bat;
 mod context;
 mod crates_index;
