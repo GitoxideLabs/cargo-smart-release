@@ -26,15 +26,18 @@ pub(in crate::command::release_impl) fn commit_changes<'a>(
             .filter_map(|path| {
                 // Convert absolute path to worktree-relative path with forward slashes
                 path.as_ref().strip_prefix(workdir).ok().and_then(|relative_path| {
-                    let relative_path_unix = gix::path::to_unix_separators(gix::path::into_bstr(relative_path));
+                    let relative_path_unix = match gix::path::into_bstr(relative_path) {
+                        Ok(path) => gix::path::to_unix_separators(path),
+                        Err(err) => return Some(Err(err)),
+                    };
                     // Check if the path is NOT tracked in the git index
                     index
                         .entry_by_path(relative_path_unix.as_bstr())
                         .is_none()
-                        .then_some(relative_path)
+                        .then_some(Ok(relative_path))
                 })
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         if !untracked_paths.is_empty() {
             let mut git_add = Command::new(gix::path::env::exe_invocation());
