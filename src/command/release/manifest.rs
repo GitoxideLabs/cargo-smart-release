@@ -98,6 +98,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
                     &manifest_path,
                     gix::lock::acquire::Fail::Immediately,
                     None,
+                    0,
                 )
                 .map_err(anyhow::Error::from)
                 .with_context(|| {
@@ -182,7 +183,7 @@ fn tracked_manifest_paths(repo: &gix::Repository) -> anyhow::Result<Vec<PathBuf>
         if !matches!(entry.mode, Mode::FILE | Mode::FILE_EXECUTABLE) || entry.stage() != Stage::Unconflicted {
             continue;
         }
-        let relative_path = gix::path::from_bstr(entry.path(&index));
+        let relative_path = gix::path::from_bstr(entry.path(&index))?;
         if relative_path.file_name() != Some(std::ffi::OsStr::new("Cargo.toml")) {
             continue;
         }
@@ -487,10 +488,12 @@ fn gather_changelog_data<'meta>(
     } = &mut out;
     let next_commit_date = crate::utils::time_to_zoned_time(crate::git::author()?.time).expect("valid time");
     for (publishee, new_version) in crates_and_versions_to_be_published {
-        let lock = gix::lock::File::acquire_to_update_resource_following_symlinks(
+        let lock = gix::lock::File::acquire(
             &publishee.manifest_path,
             gix::lock::acquire::Fail::Immediately,
             None,
+            0,
+            Some(&gix::lock::acquire::resolve_symlink),
         )
         .map_err(anyhow::Error::from)
         .with_context(|| {
