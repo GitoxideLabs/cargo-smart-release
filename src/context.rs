@@ -31,8 +31,7 @@ impl Context {
             || matches!(bump, BumpSpec::Auto)
             || matches!(bump_dependencies, BumpSpec::Auto))
         .then(|| crate::git::history::collect(&repo))
-        .transpose()?
-        .flatten();
+        .transpose()?;
         Ok(Context {
             root,
             repo,

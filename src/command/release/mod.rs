@@ -60,6 +60,9 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
     };
 
     let ctx = Context::new(crates, bump, bump_dependencies, allow_changelog, opts.changelog_links)?;
+    if !opts.dry_run && !opts.skip_push && !opts.skip_tag && ctx.base.repo.head()?.is_detached() {
+        bail!("Cannot push a release from a detached HEAD. Check out a branch or pass --no-push.");
+    }
     if should_update_crates_index(&opts) {
         log::info!("Updating crates-io index",);
         ctx.base.crates_index.update();

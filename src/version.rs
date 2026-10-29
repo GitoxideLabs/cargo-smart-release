@@ -97,7 +97,7 @@ pub(crate) fn bump_package_with_spec(
                 ctx,
                 ctx.history
                     .as_ref()
-                    .context("Did not have access to the Git history - please assure to not be on a detached HEAD")?,
+                    .context("Automatic version bumps require Git history")?,
                 crate::git::history::SegmentScope::Unreleased,
             )?;
             assert_eq!(
