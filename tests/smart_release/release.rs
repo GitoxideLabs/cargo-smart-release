@@ -46,6 +46,72 @@ wrong-name = { path = "../release", version = "0.8.0" }
 "#;
 
 #[test]
+fn stable_major_bump_requests_are_reported_before_dry_run_and_execution() -> gix_testtools::Result {
+    for args in [vec![], vec!["--execute"]] {
+        let dir = fixture()?;
+        let root = dir.path();
+        let manifest = root.join("release/Cargo.toml");
+        fs::write(&manifest, fs::read_to_string(&manifest)?.replace("0.8.0", "1.2.3"))?;
+        git(root, "commit -am 'stabilize the release crate'")?;
+        let head = git(root, "rev-parse HEAD")?;
+
+        let output = release(root, "major", &args)?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(stderr.contains("Stable-crate breaking-change report:"), "{stderr}");
+        assert!(
+            stderr.contains("'release-test' 1.2.3 -> 2.0.0 (publish): requested --bump major"),
+            "{stderr}"
+        );
+        if args.is_empty() {
+            assert_eq!(git(root, "rev-parse HEAD")?, head);
+            assert!(git(root, "diff HEAD --")?.is_empty());
+        } else {
+            assert!(fs::read_to_string(&manifest)?.contains("version = \"2.0.0\""));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn stable_breaking_releases_are_reported_when_the_manifest_is_already_bumped() -> gix_testtools::Result {
+    let dir = fixture()?;
+    let root = dir.path();
+    let manifest = root.join("release/Cargo.toml");
+    fs::write(&manifest, fs::read_to_string(&manifest)?.replace("0.8.0", "2.0.0"))?;
+    git(root, "commit -am 'pre-bump the release crate'")?;
+    let cargo_home = root.join("cargo-home");
+    let (index_path, _) = crates_index::local_path_and_canonical_url_with_hash_kind(
+        crates_index::sparse::URL,
+        Some(&cargo_home),
+        &crates_index::HashKind::Stable,
+    )?;
+    let cache_path = index_path.join(".cache/re/le/release-test");
+    fs::create_dir_all(cache_path.parent().unwrap())?;
+    let entry = r#"{"name":"release-test","vers":"1.2.3","deps":[],"cksum":"0000000000000000000000000000000000000000000000000000000000000000","features":{},"yanked":false}"#;
+    fs::write(
+        cache_path,
+        [
+            b"\x03\x02\0\0\0etag: \"test\"\0".as_slice(),
+            b"1.2.3\0",
+            entry.as_bytes(),
+            b"\0",
+        ]
+        .concat(),
+    )?;
+
+    let output = release(root, "keep", &[])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        stderr.contains("'release-test' 1.2.3 -> 2.0.0 (publish): manifest version 2.0.0 already differs from latest published version 1.2.3"),
+        "{stderr}"
+    );
+    assert!(git(root, "diff HEAD --")?.is_empty());
+    Ok(())
+}
+
+#[test]
 fn detached_head_supports_dry_runs_but_cannot_push_a_release() -> gix_testtools::Result {
     let dir = fixture()?;
     let root = dir.path();

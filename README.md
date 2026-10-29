@@ -26,6 +26,11 @@ When developing various crates in a workspace, when committing changes and if th
 change I want to see in changelogs, [conventional] git messages will be used. This helps building changelog scaffolding automatically later.
 
 When ready for releasing a particular crate or set of crates of interest, run `cargo smart-release [<crate-name> ...]` to simulate a release.
+When stable crates (major version >= 1) cross a major-version boundary, a separate warning report lists their old and
+planned versions, whether they will be published or only have their manifests updated, and why: breaking commits,
+explicit major-bump requests, failed API checks, or conservative dependency safety bumps. This report appears in dry
+runs and before execution, without `--verbose`, including with `--auto-publish-of-stable-crates`. Known published
+versions are used as the baseline so an already bumped manifest still appears in the report.
 To polish changelogs, run `cargo changelog --write <crate-name>` to update the scaffolding and edit it by hand until it fits.
 
 For particularly thorough but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`.
