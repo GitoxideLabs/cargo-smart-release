@@ -10,6 +10,7 @@ fn private_breaking_dependencies_stop_at_verified_boundaries() -> gix_testtools:
     assert!(output.status.success(), "{stderr}");
     assert!(stderr.contains("'csr-api-facade' from 1.2.3 to 1.2.4"), "{stderr}");
     assert!(stderr.contains("'csr-api-client' from 1.2.3 to 1.2.4"), "{stderr}");
+    assert!(!stderr.contains("Stable-crate breaking-change report:"), "{stderr}");
     assert!(
         !stderr.contains("to 2.0.0"),
         "a verified private dependency must not cause a major bump: {stderr}"
@@ -42,6 +43,29 @@ fn rejected_boundaries_and_unchecked_crates_keep_conservative_bumps() -> gix_tes
         assert!(output.status.success(), "{stderr}");
         assert!(stderr.contains("'csr-api-facade' from 1.2.3 to 2.0.0"), "{stderr}");
         assert!(stderr.contains("'csr-api-client' from 1.2.3 to 2.0.0"), "{stderr}");
+        assert!(
+            stderr.contains("Stable-crate breaking-change report: WOULD affect 2 stable crates"),
+            "{stderr}"
+        );
+        let cause = if result.is_some() {
+            "API compatibility check reported an incompatible stable API"
+        } else {
+            "conservative safety bump due to breaking dependency 'csr-api-leaf'"
+        };
+        assert!(
+            stderr.contains(&format!("'csr-api-facade' 1.2.3 -> 2.0.0 (publish): {cause}")),
+            "{stderr}"
+        );
+        let dependency = if result.is_some() {
+            "csr-api-facade"
+        } else {
+            "csr-api-leaf"
+        };
+        assert!(
+            stderr.contains(&format!("'csr-api-client' 1.2.3 -> 2.0.0 (publish): conservative safety bump due to breaking dependency '{dependency}'")),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("'csr-api-leaf' 0.2.0 ->"), "{stderr}");
     }
     Ok(())
 }
@@ -182,6 +206,14 @@ fn direct_breaking_changes_are_not_overridden_by_a_successful_check() -> gix_tes
     assert!(output.status.success(), "{stderr}");
     assert!(stderr.contains("'csr-api-facade' from 1.2.3 to 2.0.0"), "{stderr}");
     assert!(stderr.contains("'csr-api-client' from 1.2.3 to 2.0.0"), "{stderr}");
+    let commit = git(dir.path(), "rev-parse HEAD")?;
+    assert!(
+        stderr.contains(&format!(
+            "'csr-api-facade' 1.2.3 -> 2.0.0 (publish): breaking commit {}: replace the facade API",
+            commit.trim()
+        )),
+        "{stderr}"
+    );
     Ok(())
 }
 
@@ -211,6 +243,10 @@ csr-api-facade = { path = "../facade", version = "1.2.3", features = ["unstable"
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
     assert!(stderr.contains("'csr-api-sibling' 1.2.3 ➡ 2.0.0"), "{stderr}");
+    assert!(
+        stderr.contains("'csr-api-sibling' 1.2.3 -> 2.0.0 (manifest only): conservative safety bump due to breaking dependency 'csr-api-leaf'"),
+        "{stderr}"
+    );
     Ok(())
 }
 
@@ -234,6 +270,7 @@ fn stable_minor_dependencies_do_not_force_major_releases() -> gix_testtools::Res
     assert!(output.status.success(), "{stderr}");
     assert!(stderr.contains("'csr-api-leaf' from 1.2.3 to 1.3.0"), "{stderr}");
     assert!(stderr.contains("'csr-api-client' from 1.2.3 to 1.2.4"), "{stderr}");
+    assert!(!stderr.contains("Stable-crate breaking-change report:"), "{stderr}");
     assert!(
         !stderr.contains("to 2.0.0"),
         "stable minor features remain compatible: {stderr}"
