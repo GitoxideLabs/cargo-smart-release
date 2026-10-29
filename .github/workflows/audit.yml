@@ -5,11 +5,6 @@ permissions:
 
 on:
   pull_request:
-    paths:
-    - '**/Cargo.toml'
-    - '**/Cargo.lock'
-    - 'deny.toml'
-    - '.github/workflows/audit.yml'
   push:
     branches:
     - main
