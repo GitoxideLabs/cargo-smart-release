@@ -46,6 +46,69 @@ wrong-name = { path = "../release", version = "0.8.0" }
 "#;
 
 #[test]
+fn detached_head_supports_dry_runs_but_cannot_push_a_release() -> gix_testtools::Result {
+    let dir = fixture()?;
+    let root = dir.path();
+    git(root, "tag release-test-v0.8.0")?;
+    write(root, "release/src/lib.rs", "pub fn fixed() {}\n")?;
+    git(root, "commit -am 'fix: repair the library'")?;
+    let head = git(root, "rev-parse HEAD")?;
+    write(root, "release/src/lib.rs", "pub fn breaking() {}\n")?;
+    git(root, "commit -am 'feat!: break the library'")?;
+    git(root, "checkout --detach HEAD^")?;
+    let original_status = git(root, "status --porcelain")?;
+
+    let run = |args: &[&str]| {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        gix_testtools::configure_git_environment(&mut cmd, root)
+            .current_dir(root.join("release"))
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .env("RUST_LOG", "info,cargo_smart_release=trace")
+            .args(args)
+            .output()
+    };
+    let release_args = [
+        "smart-release",
+        "release-test",
+        "--no-publish",
+        "--no-changelog-github-release",
+        "--no-changelog-preview",
+        "--no-bump-on-demand",
+        "--verbose",
+    ];
+    let output = run(&release_args)?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(stderr.contains("'release-test' from 0.8.0 to 0.8.1"), "{stderr}");
+    assert!(
+        stderr.contains("detached HEAD"),
+        "the push preview explains its limitation: {stderr}"
+    );
+
+    let output = run(&["changelog", "release-test", "--no-preview"])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(stderr.contains("WOULD write 3 sections"), "{stderr}");
+
+    let output = run(&[release_args.as_slice(), &["--execute"]].concat())?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{stderr}");
+    assert!(stderr.contains("detached HEAD"), "{stderr}");
+    assert_eq!(git(root, "rev-parse HEAD")?, head);
+    assert_eq!(git(root, "status --porcelain")?, original_status);
+    assert!(!root.join("release/CHANGELOG.md").exists());
+    assert!(!root.join("release/CHANGELOG.md.lock").exists());
+    assert!(!root.join("release/Cargo.toml.lock").exists());
+    assert!(gix::open(root)?.head()?.is_detached());
+
+    let output = run(&[release_args.as_slice(), &["--execute", "--no-tag", "--allow-dirty"]].concat())?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(fs::read_to_string(root.join("release/Cargo.toml"))?.contains("version = \"0.8.1\""));
+    Ok(())
+}
+
+#[test]
 fn updates_tracked_dependents_outside_the_release_workspace() -> gix_testtools::Result {
     let dir = fixture()?;
     let root = dir.path();

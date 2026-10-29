@@ -28,7 +28,7 @@ pub enum SegmentScope {
     EntireHistory,
 }
 
-pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>> {
+pub fn collect(repo: &gix::Repository) -> anyhow::Result<commit::History> {
     use anyhow::Context;
     let mut handle = repo.clone();
     handle.object_cache_size(64 * 1024);
@@ -36,11 +36,12 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>
     let id = head
         .try_peel_to_id()?
         .context("Refusing to operate on a unborn head.")?;
-    let reference = match head.kind {
-        head::Kind::Detached { .. } => return Ok(None),
+    let mut reference = match head.kind {
+        head::Kind::Detached { .. } => handle.find_reference("HEAD")?,
         head::Kind::Unborn { .. } => unreachable!("handled above"),
         head::Kind::Symbolic(r) => r.attach(&handle),
     };
+    reference.peel_to_id()?;
 
     let mut items = Vec::new();
     let mut data_by_tree_id = HashMap::default();
@@ -94,11 +95,11 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<Option<commit::History>
         });
     }
 
-    Ok(Some(commit::History {
+    Ok(commit::History {
         head: reference.detach(),
         items,
         data_by_tree_id,
-    }))
+    })
 }
 
 /// Return the head reference followed by all tags affecting `crate_name` as per our tag name rules, ordered by ancestry.
