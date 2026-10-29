@@ -8,6 +8,7 @@ on:
     paths:
     - '**/Cargo.toml'
     - '**/Cargo.lock'
+    - 'deny.toml'
     - '.github/workflows/audit.yml'
   push:
     branches:
@@ -22,57 +23,27 @@ env:
   CLICOLOR: 1
 
 jobs:
-  security_audit:
-    permissions:
-      issues: write  # To create issues (actions-rs/audit-check).
-      checks: write  # To create check (actions-rs/audit-check).
+  cargo_deny_advisories:
     runs-on: ubuntu-latest
-    continue-on-error: true  # Prevent sudden announcement of a new advisory from failing CI.
     steps:
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-    - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+    - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
       with:
-        tool: cargo-audit
-    - name: Stub out `cargo generate-lockfile` to work around actions-rs/audit-check#163
-      run: |
-        cd ~/.cargo/bin
-        mv cargo cargo.orig
-
-        cat >cargo <<'EOF'
-        #!/bin/sh
-        set -eu
-        # Assume the first argument is the subcommand, rather than an option. This is not robust,
-        # but it works for the very simple call in actions-rs/audit-check, which is what matters.
-        case "$1" in
-        generate-lockfile)
-          printf '::warning:: SKIPPING: %s %s\n' "$0" "$*" ;;
-        *)
-          exec "$0.orig" "$@" ;;
-        esac
-        EOF
-
-        chmod +x cargo
-    - uses: actions-rs/audit-check@35b7b53b1e25b55642157ac01b4adceb5b9ebef3 # v1.2.0
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        command: check advisories
+        arguments: --workspace --all-features --locked
+        rust-version: stable
 
   cargo_deny:
-    permissions:
-      issues: write  # To create issues (actions-rs/audit-check).
-      checks: write  # To create check (actions-rs/audit-check).
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        checks:
-        - bans licenses sources
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
     - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
       with:
-        command: check ${{ matrix.checks }}
+        command: check bans licenses sources
+        arguments: --workspace --all-features --locked
         rust-version: stable

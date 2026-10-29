@@ -8,6 +8,9 @@
 # More documentation for the advisories section can be found here:
 # https://embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html
 [advisories]
+# Report unsound and unmaintained crates throughout the dependency graph.
+unsound = "all"
+unmaintained = "all"
 ignore = []
 
 
