@@ -43,7 +43,7 @@ journey-tests:
 
 # run various auditing tools to assure we are legal and safe
 audit:
-    cargo deny check advisories bans licenses sources
+    cargo deny --workspace --all-features --locked check advisories bans licenses sources
 
 # run nightly rustfmt for its extra features, but check that it won't upset stable rustfmt
 fmt:
