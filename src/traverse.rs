@@ -149,6 +149,7 @@ impl std::fmt::Debug for Dependency<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Options {
     pub allow_auto_publish_of_stable_crates: bool,
     pub bump_when_needed: bool,
@@ -156,15 +157,44 @@ pub struct Options {
     pub traverse_graph: bool,
 }
 
-pub fn dependencies(
-    ctx: &Context,
+pub fn dependencies(ctx: &Context, opts: Options) -> anyhow::Result<Vec<Dependency<'_>>> {
+    let mut checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+    dependencies_with_checks(ctx, opts, &mut checks)
+}
+
+pub fn assure_crates_index_is_uptodate<'meta>(
+    crates: Vec<Dependency<'meta>>,
+    ctx: &'meta Context,
+    opts: Options,
+    checks: &mut Checks<'meta>,
+) -> anyhow::Result<Vec<Dependency<'meta>>> {
+    if let Some(dep) = crates
+        .iter()
+        .filter_map(|d| d.mode.version_adjustment_bump().map(|b| (d, b)))
+        .find_map(|(d, b)| {
+            b.latest_release
+                .as_ref()
+                .and_then(|lr| (lr >= &b.next_release).then_some(d))
+        })
+    {
+        log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
+        ctx.crates_index.update();
+        *checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+        return dependencies_with_checks(ctx, opts, checks);
+    }
+    Ok(crates)
+}
+
+pub fn dependencies_with_checks<'meta>(
+    ctx: &'meta Context,
     Options {
         allow_auto_publish_of_stable_crates,
         bump_when_needed,
         isolate_dependencies_from_breaking_changes,
         traverse_graph,
     }: Options,
-) -> anyhow::Result<Vec<Dependency<'_>>> {
+    checks: &mut Checks<'meta>,
+) -> anyhow::Result<Vec<Dependency<'meta>>> {
     let mut seen = BTreeSet::new();
     let mut crates = Vec::new();
     for crate_name in &ctx.crate_names {
@@ -220,7 +250,6 @@ pub fn dependencies(
     }
 
     let original = crates;
-    let mut checks = Checks::new(ctx, allow_auto_publish_of_stable_crates)?;
     loop {
         let mut crates = original.clone();
         for id in &checks.incompatible {
@@ -245,7 +274,7 @@ pub fn dependencies(
             }
         }
         loop {
-            promote_changed_boundaries(ctx, &mut crates, bump_when_needed, &checks)?;
+            promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)?;
             if !isolate_dependencies_from_breaking_changes {
                 break;
             }
@@ -254,16 +283,16 @@ pub fn dependencies(
                 &mut crates,
                 bump_when_needed,
                 allow_auto_publish_of_stable_crates,
-                &checks,
+                checks,
             )?;
             forward_propagate_breaking_changes_for_manifest_updates(
                 ctx,
                 &mut crates,
                 bump_when_needed,
                 allow_auto_publish_of_stable_crates,
-                &checks,
+                checks,
             )?;
-            if !promote_changed_boundaries(ctx, &mut crates, bump_when_needed, &checks)? {
+            if !promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)? {
                 break;
             }
         }

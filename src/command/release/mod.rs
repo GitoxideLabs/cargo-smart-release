@@ -94,9 +94,12 @@ impl From<Options> for traverse::Options {
 }
 
 fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
+    let mut checks = crate::api::Checks::new(&ctx.base, opts.allow_auto_publish_of_stable_crates)?;
     let crates = {
-        traverse::dependencies(&ctx.base, opts.clone().into())
-            .and_then(|crates| assure_crates_index_is_uptodate(crates, &ctx.base, opts.clone().into()))
+        traverse::dependencies_with_checks(&ctx.base, opts.clone().into(), &mut checks)
+            .and_then(|crates| {
+                traverse::assure_crates_index_is_uptodate(crates, &ctx.base, opts.clone().into(), &mut checks)
+            })
             .and_then(|crates| {
                 present_and_validate_dependencies(&crates, &ctx, opts.verbose, opts.dry_run).map(|_| crates)
             })?
@@ -106,27 +109,6 @@ fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
     perform_release(&ctx, opts, &crates)?;
 
     Ok(())
-}
-
-fn assure_crates_index_is_uptodate<'meta>(
-    crates: Vec<Dependency<'meta>>,
-    ctx: &'meta crate::Context,
-    opts: traverse::Options,
-) -> anyhow::Result<Vec<Dependency<'meta>>> {
-    if let Some(dep) = crates
-        .iter()
-        .filter_map(|d| d.mode.version_adjustment_bump().map(|b| (d, b)))
-        .find_map(|(d, b)| {
-            b.latest_release
-                .as_ref()
-                .and_then(|lr| (lr >= &b.next_release).then_some(d))
-        })
-    {
-        log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
-        ctx.crates_index.update();
-        return traverse::dependencies(ctx, opts);
-    }
-    Ok(crates)
 }
 
 fn present_and_validate_dependencies(

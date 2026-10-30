@@ -200,6 +200,7 @@ version = "0.21.14"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
+ "cargo-smart-release-core",
  "cargo_metadata",
  "cargo_toml",
  "clap",
@@ -219,6 +220,21 @@ dependencies = [
  "toml_edit",
  "unicode-properties",
  "winnow",
+]
+
+[[package]]
+name = "cargo-smart-release-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "semver",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "toml_edit",
+ "tracing",
 ]
 
 [[package]]
@@ -375,9 +391,9 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "crates-index"
-version = "3.14.2"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df0c4fcc3d3dd00ae2f27d79cef61a6c0da98aebcab6679894acb68de3766ff0"
+checksum = "6874b4d0ec2d66582c3f98453a4d6baf8d4aa4797e1f91208cf9fdd2c3724491"
 dependencies = [
  "hex",
  "home",
@@ -2951,6 +2967,7 @@ version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
+ "log",
  "pin-project-lite",
  "tracing-core",
 ]

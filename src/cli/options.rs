@@ -13,6 +13,9 @@ pub struct Args {
 
 #[derive(clap::Parser)]
 pub enum SubCommands {
+    /// Audit a crate's supported API or preview release-time compatibility checks.
+    #[clap(name = "api-check", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
+    ApiCheck(super::api_check::Args),
     #[clap(name = "smart-release", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Release workspace crates fearlessly.
     ///

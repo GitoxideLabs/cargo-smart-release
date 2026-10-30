@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::{bail, Context as _};
 use cargo_metadata::{Dependency as CargoDependency, Package, PackageId};
-use serde_json::{json, Value};
+use cargo_smart_release_core::api_check::{ReleaseDependency, ReleaseRequest};
+use serde_json::Value;
 
 use crate::{traverse::Dependency, utils::package_by_id, Context};
 
@@ -106,13 +107,13 @@ impl<'meta> Checks<'meta> {
                 let baseline_version = bump
                     .and_then(|bump| bump.latest_release.as_ref())
                     .unwrap_or(&package.version);
-                json!({
-                    "name": package.name,
-                    "current_version": package.version,
-                    "baseline_version": baseline_version,
-                    "next_version": next_version,
-                    "breaking": crate::version::rhs_is_breaking_bump_for_lhs(baseline_version, next_version),
-                })
+                ReleaseDependency {
+                    name: package.name.to_string(),
+                    current_version: package.version.clone(),
+                    baseline_version: baseline_version.clone(),
+                    next_version: next_version.clone(),
+                    breaking: crate::version::rhs_is_breaking_bump_for_lhs(baseline_version, next_version),
+                }
             })
             .collect();
         let mut changed = false;
@@ -130,19 +131,24 @@ impl<'meta> Checks<'meta> {
                 .map(|krate| semver::Version::parse(krate.highest_version().version()))
                 .transpose()?
                 .unwrap_or_else(|| package.version.clone());
-            let request = json!({
-                "package": package.name,
-                "manifest_path": package.manifest_path,
-                "baseline_version": baseline_version,
-                "baseline_revision": crate::utils::tag_name(package, &baseline_version, &ctx.repo),
-                "unstable_features": policy.unstable_features,
-                "dependencies": dependencies,
-            });
+            let request = ReleaseRequest {
+                package: package.name.to_string(),
+                manifest_path: package.manifest_path.clone().into_std_path_buf(),
+                baseline_revision: crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                baseline_version: Some(baseline_version.clone()),
+                unstable_features: policy.unstable_features.clone(),
+                dependencies: dependencies.clone(),
+            };
             let request = serde_json::to_string(&request)?;
             let compatible = match self.results.get(&request) {
                 Some(result) => *result,
                 None => {
-                    log::info!("Checking stable API compatibility of '{}'", package.name);
+                    log::info!(
+                        "Checking stable API compatibility of '{}' against {} (excluded features: {})",
+                        package.name,
+                        crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                        policy.unstable_features.join(", ")
+                    );
                     let mut child = Command::new(&policy.command[0])
                         .args(&policy.command[1..])
                         .current_dir(&ctx.root)

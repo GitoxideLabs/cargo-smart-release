@@ -278,6 +278,184 @@ fn stable_minor_dependencies_do_not_force_major_releases() -> gix_testtools::Res
     Ok(())
 }
 
+#[test]
+fn release_preflight_uses_the_release_requests_and_keeps_tracked_files() -> gix_testtools::Result {
+    for result in [0, 10] {
+        let dir = fixture(Some(result), "")?;
+        let root = dir.path();
+        let head = git(root, "rev-parse HEAD")?;
+        let output = release_package(root, "csr-api-facade", &[])?;
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let request = fs::read_to_string(root.join("request.json"))?;
+
+        let output = preflight(root, "csr-api-facade", "auto")?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(result), "{stderr}");
+        assert_eq!(
+            fs::read_to_string(root.join("request.json"))?,
+            request,
+            "preflight and release must check the same baseline and proposed dependency identities"
+        );
+        assert!(stderr.contains("csr-api-leaf: 0.2.0 -> 0.3.0"), "{stderr}");
+        assert!(stderr.contains("csr-api-facade-v1.2.3"), "{stderr}");
+        assert_eq!(git(root, "rev-parse HEAD")?, head, "preflight must not create commits");
+        assert!(
+            git(root, "diff HEAD --")?.is_empty(),
+            "preflight must not rewrite tracked files"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn release_preflight_rejects_unchecked_crates_and_checker_failures() -> gix_testtools::Result {
+    for (checker, diagnostic) in [
+        (None, "has no enabled release API-check policy"),
+        (Some(3), "API checker for 'csr-api-facade' failed"),
+    ] {
+        let dir = fixture(checker, "")?;
+        let output = preflight(dir.path(), "csr-api-facade", "auto")?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{stderr}");
+        assert!(stderr.contains(diagnostic), "{stderr}");
+        assert!(
+            git(dir.path(), "diff HEAD --")?.is_empty(),
+            "failed preflight must not rewrite files"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn release_preflight_checks_an_unchanged_selected_crate() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    let root = dir.path();
+    git(root, "tag -f csr-api-leaf-v0.2.0")?;
+    fs::write(root.join("facade/src/lib.rs"), "pub fn uncommitted() {}\n")?;
+    let dirty = git(root, "diff HEAD --")?;
+
+    let output = preflight(root, "csr-api-facade", "auto")?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert!(
+        stderr.contains("Stable API of 'csr-api-facade': compatible"),
+        "{stderr}"
+    );
+    assert!(
+        root.join("request.json").is_file(),
+        "an unchanged selected crate must still be checked"
+    );
+    assert_eq!(
+        git(root, "diff HEAD --")?,
+        dirty,
+        "preflight must preserve uncommitted changes"
+    );
+    Ok(())
+}
+
+#[test]
+fn release_preflight_does_not_rewrite_a_stale_tracked_lockfile() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    let root = dir.path();
+    let initial = preflight(root, "csr-api-facade", "auto")?;
+    assert!(initial.status.success(), "{}", String::from_utf8_lossy(&initial.stderr));
+    let lockfile = fs::read(root.join("Cargo.lock"))?;
+    git(root, "add -f Cargo.lock")?;
+    git(root, "commit -m 'track the release lockfile'")?;
+    for path in ["leaf/Cargo.toml", "facade/Cargo.toml"] {
+        let manifest = root.join(path);
+        fs::write(&manifest, fs::read_to_string(&manifest)?.replace("0.2.0", "0.3.0"))?;
+    }
+    let dirty = git(root, "diff HEAD --")?;
+
+    let output = preflight(root, "csr-api-facade", "auto")?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(2), "{stderr}");
+    assert!(stderr.contains("--locked"), "{stderr}");
+    assert_eq!(
+        fs::read(root.join("Cargo.lock"))?,
+        lockfile,
+        "stale lockfiles must remain byte-for-byte unchanged"
+    );
+    assert_eq!(
+        git(root, "diff HEAD --")?,
+        dirty,
+        "preflight must preserve all tracked changes"
+    );
+    Ok(())
+}
+
+#[test]
+fn release_preflight_accounts_for_manually_bumped_dependency_versions() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    let root = dir.path();
+    for path in ["leaf/Cargo.toml", "facade/Cargo.toml"] {
+        let manifest = root.join(path);
+        fs::write(&manifest, fs::read_to_string(&manifest)?.replace("0.2.0", "0.3.0"))?;
+    }
+    let (index_path, _) = crates_index::local_path_and_canonical_url_with_hash_kind(
+        crates_index::sparse::URL,
+        Some(&root.join("cargo-home")),
+        &crates_index::HashKind::Stable,
+    )?;
+    let cache = index_path.join(".cache/cs/r-/csr-api-leaf");
+    fs::create_dir_all(cache.parent().expect("the sparse cache entry has a parent"))?;
+    fs::write(
+        cache,
+        concat!(
+            "\x03\x02\0\0\0etag: \"test\"\0",
+            "0.2.0\0",
+            r#"{"name":"csr-api-leaf","vers":"0.2.0","deps":[],"cksum":"0000000000000000000000000000000000000000000000000000000000000000","features":{},"yanked":false}"#,
+            "\0"
+        ),
+    )?;
+    let dirty = git(root, "diff HEAD --")?;
+
+    let output = preflight(root, "csr-api-facade", "keep")?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let request: serde_json::Value = serde_json::from_str(&fs::read_to_string(root.join("request.json"))?)?;
+    let leaf = request["dependencies"]
+        .as_array()
+        .expect("the request lists dependencies")
+        .iter()
+        .find(|dep| dep["name"] == "csr-api-leaf")
+        .expect("the leaf is a workspace dependency");
+    assert_eq!(leaf["current_version"], "0.3.0");
+    assert_eq!(leaf["next_version"], "0.3.0");
+    assert_eq!(leaf["baseline_version"], "0.2.0");
+    assert_eq!(
+        leaf["breaking"], true,
+        "the published identity, not the edited manifest, defines compatibility"
+    );
+    assert_eq!(
+        git(root, "diff HEAD --")?,
+        dirty,
+        "preflight must preserve manually bumped manifests"
+    );
+    Ok(())
+}
+
+fn preflight(root: &Path, package: &str, bump_dependencies: &str) -> std::io::Result<std::process::Output> {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-api-check"));
+    gix_testtools::configure_git_environment(&mut command, root)
+        .current_dir(root)
+        .env("CARGO_HOME", root.join("cargo-home"))
+        .env("CARGO_NET_OFFLINE", "true")
+        .args([
+            "api-check",
+            package,
+            "--release-plan",
+            "--bump",
+            "patch",
+            "--bump-dependencies",
+            bump_dependencies,
+            "--no-bump-on-demand",
+            "--auto-publish-of-stable-crates",
+        ])
+        .output()
+}
+
 fn fixture(result: Option<i32>, dependency_features: &str) -> gix_testtools::Result<tempfile::TempDir> {
     let dir = tempfile::tempdir()?;
     let root = dir.path();
@@ -319,6 +497,10 @@ fn fixture(result: Option<i32>, dependency_features: &str) -> gix_testtools::Res
 }
 
 fn release(root: &Path, extra: &[&str]) -> std::io::Result<std::process::Output> {
+    release_package(root, "csr-api-client", extra)
+}
+
+fn release_package(root: &Path, package: &str, extra: &[&str]) -> std::io::Result<std::process::Output> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
     gix_testtools::configure_git_environment(&mut command, root)
         .current_dir(root)
@@ -326,7 +508,7 @@ fn release(root: &Path, extra: &[&str]) -> std::io::Result<std::process::Output>
         .env("CARGO_NET_OFFLINE", "true")
         .args([
             "smart-release",
-            "csr-api-client",
+            package,
             "--bump",
             "patch",
             "--bump-dependencies",
