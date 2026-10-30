@@ -24,6 +24,16 @@ impl Context {
         bump_dependencies: BumpSpec,
     ) -> anyhow::Result<Self> {
         let meta = cargo_metadata::MetadataCommand::new().exec()?;
+        Self::with_metadata(meta, crate_names, force_history_segmentation, bump, bump_dependencies)
+    }
+
+    pub(crate) fn with_metadata(
+        meta: Metadata,
+        crate_names: Vec<String>,
+        force_history_segmentation: bool,
+        bump: BumpSpec,
+        bump_dependencies: BumpSpec,
+    ) -> anyhow::Result<Self> {
         let root = meta.workspace_root.clone();
         let repo = gix::discover(&root)?;
         let crates_index = crate::crates_index::Index::new_cargo_default()?;

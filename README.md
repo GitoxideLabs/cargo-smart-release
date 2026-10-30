@@ -45,13 +45,102 @@ There are various other options that shouldn't be needed in the common case, use
 
 ## Checking an API boundary
 
-Crates can opt into a compatibility checker without changing the release command:
+`cargo api-check` is installed alongside `cargo smart-release`. It audits the
+supported API of a workspace crate, including uncommitted changes:
+
+```sh
+cargo api-check example
+cargo api-check example --baseline HEAD
+cargo api-check example --manifest-path path/to/Cargo.toml
+```
+
+The default comparison selects the newest reachable semantic-version release tag
+whose manifest declares `package.metadata.api-check`: `vVERSION` for a package at
+the Git root, or `CRATE-vVERSION` for workspace members. Before the first supported
+release, it reports that no baseline exists and still audits the current boundary.
+An explicit `--baseline` compares that revision even if it predates the policy.
+Missing revisions, unreadable baseline manifests, and tool failures abort the
+check. A moved crate may need a prepared baseline checkout through the `release`
+subcommand below.
+
+Declare the supported feature configurations explicitly. Crates can also opt into
+the same checker during release planning without changing the release command:
 
 ```toml
 [package.metadata.smart-release]
-api-check = ["etc/scripts/check-api.sh"]
+api-check = ["cargo", "api-check", "release"]
 unstable-features = ["unstable"]
+
+[package.metadata.api-check]
+profiles = [
+    { default-features = false, features = [] },
+    { default-features = true, features = [] },
+]
+# Optional exceptions for deliberately supported types from 0.x dependencies:
+allowed-unstable-types = ["plumbing::Handle"]
+# Whole-crate exceptions use the Rust crate name:
+allowed-unstable-crates = []
+# Also audit supported members of reachable workspace dependency types:
+recursive = true
 ```
+
+Only list profiles that the crate supports, and define any named features in its
+manifest. Exceptions permit particular dependency types at the boundary; they do
+not automatically admit other types exposed by their members. Recursive checks
+follow reachable workspace dependency members and exclude members whose docs
+contain the experimental markers `**Unstable:**` or `**Unstable.**`.
+Dependencies outside the workspace are checked for nominal identity but their
+members are not recursively compared. The default audit is not recursive.
+
+To see the checks **with the dependency versions proposed by smart-release**, use:
+
+```sh
+cargo api-check example --release-plan
+cargo api-check example --release-plan --bump patch --bump-dependencies auto \
+    --auto-publish-of-stable-crates --update-crates-index
+```
+
+This uses the same planning loop, checker requests, and index-refresh retry as
+`cargo smart-release`, then reports compatibility verdicts and candidate versions.
+The selected crate must have an enabled `metadata.smart-release.api-check` policy.
+It starts with cached crates.io versions unless `--update-crates-index` is supplied;
+smart-release additionally refreshes up front for stable auto-publishing or an
+actual crates.io publish. Both commands can refresh when retrying a stale plan.
+Use matching bump and stable-auto-publish options when comparing the plans.
+It stops before changelog generation, manifest edits, commits, tags, and publishing.
+The default local comparison uses the dependency versions currently in manifests.
+
+The plumbing commands are also available independently:
+
+```sh
+cargo api-check boundary path/to/Cargo.toml
+cargo api-check audit path/to/rustdoc.json optional_dependency,another_dependency
+cargo api-check release < request.json
+cargo api-check release --baseline-root path/to/baseline < request.json
+```
+
+All modes exit **0** when their checks pass, **10** for a completed incompatibility
+or boundary violation, and **2** when checks cannot complete. A boundary-only
+success does not establish compatibility with a prior release.
+
+The built-in checker requires **Rust 1.99 (rustdoc JSON format 61)** and
+**cargo-semver-checks 0.51.0 or newer** on `PATH`. It enables rustdoc JSON using
+`RUSTC_BOOTSTRAP=1` for the rustdoc subprocess. It also needs Git for
+baseline archives. It respects `CARGO_TARGET_DIR`, builds temporary consumers, and
+may populate Cargo caches. Existing workspace lockfiles must be up to date:
+checks preserve them with `--locked`, reporting a resolution error if they need
+updating. Cargo can create a lockfile when none exists yet. Baseline source files
+are read from an archive or the explicitly supplied checkout.
+
+The checker lives in the `cargo-smart-release-core` workspace crate and is exposed as
+`cargo_smart_release_core::api_check`. It has no dependency on the release planner or
+`gix`, so tools such as gitoxide's `it check-api` can reuse it without building
+`cargo-smart-release`. The command above uses this same library. Existing hooks
+can also use `["cargo", "api-check", "release"]` once the binary is installed.
+To run its regression suite, including comparisons requiring cargo-semver-checks,
+use `cargo test --workspace -- --include-ignored`.
+
+### Custom checker protocol
 
 `api-check` is an executable and its arguments, without shell interpretation. It
 runs from the workspace root, including in dry runs. `unstable-features` is an

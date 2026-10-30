@@ -1,3 +1,5 @@
+pub mod api_check;
+
 pub mod release {
     use crate::changelog::section::segment;
 

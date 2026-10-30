@@ -1,4 +1,5 @@
 mod options;
+mod api_check;
 use clap::Parser;
 use options::{Args, SubCommands};
 
@@ -11,6 +12,7 @@ fn main() -> anyhow::Result<()> {
     }
     let args: Args = Args::parse();
     match args.subcommands {
+        SubCommands::ApiCheck(args) => api_check::run(args),
         SubCommands::Changelog {
             write,
             execute,
