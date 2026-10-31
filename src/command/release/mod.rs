@@ -60,6 +60,9 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
     };
 
     let ctx = Context::new(crates, bump, bump_dependencies, allow_changelog, opts.changelog_links)?;
+    if !opts.dry_run && !opts.skip_push && !opts.skip_tag && ctx.base.repo.head()?.is_detached() {
+        bail!("Cannot push a release from a detached HEAD. Check out a branch or pass --no-push.");
+    }
     if should_update_crates_index(&opts) {
         log::info!("Updating crates-io index",);
         ctx.base.crates_index.update();
@@ -91,9 +94,12 @@ impl From<Options> for traverse::Options {
 }
 
 fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
+    let mut checks = crate::api::Checks::new(&ctx.base, opts.allow_auto_publish_of_stable_crates)?;
     let crates = {
-        traverse::dependencies(&ctx.base, opts.clone().into())
-            .and_then(|crates| assure_crates_index_is_uptodate(crates, &ctx.base, opts.clone().into()))
+        traverse::dependencies_with_checks(&ctx.base, opts.clone().into(), &mut checks)
+            .and_then(|crates| {
+                traverse::assure_crates_index_is_uptodate(crates, &ctx.base, opts.clone().into(), &mut checks)
+            })
             .and_then(|crates| {
                 present_and_validate_dependencies(&crates, &ctx, opts.verbose, opts.dry_run).map(|_| crates)
             })?
@@ -105,27 +111,6 @@ fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn assure_crates_index_is_uptodate<'meta>(
-    crates: Vec<Dependency<'meta>>,
-    ctx: &'meta crate::Context,
-    opts: traverse::Options,
-) -> anyhow::Result<Vec<Dependency<'meta>>> {
-    if let Some(dep) = crates
-        .iter()
-        .filter_map(|d| d.mode.version_adjustment_bump().map(|b| (d, b)))
-        .find_map(|(d, b)| {
-            b.latest_release
-                .as_ref()
-                .and_then(|lr| (lr >= &b.next_release).then_some(d))
-        })
-    {
-        log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
-        ctx.crates_index.update();
-        return traverse::dependencies(ctx, opts);
-    }
-    Ok(crates)
-}
-
 fn present_and_validate_dependencies(
     crates: &[Dependency<'_>],
     ctx: &Context,
@@ -133,6 +118,7 @@ fn present_and_validate_dependencies(
     dry_run: bool,
 ) -> anyhow::Result<()> {
     use dependency::Kind;
+    report_stable_breaking_changes(crates, &ctx.base, dry_run)?;
     let all_skipped: Vec<_> = crates
         .iter()
         .filter_map(|dep| match &dep.mode {
@@ -389,6 +375,102 @@ fn present_and_validate_dependencies(
         }
         Ok(())
     }
+}
+
+fn report_stable_breaking_changes(
+    crates: &[Dependency<'_>],
+    ctx: &crate::Context,
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    let mut entries = Vec::new();
+    for dep in crates.iter().filter(|dep| dep.package.version.major >= 1) {
+        let (adjustment, action) = match &dep.mode {
+            dependency::Mode::ToBePublished { adjustment } => (adjustment, "publish"),
+            dependency::Mode::NotForPublishing {
+                adjustment: Some(ManifestAdjustment::Version(adjustment)),
+                ..
+            } => (adjustment, "manifest only"),
+            _ => continue,
+        };
+        let bump = adjustment.bump();
+        let baseline = bump
+            .latest_release
+            .as_ref()
+            .filter(|version| version.major >= 1)
+            .unwrap_or(&bump.package_version);
+        if !version::rhs_is_breaking_bump_for_lhs(baseline, &bump.next_release) {
+            continue;
+        }
+
+        let mut reasons = Vec::new();
+        if let VersionAdjustment::Breakage {
+            causing_dependency_names,
+            ..
+        } = adjustment
+        {
+            for name in causing_dependency_names {
+                reasons.push(if name == "API compatibility check" {
+                    "API compatibility check reported an incompatible stable API".into()
+                } else {
+                    format!("conservative safety bump due to breaking dependency '{name}'")
+                });
+            }
+        }
+        let bump_spec = version::select_publishee_bump_spec(&dep.package.name, ctx);
+        if matches!(bump_spec, BumpSpec::Auto) {
+            if let Some(history) = &ctx.history {
+                for segment in crate::git::history::crate_ref_segments(
+                    dep.package,
+                    ctx,
+                    history,
+                    crate::git::history::SegmentScope::Unreleased,
+                )? {
+                    for item in segment.history.iter().filter(|item| item.message.breaking) {
+                        reasons.push(format!(
+                            "breaking commit {}: {}{}",
+                            item.id,
+                            item.message.title,
+                            item.message
+                                .breaking_description
+                                .as_ref()
+                                .map(|description| format!(" ({description})"))
+                                .unwrap_or_default(),
+                        ));
+                    }
+                }
+            }
+        } else if matches!(bump_spec, BumpSpec::Major) && bump.next_release_changes_manifest() {
+            let flag = match dep.kind {
+                dependency::Kind::UserSelection => "--bump",
+                dependency::Kind::DependencyOrDependentOfUserSelection => "--bump-dependencies",
+            };
+            reasons.push(format!("requested {flag} major"));
+        }
+        if bump.package_version != *baseline {
+            reasons.push(format!(
+                "manifest version {} already differs from latest published version {baseline}",
+                bump.package_version
+            ));
+        }
+        entries.push(format!(
+            "  '{}' {} -> {} ({}): {}",
+            dep.package.name,
+            baseline,
+            bump.next_release,
+            action,
+            reasons.join("; ")
+        ));
+    }
+    if !entries.is_empty() {
+        log::warn!(
+            "Stable-crate breaking-change report: {} affect {} stable crate{}\n{}",
+            will(dry_run),
+            entries.len(),
+            if entries.len() == 1 { "" } else { "s" },
+            entries.join("\n")
+        );
+    }
+    Ok(())
 }
 
 fn skipped_dependency_notice(has_denied_stable_crate: bool) -> (log::Level, &'static str) {

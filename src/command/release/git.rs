@@ -146,6 +146,12 @@ pub fn push_tags_and_head(
     if skip_push || tag_names.is_empty() {
         return Ok(());
     }
+    if dry_run && repo.head()?.is_detached() {
+        log::warn!(
+            "Cannot preview pushing from a detached HEAD. Check out a branch before releasing, or use --no-push."
+        );
+        return Ok(());
+    }
 
     let mut cmd = Command::new(gix::path::env::exe_invocation());
     cmd.arg("push")

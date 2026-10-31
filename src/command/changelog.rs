@@ -55,10 +55,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         .collect()
     };
     assure_working_tree_is_unchanged(opts)?;
-    let history = match git::history::collect(&ctx.repo)? {
-        None => return Ok(()),
-        Some(history) => history,
-    };
+    let history = git::history::collect(&ctx.repo)?;
 
     let bat = (dry_run && preview).then(bat::Support::new);
 

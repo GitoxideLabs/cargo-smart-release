@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use cargo_metadata::{DependencyKind, Package, PackageId};
 
 use crate::{
+    api::Checks,
     git,
     traverse::dependency::{ManifestAdjustment, VersionAdjustment},
     utils::{
@@ -148,6 +149,7 @@ impl std::fmt::Debug for Dependency<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Options {
     pub allow_auto_publish_of_stable_crates: bool,
     pub bump_when_needed: bool,
@@ -155,15 +157,44 @@ pub struct Options {
     pub traverse_graph: bool,
 }
 
-pub fn dependencies(
-    ctx: &Context,
+pub fn dependencies(ctx: &Context, opts: Options) -> anyhow::Result<Vec<Dependency<'_>>> {
+    let mut checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+    dependencies_with_checks(ctx, opts, &mut checks)
+}
+
+pub fn assure_crates_index_is_uptodate<'meta>(
+    crates: Vec<Dependency<'meta>>,
+    ctx: &'meta Context,
+    opts: Options,
+    checks: &mut Checks<'meta>,
+) -> anyhow::Result<Vec<Dependency<'meta>>> {
+    if let Some(dep) = crates
+        .iter()
+        .filter_map(|d| d.mode.version_adjustment_bump().map(|b| (d, b)))
+        .find_map(|(d, b)| {
+            b.latest_release
+                .as_ref()
+                .and_then(|lr| (lr >= &b.next_release).then_some(d))
+        })
+    {
+        log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
+        ctx.crates_index.update();
+        *checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+        return dependencies_with_checks(ctx, opts, checks);
+    }
+    Ok(crates)
+}
+
+pub fn dependencies_with_checks<'meta>(
+    ctx: &'meta Context,
     Options {
         allow_auto_publish_of_stable_crates,
         bump_when_needed,
         isolate_dependencies_from_breaking_changes,
         traverse_graph,
     }: Options,
-) -> anyhow::Result<Vec<Dependency<'_>>> {
+    checks: &mut Checks<'meta>,
+) -> anyhow::Result<Vec<Dependency<'meta>>> {
     let mut seen = BTreeSet::new();
     let mut crates = Vec::new();
     for crate_name in &ctx.crate_names {
@@ -218,22 +249,100 @@ pub fn dependencies(
         merge_crates(&mut crates, crates_this_round);
     }
 
-    if isolate_dependencies_from_breaking_changes {
-        forward_propagate_breaking_changes_for_publishing(
-            ctx,
-            &mut crates,
-            bump_when_needed,
-            allow_auto_publish_of_stable_crates,
-        )?;
-        forward_propagate_breaking_changes_for_manifest_updates(
-            ctx,
-            &mut crates,
-            bump_when_needed,
-            allow_auto_publish_of_stable_crates,
-        )?;
+    let original = crates;
+    loop {
+        let mut crates = original.clone();
+        for id in &checks.incompatible {
+            let package = package_by_id(&ctx.meta, id);
+            let bump = breaking_version_bump(ctx, package, bump_when_needed)?;
+            let adjustment = VersionAdjustment::Breakage {
+                bump,
+                change: None,
+                causing_dependency_names: vec!["API compatibility check".into()],
+            };
+            if let Some(dep) = crates.iter_mut().find(|dep| dep.package.id == package.id) {
+                dep.mode = dependency::Mode::ToBePublished { adjustment };
+            } else {
+                crates.push(Dependency {
+                    package,
+                    kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                    mode: dependency::Mode::NotForPublishing {
+                        reason: dependency::NoPublishReason::BreakingChangeCausesManifestUpdate,
+                        adjustment: Some(ManifestAdjustment::Version(adjustment)),
+                    },
+                });
+            }
+        }
+        loop {
+            promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)?;
+            if !isolate_dependencies_from_breaking_changes {
+                break;
+            }
+            forward_propagate_breaking_changes_for_publishing(
+                ctx,
+                &mut crates,
+                bump_when_needed,
+                allow_auto_publish_of_stable_crates,
+                checks,
+            )?;
+            forward_propagate_breaking_changes_for_manifest_updates(
+                ctx,
+                &mut crates,
+                bump_when_needed,
+                allow_auto_publish_of_stable_crates,
+                checks,
+            )?;
+            if !promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)? {
+                break;
+            }
+        }
+        adjust_workspace_crates_depending_on_adjusted_crates(ctx, &mut crates, bump_when_needed)?;
+        if !checks.verify(ctx, &crates)? {
+            return Ok(crates);
+        }
     }
-    adjust_workspace_crates_depending_on_adjusted_crates(ctx, &mut crates, bump_when_needed)?;
-    Ok(crates)
+}
+
+fn promote_changed_boundaries(
+    ctx: &Context,
+    crates: &mut [Dependency<'_>],
+    bump_when_needed: bool,
+    checks: &Checks<'_>,
+) -> anyhow::Result<bool> {
+    let changed_packages: Vec<_> = crates
+        .iter()
+        .filter(|dep| {
+            dep.mode
+                .version_adjustment_bump()
+                .is_some_and(Bump::next_release_changes_manifest)
+        })
+        .map(|dep| dep.package)
+        .collect();
+    let mut changed = false;
+    for dep in crates.iter_mut().filter(|dep| {
+        checks.is_boundary(dep.package)
+            && !matches!(
+                dep.mode,
+                dependency::Mode::NotForPublishing {
+                    reason: dependency::NoPublishReason::DeniedAutopublishOfProductionCrate
+                        | dependency::NoPublishReason::PublishDisabledInManifest,
+                    ..
+                }
+            )
+            && dep.mode.version_adjustment_bump().is_none()
+            && dep.package.dependencies.iter().any(|edge| {
+                changed_packages
+                    .iter()
+                    .any(|package| package_eq_dependency_ignore_dev_without_version(package, edge))
+            })
+    }) {
+        let bump = version::bump_package_with_spec(dep.package, BumpSpec::Patch, ctx, bump_when_needed)?;
+        dep.mode = dependency::Mode::ToBePublished {
+            adjustment: VersionAdjustment::Changed { change: None, bump },
+        };
+        changed = true;
+    }
+    Ok(changed)
 }
 
 fn merge_crates<'meta>(dest: &mut Vec<Dependency<'meta>>, src: Vec<Dependency<'meta>>) {
@@ -253,13 +362,15 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
     crates: &mut Vec<Dependency<'meta>>,
     bump_when_needed: bool,
     allow_auto_publish_of_stable_crates: bool,
+    checks: &Checks<'_>,
 ) -> anyhow::Result<()> {
     let mut non_publishing_crates_with_safety_bumps = Vec::new();
     let mut backing = crates
         .iter()
-        .filter(
-            |c| matches!(&c.mode, dependency::Mode::ToBePublished { adjustment } if adjustment.bump().is_breaking()),
-        )
+        .filter(|c| {
+            matches!(&c.mode, dependency::Mode::ToBePublished { adjustment }
+            if adjustment.bump().is_breaking() || checks.has_policy(c.package))
+        })
         .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
     let workspace_packages: Vec<_> = ctx
@@ -275,9 +386,15 @@ fn forward_propagate_breaking_changes_for_manifest_updates<'meta>(
         let mut new_crates_this_round = Vec::<Dependency<'_>>::new();
         for dependee in set_to_expand_from {
             for dependant in workspace_packages.iter().filter(|p| {
-                p.dependencies
-                    .iter()
-                    .any(|dep| package_eq_dependency_ignore_dev_without_version(dependee.package, dep))
+                !checks.is_boundary(p)
+                    && inherits_breakage(
+                        ctx,
+                        p,
+                        dependee.package,
+                        !dependee.mode.version_adjustment_bump().is_some_and(Bump::is_breaking),
+                        checks,
+                        &mut BTreeSet::new(),
+                    )
             }) {
                 if seen.contains(&&dependant.id) {
                     continue;
@@ -373,6 +490,7 @@ fn forward_propagate_breaking_changes_for_publishing(
     crates: &mut [Dependency<'_>],
     bump_when_needed: bool,
     allow_auto_publish_of_stable_crates: bool,
+    checks: &Checks<'_>,
 ) -> anyhow::Result<()> {
     let mut previous_edits = Vec::new();
     loop {
@@ -390,6 +508,7 @@ fn forward_propagate_breaking_changes_for_publishing(
                 (idx, starting_crate_for_backward_search),
                 &mut seen_this_round,
                 &mut edits,
+                checks,
             );
             seen_this_round.insert(idx);
         }
@@ -498,21 +617,27 @@ fn find_safety_bump_edits_backwards_from_crates_for_publish(
     start: (usize, &Dependency<'_>),
     seen: &mut BTreeSet<usize>,
     edits: &mut Vec<EditForPublish>,
+    checks: &Checks<'_>,
 ) -> Vec<usize> {
     let (current_idx, current) = start;
     let mut breaking_indices = Vec::new();
-    for (dep_idx, dep) in current.package.dependencies.iter().filter_map(|dep| {
+    for (edge, dep_idx, dep) in current.package.dependencies.iter().filter_map(|edge| {
         crates
             .iter()
             .enumerate()
-            .find(|(_, c)| package_eq_dependency_ignore_dev_without_version(c.package, dep))
+            .find(|(_, c)| package_eq_dependency_ignore_dev_without_version(c.package, edge))
+            .map(|(idx, dep)| (edge, idx, dep))
     }) {
         if seen.contains(&dep_idx) {
             continue;
         }
         match dep.mode.version_adjustment_bump() {
-            Some(dep_bump) if dep_bump.is_breaking() => {
-                if !edits.iter().any(|e| e.crates_idx == current_idx) {
+            Some(dep_bump)
+                if dep_bump.is_breaking()
+                    || (dep.mode.manifest_will_change()
+                        && checks.uses_unstable(current.package, edge, dep.package)) =>
+            {
+                if !checks.is_boundary(current.package) && !edits.iter().any(|e| e.crates_idx == current_idx) {
                     edits.push(EditForPublish::from(current_idx, vec![dep_idx]));
                 }
                 if !breaking_indices.contains(&dep_idx) {
@@ -520,11 +645,19 @@ fn find_safety_bump_edits_backwards_from_crates_for_publish(
                 }
             }
             _ => {
+                if checks.is_boundary(dep.package) && !checks.uses_unstable(current.package, edge, dep.package) {
+                    continue;
+                }
                 seen.insert(dep_idx);
-                let breaking_package_indices =
-                    find_safety_bump_edits_backwards_from_crates_for_publish(crates, (dep_idx, dep), seen, edits);
+                let breaking_package_indices = find_safety_bump_edits_backwards_from_crates_for_publish(
+                    crates,
+                    (dep_idx, dep),
+                    seen,
+                    edits,
+                    checks,
+                );
                 if !breaking_package_indices.is_empty() {
-                    if !edits.iter().any(|e| e.crates_idx == current_idx) {
+                    if !checks.is_boundary(current.package) && !edits.iter().any(|e| e.crates_idx == current_idx) {
                         edits.push(EditForPublish::from(current_idx, breaking_package_indices.clone()));
                     }
                     for idx in breaking_package_indices {
@@ -537,6 +670,30 @@ fn find_safety_bump_edits_backwards_from_crates_for_publish(
         }
     }
     breaking_indices
+}
+
+fn inherits_breakage(
+    ctx: &Context,
+    consumer: &Package,
+    source: &Package,
+    unstable_only: bool,
+    checks: &Checks<'_>,
+    seen: &mut BTreeSet<PackageId>,
+) -> bool {
+    if !seen.insert(consumer.id.clone()) {
+        return false;
+    }
+    consumer.dependencies.iter().any(|edge| {
+        if package_eq_dependency_ignore_dev_without_version(source, edge) {
+            return !unstable_only || checks.uses_unstable(consumer, edge, source);
+        }
+        workspace_package_by_dependency(&ctx.meta, edge).is_some_and(|dep| {
+            package_eq_dependency_ignore_dev_without_version(dep, edge)
+                && checks.is_boundary(dep)
+                && checks.uses_unstable(consumer, edge, dep)
+                && inherits_breakage(ctx, dep, source, unstable_only, checks, seen)
+        })
+    })
 }
 
 fn depth_first_traversal<'meta>(
