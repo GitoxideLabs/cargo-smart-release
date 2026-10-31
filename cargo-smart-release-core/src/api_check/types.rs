@@ -35,7 +35,8 @@ pub struct FeatureProfile {
 ///
 /// Passed to [`release`](crate::api_check::release), or serialized on stdin to
 /// `cargo api-check release`. Paths and versions serialize as strings. All
-/// fields except [`baseline_version`](Self::baseline_version) are required when
+/// fields except [`baseline_version`](Self::baseline_version) and
+/// [`experimental`](Self::experimental) are required when
 /// deserializing, and unknown fields are rejected.
 ///
 /// The current manifests still contain their working-tree dependency versions.
@@ -75,6 +76,13 @@ pub struct ReleaseRequest {
     /// rustdoc items from the boundary policy's scrutiny when stable API refers
     /// to them.
     pub unstable_features: Vec<String>,
+    /// Compare the full API, including experimental items, for patch compatibility.
+    ///
+    /// Each supported profile additionally enables the declared unstable features.
+    /// Stable boundary restrictions do not apply to this comparison. Omitted or
+    /// false retains the stable-only check for existing callers.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub experimental: bool,
     /// Planned versions of all workspace packages, including transitive dependencies.
     ///
     /// The checker resolves each package's actual library name and flags planned
@@ -86,7 +94,8 @@ pub struct ReleaseRequest {
 /// A workspace dependency's published, current, and planned versions.
 ///
 /// Used in [`ReleaseRequest::dependencies`]. Versions serialize as semver strings;
-/// all fields are required when deserializing, and unknown fields are rejected.
+/// all fields except [`experimental_breaking`](Self::experimental_breaking) are
+/// required when deserializing, and unknown fields are rejected.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReleaseDependency {
@@ -108,6 +117,11 @@ pub struct ReleaseDependency {
     /// The checker uses the supplied flag; it does not recompute it during
     /// deserialization or replace the current manifest versions with the plan.
     pub breaking: bool,
+    /// Whether the dependency's experimental API requires a new minor series.
+    ///
+    /// Only full-API comparisons propagate this incompatibility.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub experimental_breaking: bool,
 }
 
 /// Public dependency paths and the dependency names rejected by an audit allowlist.

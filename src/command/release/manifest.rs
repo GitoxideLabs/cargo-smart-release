@@ -77,6 +77,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
             // Cargo resolves relative dependencies from the manifest location, even when it is a symlink.
             dependency.map_or(manifest_path.as_path(), |c| c.package.manifest_path.as_std_path()),
             doc,
+            &ctx.base.meta.packages,
             dependency.and_then(|c| c.mode.version_adjustment_bump().map(|b| &b.next_release)),
             &crates_with_version_change,
             opts.conservative_pre_release_version_handling,
@@ -609,6 +610,7 @@ fn gather_changelog_data<'meta>(
 fn set_version_and_update_package_dependency(
     manifest_path: &Path,
     mut doc: toml_edit::DocumentMut,
+    consumers: &[Package],
     new_package_version: Option<&semver::Version>,
     crates: &BTreeMap<PathBuf, (&Package, &semver::Version)>,
     conservative_pre_release_version_handling: bool,
@@ -642,12 +644,28 @@ fn set_version_and_update_package_dependency(
             let Some(path) = name_table.get("path").and_then(toml_edit::Item::as_str) else {
                 continue;
             };
-            let Some((package, new_version)) = manifest_dir
+            let Some((package, new_version, planned)) = manifest_dir
                 .join(path)
                 .join("Cargo.toml")
                 .canonicalize()
                 .ok()
-                .and_then(|path| crates.get(&path))
+                .and_then(|path| {
+                    crates
+                        .get(&path)
+                        .map(|(package, version)| (*package, *version, true))
+                        .or_else(|| {
+                            consumers
+                                .iter()
+                                .find(|package| {
+                                    package
+                                        .manifest_path
+                                        .as_std_path()
+                                        .canonicalize()
+                                        .is_ok_and(|manifest| manifest == path)
+                                })
+                                .map(|package| (package, &package.version, false))
+                        })
+                })
             else {
                 continue;
             };
@@ -664,12 +682,41 @@ fn set_version_and_update_package_dependency(
                 let version_req = VersionReq::parse(current_version_req.as_str().with_context(|| {
                     format!("{package_name}'s {name_to_find} dependency version must be a string")
                 })?)?;
+                let mut experimental = false;
+                if !dep_type.starts_with("dev-dependencies") {
+                    for consumer in
+                        consumers.iter().filter(|consumer| {
+                            dep_type == "workspace.dependencies"
+                                || consumer.manifest_path.as_std_path().canonicalize().is_ok_and(|path| {
+                                    manifest_path.canonicalize().is_ok_and(|manifest| path == manifest)
+                                })
+                        })
+                    {
+                        for edge in consumer.dependencies.iter().filter(|edge| {
+                            edge.kind != cargo_metadata::DependencyKind::Development
+                                && edge.name == package.name.as_str()
+                                && edge.rename.as_deref().unwrap_or(&edge.name) == name_to_find
+                        }) {
+                            experimental |= crate::api::dependency_uses_unstable(consumer, edge, package)?;
+                        }
+                    }
+                }
+                let tilde = version_req.comparators.len() == 1 && version_req.comparators[0].op == semver::Op::Tilde;
+                let exact = version_req.comparators.len() == 1
+                    && version_req.comparators[0].op == semver::Op::Exact
+                    && version_req.comparators[0].minor.is_some()
+                    && version_req.comparators[0].patch.is_some();
+                if !planned && (!experimental || new_version.major < 1) {
+                    continue;
+                }
+                let constrain_minor = experimental && new_version.major >= 1 && !exact;
                 let force_update = conservative_pre_release_version_handling
                         && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
                         // don't claim to be conservative if this is necessary anyway
-                        && req_as_version(&version_req).is_some_and(|req_version| !version::rhs_is_breaking_bump_for_lhs(&req_version, new_version));
+                        && req_as_version(&version_req).is_some_and(|req_version| !version::rhs_is_breaking_bump_for_lhs(&req_version, new_version))
+                    || (constrain_minor && (!tilde || version_req.comparators[0].minor != Some(new_version.minor)));
                 if !version_req.matches(new_version) || force_update {
-                    if !version_req_unset_or_default(&version_req) {
+                    if !version_req_unset_or_default(&version_req) && !tilde {
                         bail!(
                                 "{} has it's {} dependency set to a version requirement with comparator {} - cannot currently handle that.",
                                 package_name,
@@ -677,7 +724,7 @@ fn set_version_and_update_package_dependency(
                                 current_version_req
                             );
                     }
-                    let new_version = format!("^{new_version}");
+                    let new_version = format!("{}{new_version}", if tilde || constrain_minor { "~" } else { "^" });
                     if version_req.to_string() != new_version {
                         log::trace!(
                             "Pending '{}' {}manifest {} update: '{} = \"{}\"' (from {})",

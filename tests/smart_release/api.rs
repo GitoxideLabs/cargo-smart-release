@@ -84,6 +84,176 @@ fn unstable_consumers_keep_conservative_bumps() -> gix_testtools::Result {
 }
 
 #[test]
+fn experimental_compatibility_controls_patch_and_minor_releases() -> gix_testtools::Result {
+    for (experimental_result, expected) in [(0, "1.2.4"), (10, "1.3.0")] {
+        let dir = fixture(Some(0), "")?;
+        let client = dir.path().join("client/Cargo.toml");
+        fs::write(&client, format!("{}\n[features]\nunstable = [\"csr-api-facade/unstable\"]\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\nunstable-features = [\"unstable\"]\n", fs::read_to_string(&client)?))?;
+        fs::write(
+            dir.path().join("client-check.sh"),
+            r#"#!/bin/sh
+request=$(cat)
+case "$request" in
+    *'"experimental":true'*'"experimental_breaking":true'*) exit 10 ;;
+    *) exit 0 ;;
+esac
+"#,
+        )?;
+        fs::write(
+            dir.path().join("check.sh"),
+            format!(
+                r#"#!/bin/sh
+request=$(cat)
+printf '%s\n' "$request" > request.json
+case "$request" in
+    *'"experimental":true'*) exit {experimental_result} ;;
+    *) exit 0 ;;
+esac
+"#
+            ),
+        )?;
+        git(dir.path(), "add client-check.sh")?;
+        git(dir.path(), "commit -am 'configure experimental API check'")?;
+        let output = release(dir.path(), &[])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(
+            stderr.contains(&format!("'csr-api-facade' from 1.2.3 to {expected}")),
+            "experimental incompatibility requires a minor release, while compatibility permits patches: {stderr}"
+        );
+        assert!(
+            stderr.contains(&format!("'csr-api-client' from 1.2.3 to {expected}")),
+            "experimental breaks propagate to checked consumers without becoming stable major releases: {stderr}"
+        );
+        let output = preflight(dir.path(), "csr-api-client", "auto")?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(experimental_result), "{stderr}");
+        assert!(
+            stderr.contains(&format!("Release candidate csr-api-client: 1.2.3 -> {expected}")),
+            "{stderr}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn experimental_breaks_outside_the_selected_graph_receive_manifest_bumps() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    let root = dir.path();
+    let manifest = root.join("client/Cargo.toml");
+    fs::write(
+        &manifest,
+        format!(
+            "{}\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\n",
+            fs::read_to_string(&manifest)?
+        ),
+    )?;
+    fs::write(
+        root.join("client-check.sh"),
+        r#"#!/bin/sh
+request=$(cat)
+case "$request" in
+    *'"experimental":true'*) exit 10 ;;
+    *) exit 0 ;;
+esac
+"#,
+    )?;
+    git(root, "add client-check.sh")?;
+    git(
+        root,
+        "commit -am 'check an experimental API outside the selected graph'",
+    )?;
+
+    let output = release_package(root, "csr-api-facade", &["--execute", "--no-changelog"])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        fs::read_to_string(manifest)?.contains("version = \"1.3.0\""),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("'csr-api-client' from"),
+        "the dependent outside the selected graph needs only a manifest bump: {stderr}"
+    );
+    Ok(())
+}
+
+#[test]
+fn unstable_dependency_requirements_allow_only_patch_updates() -> gix_testtools::Result {
+    for (features, requested, expected, changed_dependency) in [
+        ("", "1.2.3", "1.2.3", true),
+        ("features = [\"experimental\"],", "1.2.3", "~1.2.4", true),
+        ("features = [\"unstable\"],", "~1.2.3", "~1.2.3", true),
+        ("features = [\"unstable\"],", "1.2.3", "~1.2.3", false),
+        ("features = [\"unstable\"],", "=1.2.3", "=1.2.3", false),
+    ] {
+        let dir = fixture(Some(0), features)?;
+        if !changed_dependency {
+            fs::write(dir.path().join("leaf/src/lib.rs"), "pub fn value() {}\n")?;
+        }
+        let manifest = dir.path().join("client/Cargo.toml");
+        let original = fs::read_to_string(&manifest)?;
+        fs::write(
+            &manifest,
+            original.replace("version = \"1.2.3\",", &format!("version = \"{requested}\",")),
+        )?;
+        git(
+            dir.path(),
+            "commit --allow-empty -am 'configure dependency requirement'",
+        )?;
+        let output = release(dir.path(), &["--execute", "--no-changelog"])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success(),
+            "release updates dependency requirements successfully: {stderr}"
+        );
+        assert!(
+            fs::read_to_string(manifest)?.contains(&format!("version = \"{expected}\",")),
+            "experimental dependency requirements constrain the minor series: {stderr}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn inherited_experimental_requirements_are_constrained_in_package_workspaces() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    let root = dir.path();
+    let manifest = root.join("Cargo.toml");
+    fs::create_dir(root.join("src"))?;
+    fs::write(root.join("src/lib.rs"), "")?;
+    fs::write(
+        &manifest,
+        format!(
+            r#"{}
+[package]
+name = "csr-api-workspace"
+version = "0.1.0"
+edition = "2021"
+[workspace.dependencies]
+api = {{ package = "csr-api-facade", path = "facade", version = "1.2.3", }}
+"#,
+            fs::read_to_string(&manifest)?
+        ),
+    )?;
+    let client = root.join("client/Cargo.toml");
+    fs::write(
+        &client,
+        fs::read_to_string(&client)?.replace(
+            "csr-api-facade = { path = \"../facade\", version = \"1.2.3\",  }",
+            "api = { workspace = true, features = [\"experimental\"] }",
+        ),
+    )?;
+    git(root, "add .")?;
+    git(root, "commit -m 'inherit an aliased experimental dependency'")?;
+    let output = release(root, &["--execute", "--no-changelog"])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(fs::read_to_string(manifest)?.contains("version = \"~1.2.4\""), "workspace requirements inherit the consumer's experimental opt-in even when the root is also a package: {stderr}");
+    Ok(())
+}
+
+#[test]
 fn checker_failure_aborts_before_release_mutations() -> gix_testtools::Result {
     let dir = fixture(Some(3), "")?;
     let head = git(dir.path(), "rev-parse HEAD")?;
@@ -156,8 +326,15 @@ esac
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
     assert!(stderr.contains("'csr-api-client' from 1.2.3 to 2.0.0"), "{stderr}");
+    let requests = fs::read_to_string(root.join("client-requests.jsonl"))?
+        .lines()
+        .map(serde_json::from_str::<serde_json::Value>)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
     assert_eq!(
-        fs::read_to_string(root.join("client-requests.jsonl"))?.lines().count(),
+        requests
+            .iter()
+            .filter(|request| request["experimental"].as_bool() != Some(true))
+            .count(),
         2,
         "the dependent is rechecked when the rejected facade changes its candidate version"
     );

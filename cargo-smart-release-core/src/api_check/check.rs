@@ -55,7 +55,7 @@ pub fn boundary(manifest: &Path) -> Result<Option<Incompatible>> {
         )?;
         incompatible.record(
             profile,
-            boundary_graph(&document, package, &resolved, &features, output.path())?.reasons,
+            boundary_graph(&document, package, &resolved, &features, output.path(), false)?.reasons,
         );
     }
     Ok(incompatible.into_option())
@@ -87,6 +87,8 @@ pub fn audit(path: &Path, allowed: Option<&BTreeSet<String>>) -> Result<Audit> {
 /// Marked items are excluded from supported API comparisons, including reachable workspace
 /// dependency members when recursive checking is enabled. Supported APIs that expose
 /// experimental types are still reported as boundary violations.
+/// With [`ReleaseRequest::experimental`] enabled, the comparison includes marked
+/// items and the declared experimental features, without stable boundary restrictions.
 pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Result<Option<Incompatible>> {
     let baseline_override = baseline_override.map(Path::canonicalize).transpose()?;
     let package = request.package.as_str();
@@ -123,18 +125,27 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
         }
     }
     for (profile_index, profile) in supported_profiles.iter().enumerate() {
-        let feature_args = feature_args(profile, &package_metadata["features"], unstable)?;
-        tracing::info!("Checking {package}, features: {feature_args:?}");
-        let current_metadata = cargo_metadata(&manifest, &feature_args)?;
+        let mut selected = profile.clone();
+        if request.experimental {
+            selected.features.extend(unstable.iter().cloned());
+        }
+        let current_features = feature_args(
+            &selected,
+            &package_metadata["features"],
+            if request.experimental { &[] } else { unstable },
+        )?;
+        tracing::info!("Checking {package}, features: {current_features:?}");
+        let current_metadata = cargo_metadata(&manifest, &current_features)?;
         let current_json = baseline_dir.path().join(format!("current-{profile_index}.json"));
         let baseline_json = baseline_dir.path().join(format!("baseline-{profile_index}.json"));
-        let document = rustdoc_document(&manifest, &feature_args, &current_metadata, package, &current_json)?;
+        let document = rustdoc_document(&manifest, &current_features, &current_metadata, package, &current_json)?;
         let current_graph = boundary_graph(
             &document,
             package_metadata,
             &current_metadata,
-            &feature_args,
+            &current_features,
             baseline_dir.path(),
+            request.experimental,
         )?;
         incompatible.record(profile, current_graph.reasons);
         if !baseline_package["metadata"]["api-check"].is_null()
@@ -145,10 +156,26 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
             // A newly supported configuration has no prior compatibility promise, but must pass the boundary audit.
             continue;
         }
-        let baseline_metadata = cargo_metadata(&baseline_manifest, &feature_args)?;
+        let baseline_features = if request.experimental {
+            let mut selected = profile.clone();
+            let excluded = baseline_package["metadata"]["smart-release"]
+                .get("unstable-features")
+                .map_or_else(|| Ok(Vec::new()), string_array)?;
+            if excluded
+                .iter()
+                .any(|feature| package_metadata["features"].get(feature).is_none())
+            {
+                incompatible.record(profile, [Reason::ProfileRemoved]);
+            }
+            selected.features.extend(excluded);
+            feature_args(&selected, &baseline_package["features"], &[])?
+        } else {
+            current_features.clone()
+        };
+        let baseline_metadata = cargo_metadata(&baseline_manifest, &baseline_features)?;
         let before = rustdoc_document(
             &baseline_manifest,
-            &feature_args,
+            &baseline_features,
             &baseline_metadata,
             package,
             &baseline_json,
@@ -157,8 +184,9 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
             &before,
             baseline_package,
             &baseline_metadata,
-            &feature_args,
+            &baseline_features,
             baseline_dir.path(),
+            request.experimental,
         )?;
         let mut exposed = baseline_graph.dependencies.clone();
         for (name, paths) in &current_graph.dependencies {
@@ -173,7 +201,12 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
             let Some(crate_name) = planned_dependency_crate(&current_metadata, name)? else {
                 continue;
             };
-            if dependency.breaking {
+            if dependency.breaking
+                || (request.experimental
+                    && dependency.experimental_breaking
+                    && (current_graph.experimental_dependencies.contains(crate_name)
+                        || baseline_graph.experimental_dependencies.contains(crate_name)))
+            {
                 let Some(paths) = exposed.get(crate_name) else { continue };
                 tracing::warn!(
                     "Breaking public dependency {name}: {}",
@@ -247,6 +280,7 @@ fn same_profile(before: &FeatureProfile, after: &FeatureProfile) -> bool {
 struct SupportedGraph {
     reasons: Vec<Reason>,
     dependencies: BTreeMap<String, BTreeSet<String>>,
+    experimental_dependencies: BTreeSet<String>,
     signatures: BTreeMap<String, Value>,
     documents: BTreeMap<String, (Value, BTreeSet<String>)>,
 }
@@ -353,6 +387,7 @@ fn boundary_graph(
     metadata: &Value,
     features: &[String],
     output: &Path,
+    experimental: bool,
 ) -> Result<SupportedGraph> {
     // An isolated consumer excludes workspace and dev-only feature unification from the library contract.
     let consumer = tempfile::tempdir()?;
@@ -385,33 +420,50 @@ fn boundary_graph(
     let mut resolved = serde_json::to_value(cargo_metadata::MetadataCommand::new().manifest_path(&manifest).exec()?)?;
     resolved["workspace_members"] = metadata["workspace_members"].clone();
     resolved["target_directory"] = metadata["target_directory"].clone();
-    supported_graph(document, &package["metadata"]["api-check"], &resolved, |dependency| {
-        let node = resolved["resolve"]["nodes"]
-            .as_array()
-            .context("metadata has no resolved nodes")?
-            .iter()
-            .find(|node| node["id"] == dependency["id"])
-            .context("public dependency has no resolved features")?;
-        let features = string_array(&node["features"])?;
-        let mut args = vec!["--no-default-features".into()];
-        if !features.is_empty() {
-            args.extend(["--features".into(), features.join(",")]);
-        }
-        let name = required_str(dependency, "name")?;
-        rustdoc_document(
-            Path::new(required_str(dependency, "manifest_path")?),
-            &args,
-            &resolved,
-            name,
-            &output.join(format!("dependency-{}.json", library_name(dependency)?)),
-        )
-    })
+    api_graph(
+        document,
+        &package["metadata"]["api-check"],
+        &resolved,
+        experimental,
+        |dependency| {
+            let node = resolved["resolve"]["nodes"]
+                .as_array()
+                .context("metadata has no resolved nodes")?
+                .iter()
+                .find(|node| node["id"] == dependency["id"])
+                .context("public dependency has no resolved features")?;
+            let features = string_array(&node["features"])?;
+            let mut args = vec!["--no-default-features".into()];
+            if !features.is_empty() {
+                args.extend(["--features".into(), features.join(",")]);
+            }
+            let name = required_str(dependency, "name")?;
+            rustdoc_document(
+                Path::new(required_str(dependency, "manifest_path")?),
+                &args,
+                &resolved,
+                name,
+                &output.join(format!("dependency-{}.json", library_name(dependency)?)),
+            )
+        },
+    )
 }
 
+#[cfg(test)]
 fn supported_graph(
     document: &Value,
     policy: &Value,
     metadata: &Value,
+    load: impl FnMut(&Value) -> Result<Value>,
+) -> Result<SupportedGraph> {
+    api_graph(document, policy, metadata, false, load)
+}
+
+fn api_graph(
+    document: &Value,
+    policy: &Value,
+    metadata: &Value,
+    experimental: bool,
     mut load: impl FnMut(&Value) -> Result<Value>,
 ) -> Result<SupportedGraph> {
     let read_list = |key: &str| -> Result<Vec<String>> { policy.get(key).map_or_else(|| Ok(Vec::new()), string_array) };
@@ -420,7 +472,7 @@ fn supported_graph(
     let recursive = policy.get("recursive").map_or(Ok(false), |value| {
         value.as_bool().context("api-check.recursive must be a boolean")
     })?;
-    let root = walk_supported(document, &[document["root"].clone()])?;
+    let root = walk_items(document, &[document["root"].clone()], !experimental)?;
     let mut graph = SupportedGraph {
         reasons: root
             .unsupported
@@ -428,6 +480,7 @@ fn supported_graph(
             .map(|path| Reason::ExperimentalType { path })
             .collect(),
         dependencies: root.dependencies.clone(),
+        experimental_dependencies: BTreeSet::new(),
         signatures: item_signatures(document, &root.seen)?,
         documents: BTreeMap::from([(
             required_str(&document["index"][item_key(&document["root"])?], "name")?.to_owned(),
@@ -442,6 +495,21 @@ fn supported_graph(
             // shortcut: third-party members are not expanded; extend loading if workspace-only plumbing becomes insufficient.
             continue;
         };
+        if experimental {
+            let excluded = dependency["metadata"]["smart-release"]
+                .get("unstable-features")
+                .map_or_else(|| Ok(Vec::new()), string_array)?;
+            let node = metadata["resolve"]["nodes"]
+                .as_array()
+                .and_then(|nodes| nodes.iter().find(|node| node["id"] == dependency["id"]))
+                .context("public dependency has no resolved features")?;
+            if string_array(&node["features"])?
+                .iter()
+                .any(|feature| excluded.contains(feature))
+            {
+                graph.experimental_dependencies.insert(name.clone());
+            }
+        }
         if !documents.contains_key(&name) {
             documents.insert(name.clone(), load(dependency)?);
         }
@@ -457,7 +525,7 @@ fn supported_graph(
         }
         let provisional = required_str(dependency, "version")?.starts_with("0.");
         let blanket = allowed_crates.contains(&name);
-        let supported = if provisional {
+        let supported = if provisional || experimental {
             None
         } else {
             Some(walk_supported(document, &[document["root"].clone()])?.seen)
@@ -468,9 +536,10 @@ fn supported_graph(
                 continue;
             }
             let item = &document["index"][&id];
-            if unstable(item)
-                || (provisional && !blanket && !allowed_ids.contains(&id))
-                || supported.as_ref().is_some_and(|items| !items.contains(&id))
+            if !experimental
+                && (unstable(item)
+                    || (provisional && !blanket && !allowed_ids.contains(&id))
+                    || supported.as_ref().is_some_and(|items| !items.contains(&id)))
             {
                 tracing::warn!("Stable API exposes experimental plumbing item {path}");
                 let crate_name = name.clone();
@@ -484,13 +553,13 @@ fn supported_graph(
                 continue;
             }
             if recursive {
-                let walk = walk_supported(document, &[Value::String(id)])?;
+                let walk = walk_items(document, &[Value::String(id)], !experimental)?;
                 graph.reasons.extend(
                     walk.unsupported
                         .into_iter()
                         .map(|path| Reason::ExperimentalType { path }),
                 );
-                if provisional && !blanket {
+                if !experimental && provisional && !blanket {
                     for id in &walk.seen {
                         let item = &document["index"][id];
                         if item["crate_id"] == 0 && type_definition(item) && !allowed_ids.contains(id) {

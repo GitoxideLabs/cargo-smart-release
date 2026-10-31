@@ -63,7 +63,13 @@ pub fn release_plan(
                     "compatible; inherited breaking bumps stop at this boundary"
                 }
             );
+            if checks.experimental_incompatible.contains(&package.id) {
+                log::info!(
+                    "Experimental API of '{}': incompatible; requires at least a minor release",
+                    package.name
+                );
+            }
         }
     }
-    Ok(checks.incompatible.is_empty())
+    Ok(checks.incompatible.is_empty() && checks.experimental_incompatible.is_empty())
 }

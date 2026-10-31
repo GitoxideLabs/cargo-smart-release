@@ -281,8 +281,54 @@ pub fn dependencies_with_checks<'meta>(
                 });
             }
         }
+        for package in ctx
+            .meta
+            .workspace_members
+            .iter()
+            .map(|id| package_by_id(&ctx.meta, id))
+            .filter(|package| checks.experimental_incompatible.contains(&package.id))
+        {
+            let existing = crates.iter_mut().find(|dep| dep.package.id == package.id);
+            if existing
+                .as_ref()
+                .is_some_and(|dep| dep.mode.version_adjustment_bump().is_some())
+            {
+                continue;
+            }
+            let adjustment = VersionAdjustment::Changed {
+                change: None,
+                bump: version::bump_package_with_spec(package, BumpSpec::Patch, ctx, bump_when_needed)?,
+            };
+            match existing {
+                Some(dep) => dep.mode = dependency::Mode::ToBePublished { adjustment },
+                None => crates.push(Dependency {
+                    package,
+                    kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                    mode: dependency::Mode::NotForPublishing {
+                        reason: dependency::NoPublishReason::BreakingChangeCausesManifestUpdate,
+                        adjustment: Some(ManifestAdjustment::Version(adjustment)),
+                    },
+                }),
+            }
+        }
         loop {
             promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)?;
+            for dep in &mut crates {
+                if checks.experimental_incompatible.contains(&dep.package.id) {
+                    match &mut dep.mode {
+                        dependency::Mode::ToBePublished { adjustment }
+                        | dependency::Mode::NotForPublishing {
+                            adjustment: Some(ManifestAdjustment::Version(adjustment)),
+                            ..
+                        } => match adjustment {
+                            VersionAdjustment::Changed { bump, .. } | VersionAdjustment::Breakage { bump, .. } => {
+                                bump.require_minor_release();
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+            }
             if !isolate_dependencies_from_breaking_changes {
                 break;
             }

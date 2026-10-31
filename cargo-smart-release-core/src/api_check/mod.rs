@@ -86,6 +86,7 @@ pub fn check(
                 .transpose()?
                 .unwrap_or_default(),
             dependencies: Vec::new(),
+            experimental: false,
         };
         release(&request, None)?
     } else {

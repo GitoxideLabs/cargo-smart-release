@@ -20,6 +20,7 @@ struct Policy {
 pub(crate) struct Checks<'meta> {
     policies: BTreeMap<&'meta PackageId, Policy>,
     pub incompatible: BTreeSet<&'meta PackageId>,
+    pub experimental_incompatible: BTreeSet<&'meta PackageId>,
     results: BTreeMap<String, bool>,
 }
 
@@ -48,6 +49,7 @@ impl<'meta> Checks<'meta> {
         Ok(Self {
             policies,
             incompatible: BTreeSet::new(),
+            experimental_incompatible: BTreeSet::new(),
             results: BTreeMap::new(),
         })
     }
@@ -64,31 +66,7 @@ impl<'meta> Checks<'meta> {
         let Some(policy) = self.policies.get(&package.id) else {
             return false;
         };
-        let dependency_name = dependency.rename.as_deref().unwrap_or(&dependency.name);
-        let mut pending = dependency.features.clone();
-        if dependency.uses_default_features {
-            pending.push("default".into());
-        }
-        // Any consumer feature can expose unstable API, including optional forwarding.
-        for feature in consumer.features.values().flatten() {
-            if let Some((name, feature)) = feature.split_once('/') {
-                if name.trim_end_matches('?') == dependency_name {
-                    pending.push(feature.into());
-                }
-            }
-        }
-        let mut seen = BTreeSet::new();
-        while let Some(feature) = pending.pop() {
-            if policy.unstable_features.contains(&feature) {
-                return true;
-            }
-            if seen.insert(feature.clone()) {
-                if let Some(features) = package.features.get(&feature) {
-                    pending.extend(features.iter().cloned());
-                }
-            }
-        }
-        false
+        uses_unstable(consumer, dependency, package, &policy.unstable_features)
     }
 
     /// Recheck changed candidate versions until no further API boundary is rejected.
@@ -116,6 +94,7 @@ impl<'meta> Checks<'meta> {
                     baseline_version: baseline_version.clone(),
                     next_version: next_version.clone(),
                     breaking: crate::version::rhs_is_breaking_bump_for_lhs(&baseline_version, next_version),
+                    experimental_breaking: self.experimental_incompatible.contains(&package.id),
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -134,56 +113,115 @@ impl<'meta> Checks<'meta> {
                 .map(|krate| semver::Version::parse(krate.highest_version().version()))
                 .transpose()?
                 .unwrap_or_else(|| package.version.clone());
-            let request = ReleaseRequest {
-                package: package.name.to_string(),
-                manifest_path: package.manifest_path.clone().into_std_path_buf(),
-                baseline_revision: crate::utils::tag_name(package, &baseline_version, &ctx.repo),
-                baseline_version: Some(baseline_version.clone()),
-                unstable_features: policy.unstable_features.clone(),
-                dependencies: dependencies.clone(),
-            };
-            let request = serde_json::to_string(&request)?;
-            let compatible = match self.results.get(&request) {
-                Some(result) => *result,
-                None => {
-                    log::info!(
-                        "Checking stable API compatibility of '{}' against {} (excluded features: {})",
-                        package.name,
-                        crate::utils::tag_name(package, &baseline_version, &ctx.repo),
-                        policy.unstable_features.join(", ")
-                    );
-                    let mut child = Command::new(&policy.command[0])
-                        .args(&policy.command[1..])
-                        .current_dir(&ctx.root)
-                        .stdin(Stdio::piped())
-                        .spawn()
-                        .with_context(|| format!("Could not start API checker for '{}'", package.name))?;
-                    let input_result = child
-                        .stdin
-                        .take()
-                        .context("API checker stdin was not piped")?
-                        .write_all(request.as_bytes());
-                    let status = child.wait().context("Could not wait for API checker")?;
-                    input_result.context("Could not send the API check request")?;
-                    let compatible = match status.code() {
-                        Some(0) => true,
-                        Some(10) => false,
-                        _ => bail!(
+            for experimental in [false, true] {
+                if experimental
+                    && (self.incompatible.contains(&package.id) || self.experimental_incompatible.contains(&package.id))
+                {
+                    continue;
+                }
+                let request = ReleaseRequest {
+                    package: package.name.to_string(),
+                    manifest_path: package.manifest_path.clone().into_std_path_buf(),
+                    baseline_revision: crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                    baseline_version: Some(baseline_version.clone()),
+                    unstable_features: policy.unstable_features.clone(),
+                    dependencies: dependencies.clone(),
+                    experimental,
+                };
+                let request = serde_json::to_string(&request)?;
+                let compatible = match self.results.get(&request) {
+                    Some(result) => *result,
+                    None => {
+                        log::info!(
+                            "Checking {} API compatibility of '{}' against {} (experimental features: {})",
+                            if experimental { "experimental" } else { "stable" },
+                            package.name,
+                            crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                            policy.unstable_features.join(", ")
+                        );
+                        let mut child = Command::new(&policy.command[0])
+                            .args(&policy.command[1..])
+                            .current_dir(&ctx.root)
+                            .stdin(Stdio::piped())
+                            .spawn()
+                            .with_context(|| format!("Could not start API checker for '{}'", package.name))?;
+                        let input_result = child
+                            .stdin
+                            .take()
+                            .context("API checker stdin was not piped")?
+                            .write_all(request.as_bytes());
+                        let status = child.wait().context("Could not wait for API checker")?;
+                        input_result.context("Could not send the API check request")?;
+                        let compatible = match status.code() {
+                            Some(0) => true,
+                            Some(10) => false,
+                            _ => bail!(
                             "API checker for '{}' failed ({status}); expected exit 0 (compatible) or 10 (incompatible)",
                             package.name
                         ),
-                    };
-                    self.results.insert(request, compatible);
-                    compatible
+                        };
+                        self.results.insert(request, compatible);
+                        compatible
+                    }
+                };
+                if !compatible {
+                    if experimental {
+                        log::info!(
+                            "Experimental API of '{}' requires at least a minor release",
+                            package.name
+                        );
+                        changed |= self.experimental_incompatible.insert(&package.id);
+                    } else {
+                        log::info!("Stable API of '{}' requires a breaking release", package.name);
+                        changed |= self.incompatible.insert(&package.id);
+                    }
                 }
-            };
-            if !compatible {
-                log::info!("Stable API of '{}' requires a breaking release", package.name);
-                changed |= self.incompatible.insert(&package.id);
             }
         }
         Ok(changed)
     }
+}
+
+pub(crate) fn dependency_uses_unstable(
+    consumer: &Package,
+    dependency: &CargoDependency,
+    package: &Package,
+) -> anyhow::Result<bool> {
+    Ok(Policy::from_metadata(&package.metadata)?
+        .is_some_and(|policy| uses_unstable(consumer, dependency, package, &policy.unstable_features)))
+}
+
+fn uses_unstable(
+    consumer: &Package,
+    dependency: &CargoDependency,
+    package: &Package,
+    unstable_features: &[String],
+) -> bool {
+    let dependency_name = dependency.rename.as_deref().unwrap_or(&dependency.name);
+    let mut pending = dependency.features.clone();
+    if dependency.uses_default_features {
+        pending.push("default".into());
+    }
+    // Any consumer feature can expose unstable API, including optional forwarding.
+    for feature in consumer.features.values().flatten() {
+        if let Some((name, feature)) = feature.split_once('/') {
+            if name.trim_end_matches('?') == dependency_name {
+                pending.push(feature.into());
+            }
+        }
+    }
+    let mut seen = BTreeSet::new();
+    while let Some(feature) = pending.pop() {
+        if unstable_features.contains(&feature) {
+            return true;
+        }
+        if seen.insert(feature.clone()) {
+            if let Some(features) = package.features.get(&feature) {
+                pending.extend(features.iter().cloned());
+            }
+        }
+    }
+    false
 }
 
 impl Policy {

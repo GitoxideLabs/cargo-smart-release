@@ -92,6 +92,21 @@ contain the experimental markers `**Unstable:**` or `**Unstable.**`.
 Dependencies outside the workspace are checked for nominal identity but their
 members are not recursively compared. The default audit is not recursive.
 
+Release planning checks stable and experimental compatibility separately. Stable
+incompatibility requires a breaking release. Experimental incompatibility requires
+at least a minor release, while full compatibility still permits patch releases.
+Explicit major bumps and breaking commits retain their stronger release intent.
+The full comparison enables all declared `unstable-features` together on each
+supported profile and includes experimental documentation items. Declare features
+that can be enabled together; a failed build aborts instead of assuming compatibility.
+
+Consumers opting into experimental APIs should use a requirement such as `~1.2.3`,
+which admits `1.2.x` updates but excludes `1.3.0`. Release manifest updates preserve
+tilde requirements and constrain normal workspace dependencies that explicitly
+enable or forward declared unstable features to the dependency's minor series.
+These bounds must be present in the first published experimental release: updating
+later manifests cannot repair broad requirements in older published versions.
+
 To see the checks **with the dependency versions proposed by smart-release**, use:
 
 ```sh
@@ -122,6 +137,12 @@ cargo api-check release --baseline-root path/to/baseline < request.json
 All modes exit **0** when their checks pass, **10** for a completed incompatibility
 or boundary violation, and **2** when checks cannot complete. A boundary-only
 success does not establish compatibility with a prior release.
+
+The planner sends separate release requests with `experimental: true` for full-API
+checks; omitted or false retains the stable-only protocol. Planned dependencies
+can also carry `experimental_breaking: true`. Custom checkers must handle these
+fields, and the planner and built-in checker must be updated together. Older
+built-in checkers reject unknown fields and abort before release mutations.
 
 The built-in checker requires **Rust 1.99 (rustdoc JSON format 61)** and
 **cargo-semver-checks 0.51.0 or newer** on `PATH`. It enables rustdoc JSON using
@@ -253,7 +274,7 @@ lockfiles are left alone. Unreadable extra manifests or invalid TOML are skipped
 updating a matched dependency stop the release before manifest changes are persisted.
 
 * it requires tables to be used when specifying versions, i.e. `crate = { version = "1" }` instead of `crate = "1".
-* it gracefully fails when encountering version requirement comparators which are not `^`, like `=`
+* it gracefully fails when encountering version requirement comparators other than `^` and `~`, like `=`
 * it's tested only by using it on `gitoxide`, there are only very few regression tests with little coverage.
 * short object ids in changelogs may be ambiguous, as they are unconditionally truncated to 7 characters.
 * changelog rewriting of user content will drop links if they are not of the 'inline' form

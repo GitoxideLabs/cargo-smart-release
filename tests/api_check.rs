@@ -75,6 +75,7 @@ fn audit_reports_public_dependencies_with_or_without_an_allowlist() -> TestResul
             "audit stdout identifies the external type exposed by the public function"
         );
     }
+
     Ok(())
 }
 
@@ -326,6 +327,152 @@ recursive = {recursive}
             .output()?;
         assert_exit(&output, expected, reason);
     }
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires cargo-semver-checks 0.51+ and rustdoc JSON format 61"]
+fn experimental_api_is_compared_separately_from_the_stable_boundary() -> TestResult {
+    let directory = gix_testtools::tempfile::tempdir()?;
+    let baseline = directory.path().join("baseline");
+    let current = directory.path().join("current");
+    let manifest = r#"
+[package]
+name = "experimental-api"
+version = "1.2.3"
+edition = "2024"
+[features]
+unstable = []
+[package.metadata.smart-release]
+unstable-features = ["unstable"]
+[package.metadata.api-check]
+profiles = [{ default-features = false, features = [] }]
+"#;
+    let stable = "pub fn stable() -> bool { true }\n";
+    let experimental = r#"
+#[cfg(feature = "unstable")]
+#[doc = "**Unstable:** Since 2026-10-31."]
+pub fn experimental() -> bool { true }
+"#;
+    for root in [&baseline, &current] {
+        fs::create_dir_all(root.join("src"))?;
+        fs::write(root.join("Cargo.toml"), manifest)?;
+        fs::write(root.join("src/lib.rs"), format!("{stable}{experimental}"))?;
+    }
+    for (full, changed, expected) in [(true, false, 0), (false, true, 0), (true, true, 10)] {
+        fs::write(
+            current.join("src/lib.rs"),
+            if changed {
+                stable.to_owned()
+            } else {
+                format!("{stable}{experimental}")
+            },
+        )?;
+        let request = json!({
+            "package": "experimental-api", "manifest_path": "Cargo.toml",
+            "baseline_revision": "unused", "unstable_features": ["unstable"],
+            "experimental": full, "dependencies": []
+        });
+        let output = with_stdin(
+            check_api(&current)
+                .env("CARGO_TARGET_DIR", directory.path().join("target"))
+                .args([
+                    "release",
+                    "--baseline-root",
+                    baseline.to_str().expect("temporary path is UTF-8"),
+                ]),
+            &serde_json::to_vec(&request)?,
+        )?;
+        assert_exit(
+            &output,
+            expected,
+            "experimental removals affect patch compatibility while the stable boundary remains compatible",
+        );
+    }
+    fs::write(baseline.join("src/lib.rs"), stable)?;
+    fs::write(current.join("src/lib.rs"), stable)?;
+    fs::write(
+        current.join("Cargo.toml"),
+        manifest
+            .replace("unstable = []", "")
+            .replace("unstable-features = [\"unstable\"]", "unstable-features = []"),
+    )?;
+    let request = json!({
+        "package": "experimental-api", "manifest_path": "Cargo.toml",
+        "baseline_revision": "unused", "unstable_features": [],
+        "experimental": true, "dependencies": []
+    });
+    let output = with_stdin(
+        check_api(&current)
+            .env("CARGO_TARGET_DIR", directory.path().join("target"))
+            .args([
+                "release",
+                "--baseline-root",
+                baseline.to_str().expect("temporary path is UTF-8"),
+            ]),
+        &serde_json::to_vec(&request)?,
+    )?;
+    assert_exit(
+        &output,
+        10,
+        "removing the final experimental feature still requires a new minor series",
+    );
+
+    for (full, enabled, expected) in [(false, true, 0), (true, true, 10), (true, false, 0)] {
+        for root in [&baseline, &current] {
+            let lock = root.join("Cargo.lock");
+            if lock.exists() {
+                fs::remove_file(lock)?;
+            }
+            fs::create_dir_all(root.join("plumbing/src"))?;
+            fs::write(
+                root.join("plumbing/Cargo.toml"),
+                r#"
+[package]
+name = "plumbing"
+version = "1.2.3"
+edition = "2024"
+[features]
+unstable = []
+[package.metadata.smart-release]
+unstable-features = ["unstable"]
+"#,
+            )?;
+            fs::write(
+                root.join("plumbing/src/lib.rs"),
+                r#"
+pub struct Stable;
+impl Stable {
+    #[cfg(feature = "unstable")]
+    #[doc = "**Unstable:** Since 2026-10-31."]
+    pub fn experimental(&self) {}
+}
+"#,
+            )?;
+            fs::write(root.join("src/lib.rs"), "pub use plumbing::Stable;\n")?;
+            fs::write(root.join("Cargo.toml"), format!("{manifest}\n[workspace]\nmembers = [\"plumbing\"]\n[dependencies]\nplumbing = {{ path = \"plumbing\", features = [{}] }}\n", if enabled { "\"unstable\"" } else { "" }))?;
+        }
+        let request = json!({
+            "package": "experimental-api", "manifest_path": "Cargo.toml",
+            "baseline_revision": "unused", "unstable_features": ["unstable"],
+            "experimental": full, "dependencies": [{
+                "name": "plumbing", "current_version": "1.2.3", "baseline_version": "1.2.3",
+                "next_version": "1.3.0", "breaking": false, "experimental_breaking": true
+            }]
+        });
+        let output = with_stdin(
+            check_api(&current)
+                .env("CARGO_TARGET_DIR", directory.path().join("target"))
+                .args([
+                    "release",
+                    "--baseline-root",
+                    baseline.to_str().expect("temporary path is UTF-8"),
+                ]),
+            &serde_json::to_vec(&request)?,
+        )?;
+        assert_exit(&output, expected, "planned experimental breaks affect full comparisons only when the dependency's unstable feature is enabled");
+    }
+
     Ok(())
 }
 
