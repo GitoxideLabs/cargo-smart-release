@@ -13,6 +13,9 @@ pub struct Args {
 
 #[derive(clap::Parser)]
 pub enum SubCommands {
+    /// Audit a crate's supported API or preview release-time compatibility checks.
+    #[clap(name = "api-check", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
+    ApiCheck(super::api_check::Args),
     #[clap(name = "smart-release", long_version = option_env!("CARGO_SMART_RELEASE_VERSION"))]
     /// Release workspace crates fearlessly.
     ///
@@ -115,6 +118,14 @@ pub enum SubCommands {
         /// Allow to also publish stable crates when discovering changed crates, bumping their version according to `-d <spec>`.
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         auto_publish_of_stable_crates: bool,
+
+        /// Use conservative version and dependency rules only for API checks that cannot complete.
+        ///
+        /// Use only after manually reviewing compatibility when an older release cannot build and this release fixes it.
+        /// All checkers still run, and completed compatibility and incompatibility verdicts are retained.
+        /// Incomplete experimental checks require at least a minor release. Without this flag, failures abort again.
+        #[clap(long, help_heading = Some("EXPERT"))]
+        no_api_check: bool,
 
         /// Do not force 0.X version requirements to be updated in dependent crates on patch update, forcing
         /// an update of the lower bound.

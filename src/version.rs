@@ -77,6 +77,16 @@ impl Bump {
     pub(crate) fn is_breaking(&self) -> bool {
         rhs_is_breaking_bump_for_lhs(&self.package_version, &self.next_release)
     }
+
+    pub(crate) fn require_minor_release(&mut self) {
+        let baseline = self.latest_release.as_ref().unwrap_or(&self.package_version);
+        if self.next_release.major == baseline.major && self.next_release.minor <= baseline.minor {
+            self.next_release.minor = baseline.minor + 1;
+            self.next_release.patch = 0;
+            self.next_release.pre = Prerelease::EMPTY;
+            self.desired_release = self.desired_release.clone().max(self.next_release.clone());
+        }
+    }
 }
 
 pub(crate) fn bump_package_with_spec(
@@ -97,7 +107,7 @@ pub(crate) fn bump_package_with_spec(
                 ctx,
                 ctx.history
                     .as_ref()
-                    .context("Did not have access to the Git history - please assure to not be on a detached HEAD")?,
+                    .context("Automatic version bumps require Git history")?,
                 crate::git::history::SegmentScope::Unreleased,
             )?;
             assert_eq!(
@@ -180,5 +190,58 @@ pub(crate) fn is_pre_release(semver: &Version) -> bool {
 }
 
 pub(crate) fn rhs_is_breaking_bump_for_lhs(lhs: &Version, rhs: &Version) -> bool {
-    rhs.major > lhs.major || rhs.minor > lhs.minor
+    rhs.major > lhs.major || (lhs.major == 0 && (rhs.minor > lhs.minor || (lhs.minor == 0 && rhs.patch > lhs.patch)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn experimental_minor_floor_uses_the_published_version() -> anyhow::Result<()> {
+        for (manifest, candidate, expected) in [
+            ("1.2.3", "1.2.4", "1.3.0"),
+            ("1.2.4", "1.2.4", "1.3.0"),
+            ("1.3.0", "1.3.0", "1.3.0"),
+            ("2.0.0", "2.0.0", "2.0.0"),
+            ("0.2.3", "0.2.4", "0.3.0"),
+        ] {
+            let mut bump = Bump {
+                package_version: Version::parse(manifest)?,
+                next_release: Version::parse(candidate)?,
+                desired_release: Version::parse(candidate)?,
+                latest_release: Some(Version::parse(if manifest.starts_with('0') {
+                    "0.2.3"
+                } else {
+                    "1.2.3"
+                })?),
+            };
+            bump.require_minor_release();
+            assert_eq!(
+                bump.next_release,
+                Version::parse(expected)?,
+                "experimental breaks start a new minor series without lowering stronger bumps"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn breaking_version_changes_follow_cargo_compatibility() -> anyhow::Result<()> {
+        for (old, new, breaking) in [
+            ("1.2.3", "1.3.0", false),
+            ("1.2.3", "2.0.0", true),
+            ("0.2.3", "0.3.0", true),
+            ("0.2.3", "0.2.4", false),
+            ("0.0.3", "0.0.4", true),
+            ("1.2.3", "1.2.3", false),
+        ] {
+            assert_eq!(
+                rhs_is_breaking_bump_for_lhs(&Version::parse(old)?, &Version::parse(new)?),
+                breaking,
+                "{old} -> {new} must follow Cargo's compatibility boundary"
+            );
+        }
+        Ok(())
+    }
 }

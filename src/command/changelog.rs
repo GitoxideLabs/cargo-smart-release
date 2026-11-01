@@ -29,6 +29,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
             &ctx,
             crate::traverse::Options {
                 allow_auto_publish_of_stable_crates: true,
+                skip_api_check: false,
                 bump_when_needed: true,
                 isolate_dependencies_from_breaking_changes: true,
                 traverse_graph: dependencies,
@@ -55,10 +56,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         .collect()
     };
     assure_working_tree_is_unchanged(opts)?;
-    let history = match git::history::collect(&ctx.repo)? {
-        None => return Ok(()),
-        Some(history) => history,
-    };
+    let history = git::history::collect(&ctx.repo)?;
 
     let bat = (dry_run && preview).then(bat::Support::new);
 

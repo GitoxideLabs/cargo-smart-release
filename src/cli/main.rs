@@ -1,4 +1,5 @@
 mod options;
+mod api_check;
 use clap::Parser;
 use options::{Args, SubCommands};
 
@@ -11,6 +12,7 @@ fn main() -> anyhow::Result<()> {
     }
     let args: Args = Args::parse();
     match args.subcommands {
+        SubCommands::ApiCheck(args) => api_check::run(args),
         SubCommands::Changelog {
             write,
             execute,
@@ -50,6 +52,7 @@ fn main() -> anyhow::Result<()> {
             changelog_without,
             dangerously_pass_no_verify,
             auto_publish_of_stable_crates,
+            no_api_check,
             no_conservative_pre_release_version_handling,
             dry_run_cargo_publish,
             update_crates_index,
@@ -88,6 +91,7 @@ fn main() -> anyhow::Result<()> {
                     dry_run_cargo_publish,
                     no_verify: dangerously_pass_no_verify,
                     allow_auto_publish_of_stable_crates: auto_publish_of_stable_crates,
+                    skip_api_check: no_api_check,
                     update_crates_index,
                     preview: !no_changelog_preview,
                     generator_segments: names_to_segment_selection(&changelog_without)?,
