@@ -22,10 +22,16 @@ pub(crate) struct Checks<'meta> {
     pub incompatible: BTreeSet<&'meta PackageId>,
     pub experimental_incompatible: BTreeSet<&'meta PackageId>,
     results: BTreeMap<String, bool>,
+    skipped: BTreeSet<(&'meta PackageId, bool)>,
+    skip_failed_api_checks: bool,
 }
 
 impl<'meta> Checks<'meta> {
-    pub fn new(ctx: &'meta Context, allow_auto_publish_of_stable_crates: bool) -> anyhow::Result<Self> {
+    pub fn new(
+        ctx: &'meta Context,
+        allow_auto_publish_of_stable_crates: bool,
+        skip_api_check: bool,
+    ) -> anyhow::Result<Self> {
         let mut policies = BTreeMap::new();
         for id in &ctx.meta.workspace_members {
             let package = package_by_id(&ctx.meta, id);
@@ -51,11 +57,19 @@ impl<'meta> Checks<'meta> {
             incompatible: BTreeSet::new(),
             experimental_incompatible: BTreeSet::new(),
             results: BTreeMap::new(),
+            skipped: BTreeSet::new(),
+            skip_failed_api_checks: skip_api_check,
         })
     }
 
     pub fn is_boundary(&self, package: &Package) -> bool {
-        self.policies.contains_key(&package.id) && !self.incompatible.contains(&package.id)
+        self.policies.contains_key(&package.id)
+            && !self.incompatible.contains(&package.id)
+            && !self.skipped.contains(&(&package.id, false))
+    }
+
+    pub fn requires_minor_release(&self, package: &Package) -> bool {
+        self.experimental_incompatible.contains(&package.id) || self.skipped.contains(&(&package.id, true))
     }
 
     pub fn has_policy(&self, package: &Package) -> bool {
@@ -94,7 +108,7 @@ impl<'meta> Checks<'meta> {
                     baseline_version: baseline_version.clone(),
                     next_version: next_version.clone(),
                     breaking: crate::version::rhs_is_breaking_bump_for_lhs(&baseline_version, next_version),
-                    experimental_breaking: self.experimental_incompatible.contains(&package.id),
+                    experimental_breaking: self.requires_minor_release(package),
                 })
             })
             .collect::<anyhow::Result<_>>()?;
@@ -114,6 +128,9 @@ impl<'meta> Checks<'meta> {
                 .transpose()?
                 .unwrap_or_else(|| package.version.clone());
             for experimental in [false, true] {
+                if self.skipped.contains(&(&package.id, experimental)) {
+                    continue;
+                }
                 if experimental
                     && (self.incompatible.contains(&package.id) || self.experimental_incompatible.contains(&package.id))
                 {
@@ -139,26 +156,47 @@ impl<'meta> Checks<'meta> {
                             crate::utils::tag_name(package, &baseline_version, &ctx.repo),
                             policy.unstable_features.join(", ")
                         );
-                        let mut child = Command::new(&policy.command[0])
-                            .args(&policy.command[1..])
-                            .current_dir(&ctx.root)
-                            .stdin(Stdio::piped())
-                            .spawn()
-                            .with_context(|| format!("Could not start API checker for '{}'", package.name))?;
-                        let input_result = child
-                            .stdin
-                            .take()
-                            .context("API checker stdin was not piped")?
-                            .write_all(request.as_bytes());
-                        let status = child.wait().context("Could not wait for API checker")?;
-                        input_result.context("Could not send the API check request")?;
-                        let compatible = match status.code() {
-                            Some(0) => true,
-                            Some(10) => false,
-                            _ => bail!(
-                            "API checker for '{}' failed ({status}); expected exit 0 (compatible) or 10 (incompatible)",
-                            package.name
-                        ),
+                        let compatible = (|| {
+                            let mut child = Command::new(&policy.command[0])
+                                .args(&policy.command[1..])
+                                .current_dir(&ctx.root)
+                                .stdin(Stdio::piped())
+                                .spawn()
+                                .context("Could not start API checker")?;
+                            let input_result = child
+                                .stdin
+                                .take()
+                                .context("API checker stdin was not piped")?
+                                .write_all(request.as_bytes());
+                            let status = child.wait().context("Could not wait for API checker")?;
+                            input_result.context("Could not send the API check request")?;
+                            match status.code() {
+                                Some(0) => Ok(true),
+                                Some(10) => Ok(false),
+                                _ => bail!(
+                                    "API checker for '{}' failed ({status}); expected exit 0 (compatible) or 10 (incompatible)",
+                                    package.name
+                                ),
+                            }
+                        })().with_context(|| format!(
+                            "API checker for '{}' could not complete against '{}'",
+                            package.name,
+                            crate::utils::tag_name(package, &baseline_version, &ctx.repo)
+                        ));
+                        let compatible = match compatible {
+                            Ok(compatible) => compatible,
+                            Err(err) if self.skip_failed_api_checks => {
+                                log::warn!(
+                                    "Skipping incomplete {} API check for '{}'; using conservative version and dependency rules: {err:#}",
+                                    if experimental { "experimental" } else { "stable" },
+                                    package.name
+                                );
+                                changed |= self.skipped.insert((&package.id, experimental));
+                                continue;
+                            }
+                            Err(err) => return Err(err).context(
+                                "If the old release cannot build (for example, missing forwarded Cargo features), and this release fixes it, manually review compatibility and retry cargo smart-release with --no-api-check. This only skips checks that cannot complete for this invocation and uses conservative version and dependency rules for them; completed compatibility and incompatibility verdicts are retained. Check the dry-run plan first; a failed build does not establish API compatibility."
+                            ),
                         };
                         self.results.insert(request, compatible);
                         compatible

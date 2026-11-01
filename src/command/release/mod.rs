@@ -86,6 +86,7 @@ impl From<Options> for traverse::Options {
     fn from(v: Options) -> Self {
         Self {
             allow_auto_publish_of_stable_crates: v.allow_auto_publish_of_stable_crates,
+            skip_api_check: v.skip_api_check,
             bump_when_needed: v.bump_when_needed,
             isolate_dependencies_from_breaking_changes: v.isolate_dependencies_from_breaking_changes,
             traverse_graph: v.dependencies,
@@ -94,7 +95,7 @@ impl From<Options> for traverse::Options {
 }
 
 fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
-    let mut checks = crate::api::Checks::new(&ctx.base, opts.allow_auto_publish_of_stable_crates)?;
+    let mut checks = crate::api::Checks::new(&ctx.base, opts.allow_auto_publish_of_stable_crates, opts.skip_api_check)?;
     let crates = {
         traverse::dependencies_with_checks(&ctx.base, opts.clone().into(), &mut checks)
             .and_then(|crates| {
@@ -638,6 +639,7 @@ mod tests {
             no_verify: false,
             skip_tag: false,
             allow_auto_publish_of_stable_crates: false,
+            skip_api_check: false,
             update_crates_index,
             bump_when_needed: true,
             verbose: false,

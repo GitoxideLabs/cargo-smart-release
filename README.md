@@ -206,6 +206,33 @@ failures from compatibility findings, and must not change tracked files. Results
 are reused only for identical requests during one planning pass; changed candidate
 versions trigger another check before anything is published.
 
+If an older release cannot build rustdoc, for example because required Cargo
+features were not forwarded by its consumers, and the upcoming release fixes it,
+you can tolerate incomplete API checks for one release invocation:
+
+```sh
+cargo smart-release example --no-api-check
+# After reviewing the dry-run plan:
+cargo smart-release example --no-api-check --execute
+```
+
+All configured checkers still run. Completed compatibility and incompatibility
+verdicts remain effective; only checks that cannot complete, such as tool/build
+failures or missing executables, fall back to conservative handling. A failed
+stable comparison loses its API boundary and uses the existing conservative
+version and dependency rules. A failed experimental comparison requires at least
+a minor release, since patch compatibility could not be established, while a
+completed stable comparison remains effective. Each failed comparison is skipped
+for the rest of that invocation; other comparisons keep running and completed
+results are rechecked when candidate versions change.
+
+This can produce larger bumps and leaves compatibility unverified for incomplete
+checks. Review the API changes manually before using it; a build failure is not a
+compatibility verdict. Invalid checker metadata still aborts. The manifest policy
+stays enabled, and the next invocation attempts all checkers again, aborting on
+failures unless this flag is supplied. Checker tool or build failures suggest
+this override; completed incompatibility findings keep their required bumps.
+
 Direct breaking conventional commits retain their breaking bumps. Crates without
 this metadata retain conservative dependency propagation. Consumers that enable an
 excluded feature, including defaults, aliases, and feature forwarding, retain

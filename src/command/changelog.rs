@@ -29,6 +29,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
             &ctx,
             crate::traverse::Options {
                 allow_auto_publish_of_stable_crates: true,
+                skip_api_check: false,
                 bump_when_needed: true,
                 isolate_dependencies_from_breaking_changes: true,
                 traverse_graph: dependencies,

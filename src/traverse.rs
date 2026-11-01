@@ -152,13 +152,14 @@ impl std::fmt::Debug for Dependency<'_> {
 #[derive(Clone, Copy)]
 pub struct Options {
     pub allow_auto_publish_of_stable_crates: bool,
+    pub skip_api_check: bool,
     pub bump_when_needed: bool,
     pub isolate_dependencies_from_breaking_changes: bool,
     pub traverse_graph: bool,
 }
 
 pub fn dependencies(ctx: &Context, opts: Options) -> anyhow::Result<Vec<Dependency<'_>>> {
-    let mut checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+    let mut checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates, opts.skip_api_check)?;
     dependencies_with_checks(ctx, opts, &mut checks)
 }
 
@@ -179,7 +180,7 @@ pub fn assure_crates_index_is_uptodate<'meta>(
     {
         log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
         ctx.crates_index.update();
-        *checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates)?;
+        *checks = Checks::new(ctx, opts.allow_auto_publish_of_stable_crates, opts.skip_api_check)?;
         return dependencies_with_checks(ctx, opts, checks);
     }
     Ok(crates)
@@ -192,6 +193,7 @@ pub fn dependencies_with_checks<'meta>(
         bump_when_needed,
         isolate_dependencies_from_breaking_changes,
         traverse_graph,
+        ..
     }: Options,
     checks: &mut Checks<'meta>,
 ) -> anyhow::Result<Vec<Dependency<'meta>>> {
@@ -286,7 +288,7 @@ pub fn dependencies_with_checks<'meta>(
             .workspace_members
             .iter()
             .map(|id| package_by_id(&ctx.meta, id))
-            .filter(|package| checks.experimental_incompatible.contains(&package.id))
+            .filter(|package| checks.requires_minor_release(package))
         {
             let existing = crates.iter_mut().find(|dep| dep.package.id == package.id);
             if existing
@@ -314,7 +316,7 @@ pub fn dependencies_with_checks<'meta>(
         loop {
             promote_changed_boundaries(ctx, &mut crates, bump_when_needed, checks)?;
             for dep in &mut crates {
-                if checks.experimental_incompatible.contains(&dep.package.id) {
+                if checks.requires_minor_release(dep.package) {
                     match &mut dep.mode {
                         dependency::Mode::ToBePublished { adjustment }
                         | dependency::Mode::NotForPublishing {

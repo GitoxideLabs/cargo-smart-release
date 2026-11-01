@@ -15,6 +15,7 @@ pub mod release {
         pub no_verify: bool,
         pub skip_tag: bool,
         pub allow_auto_publish_of_stable_crates: bool,
+        pub skip_api_check: bool,
         pub update_crates_index: bool,
         pub bump_when_needed: bool,
         pub verbose: bool,

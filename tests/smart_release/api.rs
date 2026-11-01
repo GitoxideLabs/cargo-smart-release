@@ -264,8 +264,141 @@ fn checker_failure_aborts_before_release_mutations() -> gix_testtools::Result {
         "checker failure must reject the release: {stderr}"
     );
     assert!(stderr.contains("API checker for 'csr-api-facade' failed"), "{stderr}");
+    assert!(stderr.contains("--no-api-check"), "{stderr}");
+    assert!(stderr.contains("csr-api-facade-v1.2.3"), "{stderr}");
+    assert!(stderr.contains("missing forwarded Cargo features"), "{stderr}");
+    assert!(stderr.contains("only skips checks that cannot complete"), "{stderr}");
     assert_eq!(git(dir.path(), "rev-parse HEAD")?, head);
     assert!(git(dir.path(), "diff HEAD --")?.is_empty());
+    Ok(())
+}
+
+#[test]
+fn override_keeps_completed_verdicts_and_only_skips_failed_checks_for_one_invocation() -> gix_testtools::Result {
+    for (result, expected) in [(0, "1.2.4"), (10, "2.0.0"), (3, "2.0.0")] {
+        let dir = fixture(Some(result), "")?;
+        let output = release(dir.path(), &["--no-api-check", "--execute", "--no-changelog"])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(dir.path().join("request.json").exists(), "checker must run");
+        for package in ["facade", "client"] {
+            assert!(
+                fs::read_to_string(dir.path().join(package).join("Cargo.toml"))?
+                    .contains(&format!("version = \"{expected}\"")),
+                "completed verdicts are retained; incomplete checks use conservative dependency bumps: {stderr}"
+            );
+        }
+        assert_eq!(
+            stderr.contains("using conservative version and dependency rules"),
+            result == 3,
+            "{stderr}"
+        );
+        assert!(git(dir.path(), "diff HEAD --")?.is_empty());
+
+        // Make the next invocation require planning again, without changing the checker policy.
+        fs::remove_file(dir.path().join("request.json"))?;
+        fs::write(dir.path().join("leaf/src/lib.rs"), "pub fn another_replacement() {}\n")?;
+        git(
+            dir.path(),
+            "commit -am 'change(csr-api-leaf)!: replace the leaf API again'",
+        )?;
+        let output = release(dir.path(), &[])?;
+        assert_eq!(output.status.success(), result != 3, "{output:?}");
+        assert!(
+            dir.path().join("request.json").exists(),
+            "next invocation runs the checker again"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn completed_checkers_are_retained_when_another_checker_fails() -> gix_testtools::Result {
+    for (result, expected) in [(0, "1.2.4"), (10, "2.0.0")] {
+        let dir = fixture(Some(3), "")?;
+        let manifest = dir.path().join("client/Cargo.toml");
+        fs::write(
+            &manifest,
+            format!(
+                "{}\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\n",
+                fs::read_to_string(&manifest)?
+            ),
+        )?;
+        fs::write(
+            dir.path().join("client-check.sh"),
+            format!("#!/bin/sh\ncat > client-requests.jsonl\nexit {result}\n"),
+        )?;
+        git(dir.path(), "add client-check.sh")?;
+        git(dir.path(), "commit -am 'configure client checker'")?;
+        let output = release(dir.path(), &["--no-api-check"])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(stderr.contains("'csr-api-facade' from 1.2.3 to 2.0.0"), "{stderr}");
+        assert!(
+            stderr.contains(&format!("'csr-api-client' from 1.2.3 to {expected}")),
+            "{stderr}"
+        );
+        assert!(dir.path().join("request.json").exists());
+        assert!(dir.path().join("client-requests.jsonl").exists());
+    }
+    Ok(())
+}
+
+#[test]
+fn completed_profiles_are_retained_when_another_profile_fails() -> gix_testtools::Result {
+    for (stable, experimental, facade, client) in [(0, 3, "1.3.0", "1.2.4"), (3, 0, "2.0.0", "2.0.0")] {
+        let dir = fixture(Some(0), "")?;
+        fs::write(
+            dir.path().join("check.sh"),
+            format!(
+                r#"#!/bin/sh
+request=$(cat)
+printf '%s\n' "$request" >> request.json
+case "$request" in
+    *'"experimental":true'*) exit {experimental} ;;
+    *) exit {stable} ;;
+esac
+"#
+            ),
+        )?;
+        git(dir.path(), "commit -am 'configure profile failure'")?;
+        let output = release(dir.path(), &["--no-api-check"])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(
+            stderr.contains(&format!("'csr-api-facade' from 1.2.3 to {facade}")),
+            "{stderr}"
+        );
+        assert!(
+            stderr.contains(&format!("'csr-api-client' from 1.2.3 to {client}")),
+            "{stderr}"
+        );
+        let requests = fs::read_to_string(dir.path().join("request.json"))?
+            .lines()
+            .map(serde_json::from_str::<serde_json::Value>)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for (profile, result) in [(false, stable), (true, experimental)] {
+            let count = requests
+                .iter()
+                .filter(|request| (request["experimental"].as_bool() == Some(true)) == profile)
+                .count();
+            if result == 3 {
+                assert_eq!(
+                    count, 1,
+                    "incomplete comparisons are skipped for the rest of the invocation"
+                );
+            } else {
+                assert!(
+                    count > 1,
+                    "completed comparisons must be rechecked when candidates change"
+                );
+            }
+        }
+        assert!(
+            !stderr.contains("Stable API of 'csr-api-facade' requires a breaking release"),
+            "an incomplete check is not an incompatibility verdict: {stderr}"
+        );
+    }
     Ok(())
 }
 
@@ -276,6 +409,7 @@ fn missing_checker_and_malformed_metadata_abort() -> gix_testtools::Result {
         "api-check = [\"./missing-checker\"]",
         "api-check = true",
         "unstable-features = [\"unstable\"]",
+        "api-check = [\"sh\", \"check.sh\"]\nunstable-features = [\"missing\"]",
     ] {
         let dir = fixture(None, "")?;
         let manifest = dir.path().join("facade/Cargo.toml");
@@ -292,6 +426,15 @@ fn missing_checker_and_malformed_metadata_abort() -> gix_testtools::Result {
         assert!(
             !output.status.success(),
             "invalid checker configuration must abort: {config}"
+        );
+        if config == "api-check = [\"./missing-checker\"]" {
+            assert!(String::from_utf8_lossy(&output.stderr).contains("--no-api-check"));
+        }
+        let output = release(dir.path(), &["--no-api-check"])?;
+        assert_eq!(
+            output.status.success(),
+            config == "api-check = [\"./missing-checker\"]",
+            "the override skips execution but still rejects malformed metadata: {config}: {output:?}"
         );
     }
     Ok(())

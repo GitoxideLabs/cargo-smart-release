@@ -23,7 +23,7 @@ pub fn release_plan(
         bump,
         bump_dependencies,
     )?;
-    let mut checks = Checks::new(&ctx, opts.allow_auto_publish_of_stable_crates)?;
+    let mut checks = Checks::new(&ctx, opts.allow_auto_publish_of_stable_crates, false)?;
     for name in &ctx.crate_names {
         let package = package_by_name(&ctx.meta, name)?;
         if !checks.has_policy(package) {
@@ -37,6 +37,7 @@ pub fn release_plan(
     }
     let traversal = traverse::Options {
         allow_auto_publish_of_stable_crates: opts.allow_auto_publish_of_stable_crates,
+        skip_api_check: false,
         bump_when_needed: opts.bump_when_needed,
         isolate_dependencies_from_breaking_changes: true,
         traverse_graph: true,
