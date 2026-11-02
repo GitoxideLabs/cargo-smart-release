@@ -112,6 +112,48 @@ fn stable_breaking_releases_are_reported_when_the_manifest_is_already_bumped() -
 }
 
 #[test]
+fn changelog_prefers_namespaced_tags_for_duplicate_release_versions() -> gix_testtools::Result {
+    for namespaced_first in [false, true] {
+        let dir = fixture()?;
+        let root = dir.path();
+        let mut tags = ["release-test-v0.8.0", "release-test/v0.8.0"];
+        if namespaced_first {
+            tags.reverse();
+        }
+        git(root, &format!("tag {}", tags[0]))?;
+        write(root, "release/src/lib.rs", "pub fn migrated() {}\n")?;
+        git(root, "commit -am 'fix: between release aliases'")?;
+        git(root, &format!("tag {}", tags[1]))?;
+        write(root, "release/src/lib.rs", "pub fn migrated() {}\npub fn later() {}\n")?;
+        git(root, "commit -am 'fix: after both release tags'")?;
+
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        let output = gix_testtools::configure_git_environment(&mut command, root)
+            .current_dir(root.join("release"))
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .args(["changelog", "release-test", "--write", "--allow-dirty", "--no-preview"])
+            .output()?;
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let changelog = fs::read_to_string(root.join("release/CHANGELOG.md"))?;
+        assert_eq!(changelog.matches("## v0.8.0").count(), 1, "{changelog}");
+        let (unreleased, released) = changelog.split_once("## v0.8.0").expect("release section exists");
+        assert!(unreleased.contains("after both release tags"), "{changelog}");
+        assert_eq!(
+            unreleased.contains("between release aliases"),
+            namespaced_first,
+            "{changelog}"
+        );
+        assert_eq!(
+            released.contains("between release aliases"),
+            !namespaced_first,
+            "{changelog}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn detached_head_supports_dry_runs_but_cannot_push_a_release() -> gix_testtools::Result {
     let dir = fixture()?;
     let root = dir.path();

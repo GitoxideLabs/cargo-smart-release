@@ -155,10 +155,6 @@ pub fn parse_tag_version(name: &BStr) -> Option<Version> {
     Version::parse(version).ok()
 }
 
-pub fn is_tag_name(package_name: &str, tag_name: &gix::bstr::BStr) -> bool {
-    parse_possibly_prefixed_tag_version(Some(package_name), tag_name).is_some()
-}
-
 pub fn is_tag_version(name: &gix::bstr::BStr) -> bool {
     parse_tag_version(name).is_some()
 }
@@ -195,10 +191,9 @@ mod tests {
                 super::parse_possibly_prefixed_tag_version(Some("some-crate"), tag.as_bytes().as_bstr()),
                 semver::Version::parse("1.2.3").ok()
             );
-            assert!(super::is_tag_name("some-crate", tag.as_bytes().as_bstr()));
         }
         for tag in ["some-crate-other/v1.2.3", "other-crate/v1.2.3", "some-crate/invalid"] {
-            assert!(!super::is_tag_name("some-crate", tag.as_bytes().as_bstr()));
+            assert!(super::parse_possibly_prefixed_tag_version(Some("some-crate"), tag.as_bytes().as_bstr()).is_none());
         }
     }
 
@@ -246,51 +241,6 @@ mod tests {
         }
     }
 
-    mod is_tag_name {
-        mod no_match {
-            use std::str::FromStr;
-
-            use gix::bstr::ByteSlice;
-            use semver::Version;
-
-            use crate::utils::{is_tag_name, tag_name_inner};
-
-            #[test]
-            fn due_to_crate_name() {
-                assert!(!is_tag_name(
-                    "foo",
-                    tag_name_inner("bar".into(), &Version::from_str("0.0.1-beta.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-            }
-        }
-        mod matches {
-            use std::str::FromStr;
-
-            use gix::bstr::ByteSlice;
-            use semver::Version;
-
-            use crate::utils::{is_tag_name, tag_name_inner};
-
-            #[test]
-            fn whatever_tag_name_would_return() {
-                assert!(is_tag_name(
-                    "git-test",
-                    tag_name_inner("git-test".into(), &Version::from_str("1.0.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-
-                assert!(is_tag_name(
-                    "single",
-                    tag_name_inner("single".into(), &Version::from_str("0.0.1-beta.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-            }
-        }
-    }
     mod is_tag_version {
         mod no_match {
             use gix::bstr::ByteSlice;

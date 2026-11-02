@@ -17,7 +17,7 @@ use crate::{
     commit,
     commit::history::{Item, Segment},
     git::strip_tag_path,
-    utils::{component_to_bytes, is_tag_name, is_tag_version, tag_prefix},
+    utils::{component_to_bytes, is_tag_version, parse_possibly_prefixed_tag_version, tag_prefix},
     Context,
 };
 
@@ -113,16 +113,25 @@ pub fn crate_ref_segments<'h>(
     let mut tags_by_commit = {
         let refs = ctx.repo.references()?;
         match tag_prefix {
-            Some(prefix) => BTreeMap::from_iter(
-                refs.prefixed(format!("refs/tags/{prefix}").as_str())?
+            Some(prefix) => {
+                let mut tags_by_version = BTreeMap::new();
+                for tag in refs
+                    .prefixed(format!("refs/tags/{prefix}").as_str())?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
-                    .filter(|r| is_tag_name(prefix, strip_tag_path(r.name.as_ref())))
-                    .map(|r| {
-                        let t = r.peeled.expect("already peeled");
-                        (t, r)
-                    }),
-            ),
+                {
+                    let name = strip_tag_path(tag.name.as_ref());
+                    if let Some(version) = parse_possibly_prefixed_tag_version(Some(prefix), name) {
+                        if name.get(prefix.len()) == Some(&b'/') || !tags_by_version.contains_key(&version) {
+                            tags_by_version.insert(version, tag);
+                        }
+                    }
+                }
+                BTreeMap::from_iter(tags_by_version.into_values().map(|tag| {
+                    let commit = tag.peeled.expect("already peeled");
+                    (commit, tag)
+                }))
+            }
             None => BTreeMap::from_iter(
                 refs.prefixed("refs/tags/")?
                     .peeled()?
