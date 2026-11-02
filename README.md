@@ -39,6 +39,16 @@ Crates that don't compile for the host can be released by passing `--target <tri
 After evaluating the release procedure and following instructions,
 `cargo smart-release --execute` will cause the fully automatic release of one or more crates.
 
+The crate at the Git repository root uses `v<VERSION>` tags. Other workspace crates
+use `<CRATE>/v<VERSION>` tags. The root tag is pushed first with the release commit;
+all namespaced tags are pushed together afterwards. Without a root crate release,
+the namespaced tags and release commit are pushed together.
+
+GitHub releases are created for the root crate by default. Pass
+`--changelog-github-release-for-namespaced-tags` to create them for workspace crates
+too, or `--no-changelog-github-release` to disable them all. Legacy `<CRATE>-v<VERSION>`
+tags remain valid for release detection, changelog history, and API baselines.
+
 There are various other options that shouldn't be needed in the common case, use `cargo smart-release --help` to see them.
 
 [conventional]: https://www.conventionalcommits.org
@@ -56,8 +66,9 @@ cargo api-check example --manifest-path path/to/Cargo.toml
 
 The default comparison selects the newest reachable semantic-version release tag
 whose manifest declares `package.metadata.api-check`: `vVERSION` for a package at
-the Git root, or `CRATE-vVERSION` for workspace members. Before the first supported
-release, it reports that no baseline exists and still audits the current boundary.
+the Git root, or `CRATE/vVERSION` (also legacy `CRATE-vVERSION`) for workspace
+members. Before the first supported release, it reports that no baseline exists
+and still audits the current boundary.
 An explicit `--baseline` compares that revision even if it predates the policy.
 Missing revisions, unreadable baseline manifests, and tool failures abort the
 check. A moved crate may need a prepared baseline checkout through the `release`
@@ -179,7 +190,7 @@ The checker receives this JSON object on standard input:
   "package": "example",
   "manifest_path": "/workspace/example/Cargo.toml",
   "baseline_version": "1.2.3",
-  "baseline_revision": "example-v1.2.3",
+  "baseline_revision": "example/v1.2.3",
   "unstable_features": ["unstable"],
   "dependencies": [
     {"name": "plumbing", "current_version": "0.2.0", "baseline_version": "0.2.0", "next_version": "0.3.0", "breaking": true}

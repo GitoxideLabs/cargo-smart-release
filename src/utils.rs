@@ -108,9 +108,29 @@ pub fn tag_name(package: &Package, version: &semver::Version, repo: &gix::Reposi
     tag_name_inner(tag_prefix(package, repo), version)
 }
 
+pub fn release_tag_name(
+    package: &Package,
+    version: &semver::Version,
+    repo: &gix::Repository,
+) -> anyhow::Result<String> {
+    let name = tag_name(package, version, repo);
+    if let Some(prefix) = tag_prefix(package, repo) {
+        if repo.try_find_reference(format!("refs/tags/{name}").as_str())?.is_none() {
+            let legacy_name = format!("{prefix}-v{version}");
+            if repo
+                .try_find_reference(format!("refs/tags/{legacy_name}").as_str())?
+                .is_some()
+            {
+                return Ok(legacy_name);
+            }
+        }
+    }
+    Ok(name)
+}
+
 fn tag_name_inner(package_name: Option<&str>, version: &semver::Version) -> String {
     match package_name {
-        Some(name) => format!("{name}-v{version}"),
+        Some(name) => format!("{name}/v{version}"),
         None => format!("v{version}"),
     }
 }
@@ -119,7 +139,7 @@ pub fn parse_possibly_prefixed_tag_version(package_name: Option<&str>, tag_name:
     match package_name {
         Some(name) => tag_name
             .strip_prefix(name.as_bytes())
-            .and_then(|r| r.strip_prefix(b"-"))
+            .and_then(|r| r.strip_prefix(b"/").or_else(|| r.strip_prefix(b"-")))
             .and_then(|possibly_version| parse_tag_version(possibly_version.as_bstr())),
         None => parse_tag_version(tag_name),
     }
@@ -133,16 +153,6 @@ pub fn parse_tag_version(name: &BStr) -> Option<Version> {
         .to_str()
         .ok()?;
     Version::parse(version).ok()
-}
-
-pub fn is_tag_name(package_name: &str, tag_name: &gix::bstr::BStr) -> bool {
-    match tag_name
-        .strip_prefix(package_name.as_bytes())
-        .and_then(|r| r.strip_prefix(b"-"))
-    {
-        None => false,
-        Some(possibly_version) => parse_tag_version(possibly_version.as_bstr()).is_some(),
-    }
 }
 
 pub fn is_tag_version(name: &gix::bstr::BStr) -> bool {
@@ -162,6 +172,31 @@ pub fn time_to_zoned_time(time: gix::date::Time) -> anyhow::Result<jiff::Zoned> 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn release_tags_use_crate_namespaces() {
+        let version = semver::Version::parse("1.2.3-beta.1+build.2").unwrap();
+        assert_eq!(super::tag_name_inner(None, &version), "v1.2.3-beta.1+build.2");
+        assert_eq!(
+            super::tag_name_inner(Some("some-crate"), &version),
+            "some-crate/v1.2.3-beta.1+build.2"
+        );
+    }
+
+    #[test]
+    fn namespaced_and_legacy_release_tags_are_recognized() {
+        use gix::bstr::ByteSlice;
+
+        for tag in ["some-crate/v1.2.3", "some-crate-v1.2.3"] {
+            assert_eq!(
+                super::parse_possibly_prefixed_tag_version(Some("some-crate"), tag.as_bytes().as_bstr()),
+                semver::Version::parse("1.2.3").ok()
+            );
+        }
+        for tag in ["some-crate-other/v1.2.3", "other-crate/v1.2.3", "some-crate/invalid"] {
+            assert!(super::parse_possibly_prefixed_tag_version(Some("some-crate"), tag.as_bytes().as_bstr()).is_none());
+        }
+    }
+
     mod parse_possibly_prefixed_tag_version {
         mod matches {
             use std::str::FromStr;
@@ -206,51 +241,6 @@ mod tests {
         }
     }
 
-    mod is_tag_name {
-        mod no_match {
-            use std::str::FromStr;
-
-            use gix::bstr::ByteSlice;
-            use semver::Version;
-
-            use crate::utils::{is_tag_name, tag_name_inner};
-
-            #[test]
-            fn due_to_crate_name() {
-                assert!(!is_tag_name(
-                    "foo",
-                    tag_name_inner("bar".into(), &Version::from_str("0.0.1-beta.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-            }
-        }
-        mod matches {
-            use std::str::FromStr;
-
-            use gix::bstr::ByteSlice;
-            use semver::Version;
-
-            use crate::utils::{is_tag_name, tag_name_inner};
-
-            #[test]
-            fn whatever_tag_name_would_return() {
-                assert!(is_tag_name(
-                    "git-test",
-                    tag_name_inner("git-test".into(), &Version::from_str("1.0.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-
-                assert!(is_tag_name(
-                    "single",
-                    tag_name_inner("single".into(), &Version::from_str("0.0.1-beta.1").unwrap())
-                        .as_bytes()
-                        .as_bstr()
-                ));
-            }
-        }
-    }
     mod is_tag_version {
         mod no_match {
             use gix::bstr::ByteSlice;

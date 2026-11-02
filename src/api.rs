@@ -127,6 +127,7 @@ impl<'meta> Checks<'meta> {
                 .map(|krate| semver::Version::parse(krate.highest_version().version()))
                 .transpose()?
                 .unwrap_or_else(|| package.version.clone());
+            let baseline_revision = crate::utils::release_tag_name(package, &baseline_version, &ctx.repo)?;
             for experimental in [false, true] {
                 if self.skipped.contains(&(&package.id, experimental)) {
                     continue;
@@ -139,7 +140,7 @@ impl<'meta> Checks<'meta> {
                 let request = ReleaseRequest {
                     package: package.name.to_string(),
                     manifest_path: package.manifest_path.clone().into_std_path_buf(),
-                    baseline_revision: crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                    baseline_revision: baseline_revision.clone(),
                     baseline_version: Some(baseline_version.clone()),
                     unstable_features: policy.unstable_features.clone(),
                     dependencies: dependencies.clone(),
@@ -153,7 +154,7 @@ impl<'meta> Checks<'meta> {
                             "Checking {} API compatibility of '{}' against {} (experimental features: {})",
                             if experimental { "experimental" } else { "stable" },
                             package.name,
-                            crate::utils::tag_name(package, &baseline_version, &ctx.repo),
+                            baseline_revision,
                             policy.unstable_features.join(", ")
                         );
                         let compatible = (|| {
@@ -181,7 +182,7 @@ impl<'meta> Checks<'meta> {
                         })().with_context(|| format!(
                             "API checker for '{}' could not complete against '{}'",
                             package.name,
-                            crate::utils::tag_name(package, &baseline_version, &ctx.repo)
+                            baseline_revision
                         ));
                         let compatible = match compatible {
                             Ok(compatible) => compatible,

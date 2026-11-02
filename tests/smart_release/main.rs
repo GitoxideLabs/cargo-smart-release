@@ -5,3 +5,6 @@ mod release;
 
 #[cfg(unix)]
 mod api;
+
+#[cfg(unix)]
+mod tags;

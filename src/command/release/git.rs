@@ -153,28 +153,37 @@ pub fn push_tags_and_head(
         return Ok(());
     }
 
-    let mut cmd = Command::new(gix::path::env::exe_invocation());
-    cmd.arg("push")
-        .arg({
-            let remote = repo
-                .head()?
-                .into_remote(gix::remote::Direction::Push)
-                .ok_or_else(|| anyhow!("Cannot push in uninitialized repo"))??;
-            remote
-                .name()
-                .map(|name| name.as_bstr().to_string())
-                .or_else(|| remote.url(gix::remote::Direction::Push).map(|url| url.to_string()))
-                .context("Couldn't find push-remote of HEAD reference")?
-        })
-        .arg("HEAD");
-    for tag_name in tag_names {
-        cmd.arg(tag_name.as_bstr().to_str()?);
-    }
+    let remote = repo
+        .head()?
+        .into_remote(gix::remote::Direction::Push)
+        .ok_or_else(|| anyhow!("Cannot push in uninitialized repo"))??;
+    let remote = remote
+        .name()
+        .map(|name| name.as_bstr().to_string())
+        .or_else(|| remote.url(gix::remote::Direction::Push).map(|url| url.to_string()))
+        .context("Couldn't find push-remote of HEAD reference")?;
+    let (namespaced, top_level): (Vec<_>, Vec<_>) = tag_names
+        .iter()
+        .partition(|name| crate::git::strip_tag_path(name.as_ref()).contains(&b'/'));
 
-    log::trace!("{} run {:?}", will(dry_run), cmd);
-    if dry_run || cmd.status()?.success() {
-        Ok(())
-    } else {
-        bail!("'git push' invocation failed. Try to push manually and repeat the smart-release invocation to resume, possibly with --skip-push.");
+    for (index, tags) in [top_level, namespaced]
+        .into_iter()
+        .filter(|tags| !tags.is_empty())
+        .enumerate()
+    {
+        let mut cmd = Command::new(gix::path::env::exe_invocation());
+        // Explicit refspecs alone do not override push.followTags.
+        cmd.args(["push", "--no-follow-tags", &remote]);
+        if index == 0 {
+            cmd.arg("HEAD");
+        }
+        for tag_name in tags {
+            cmd.arg(tag_name.as_bstr().to_str()?);
+        }
+        log::trace!("{} run {:?}", will(dry_run), cmd);
+        if !dry_run && !cmd.status()?.success() {
+            bail!("'git push' invocation failed. Try to push manually and repeat the smart-release invocation to resume, possibly with --skip-push.");
+        }
     }
+    Ok(())
 }
