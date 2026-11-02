@@ -154,6 +154,46 @@ fn changelog_prefers_namespaced_tags_for_duplicate_release_versions() -> gix_tes
 }
 
 #[test]
+fn unreachable_tag_aliases_preserve_reachable_release_boundaries() -> gix_testtools::Result {
+    for namespaced_reachable in [false, true] {
+        let dir = fixture()?;
+        let root = dir.path();
+        let mut tags = ["release-test-v0.8.0", "release-test/v0.8.0"];
+        if namespaced_reachable {
+            tags.reverse();
+        }
+        write(root, "release/src/lib.rs", "pub fn before() {}\n")?;
+        git(root, "commit -am 'feat!: previously released change'")?;
+        git(root, &format!("tag {}", tags[0]))?;
+        let off_branch = git(root, "commit-tree HEAD^{tree} -m 'off-branch release'")?;
+        git(root, &format!("tag {} {}", tags[1], off_branch.trim()))?;
+        write(root, "release/src/lib.rs", "pub fn after() {}\n")?;
+        git(root, "commit -am 'fix: after reachable release'")?;
+
+        let output = release(root, "auto", &[])?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{stderr}");
+        assert!(stderr.contains("'release-test' from 0.8.0 to 0.8.1"), "{stderr}");
+
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        let output = gix_testtools::configure_git_environment(&mut command, root)
+            .current_dir(root.join("release"))
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .args(["changelog", "release-test", "--write", "--allow-dirty", "--no-preview"])
+            .output()?;
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        let changelog = fs::read_to_string(root.join("release/CHANGELOG.md"))?;
+        assert_eq!(changelog.matches("## v0.8.0").count(), 1, "{changelog}");
+        let (unreleased, released) = changelog.split_once("## v0.8.0").expect("release section exists");
+        assert!(unreleased.contains("after reachable release"), "{changelog}");
+        assert!(!unreleased.contains("previously released change"), "{changelog}");
+        assert!(released.contains("previously released change"), "{changelog}");
+    }
+    Ok(())
+}
+
+#[test]
 fn detached_head_supports_dry_runs_but_cannot_push_a_release() -> gix_testtools::Result {
     let dir = fixture()?;
     let root = dir.path();

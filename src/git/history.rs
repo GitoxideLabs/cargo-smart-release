@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     iter::FromIterator,
 };
 
@@ -114,11 +114,13 @@ pub fn crate_ref_segments<'h>(
         let refs = ctx.repo.references()?;
         match tag_prefix {
             Some(prefix) => {
+                let reachable_commits: HashSet<_> = history.items.iter().map(|item| item.id).collect();
                 let mut tags_by_version = BTreeMap::new();
                 for tag in refs
                     .prefixed(format!("refs/tags/{prefix}").as_str())?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
+                    .filter(|tag| reachable_commits.contains(&tag.peeled.expect("already peeled")))
                 {
                     let name = strip_tag_path(tag.name.as_ref());
                     if let Some(version) = parse_possibly_prefixed_tag_version(Some(prefix), name) {
