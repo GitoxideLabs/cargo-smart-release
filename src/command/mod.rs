@@ -29,6 +29,7 @@ pub mod release {
         pub allow_empty_release_message: bool,
         pub changelog_links: bool,
         pub allow_changelog_github_release: bool,
+        pub changelog_github_release_for_namespaced_tags: bool,
         pub capitalize_commit: bool,
         pub registry: Option<String>,
         pub target: Option<String>,

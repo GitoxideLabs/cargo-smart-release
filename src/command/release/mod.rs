@@ -504,7 +504,15 @@ fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -
         section_by_package: release_section_by_publishee,
     } = manifest::edit_version_and_fixup_dependent_crates_and_handle_changelog(crates, options.clone(), ctx)?;
 
-    let should_publish_to_github = options.allow_changelog_github_release
+    let github_release_enabled = |package: &cargo_metadata::Package| {
+        options.allow_changelog_github_release
+            && (options.changelog_github_release_for_namespaced_tags
+                || crate::utils::tag_prefix(package, &ctx.base.repo).is_none())
+    };
+    let should_publish_to_github = crates
+        .iter()
+        .filter_map(try_to_published_crate_and_new_version)
+        .any(|(package, _)| github_release_enabled(package))
         && if Program::named("gh").found {
             true
         } else {
@@ -548,6 +556,9 @@ fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -
     git::push_tags_and_head(&ctx.base.repo, &tag_names, options.clone())?;
     if should_publish_to_github {
         for (publishee, new_version) in successful_publishees_and_version {
+            if !github_release_enabled(publishee) {
+                continue;
+            }
             release_section_by_publishee
                 .get(&publishee.name.as_str())
                 .and_then(|s| section_to_string(s, WriteMode::GitHubRelease, options.capitalize_commit))
@@ -653,6 +664,7 @@ mod tests {
             allow_empty_release_message: false,
             changelog_links: true,
             allow_changelog_github_release: true,
+            changelog_github_release_for_namespaced_tags: false,
             capitalize_commit: false,
             registry: None,
             target: None,

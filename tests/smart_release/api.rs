@@ -3,6 +3,17 @@ use std::{fs, path::Path, process::Command};
 use gix_testtools::{git, tempfile};
 
 #[test]
+fn api_checks_prefer_namespaced_release_tags() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "")?;
+    git(dir.path(), "tag csr-api-facade/v1.2.3 csr-api-facade-v1.2.3")?;
+    let output = release(dir.path(), &[])?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let request: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.path().join("request.json"))?)?;
+    assert_eq!(request["baseline_revision"], "csr-api-facade/v1.2.3");
+    Ok(())
+}
+
+#[test]
 fn private_breaking_dependencies_stop_at_verified_boundaries() -> gix_testtools::Result {
     let dir = fixture(Some(0), "")?;
     let output = release(dir.path(), &[])?;

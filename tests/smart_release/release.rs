@@ -115,7 +115,7 @@ fn stable_breaking_releases_are_reported_when_the_manifest_is_already_bumped() -
 fn detached_head_supports_dry_runs_but_cannot_push_a_release() -> gix_testtools::Result {
     let dir = fixture()?;
     let root = dir.path();
-    git(root, "tag release-test-v0.8.0")?;
+    git(root, "tag release-test/v0.8.0")?;
     write(root, "release/src/lib.rs", "pub fn fixed() {}\n")?;
     git(root, "commit -am 'fix: repair the library'")?;
     let head = git(root, "rev-parse HEAD")?;

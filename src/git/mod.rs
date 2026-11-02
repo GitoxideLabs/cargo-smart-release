@@ -8,7 +8,7 @@ use gix::{
     refs::FullNameRef,
 };
 
-use crate::utils::{component_to_bytes, tag_name};
+use crate::utils::{component_to_bytes, release_tag_name};
 
 pub mod history;
 
@@ -22,8 +22,11 @@ pub enum PackageChangeKind {
 }
 
 pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> anyhow::Result<Option<PackageChangeKind>> {
-    let version_tag_name = tag_name(package, &package.version, &ctx.repo);
-    let mut tag_ref = match ctx.repo.try_find_reference(&version_tag_name)? {
+    let version_tag_name = release_tag_name(package, &package.version, &ctx.repo)?;
+    let mut tag_ref = match ctx
+        .repo
+        .try_find_reference(format!("refs/tags/{version_tag_name}").as_str())?
+    {
         None => {
             return Ok(Some(PackageChangeKind::Untagged {
                 wanted_tag_name: version_tag_name,

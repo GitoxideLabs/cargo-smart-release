@@ -177,7 +177,10 @@ fn supported_baseline(package: &Package, root: &Path) -> anyhow::Result<Option<S
 
 fn tag_version(package: Option<&str>, tag: &str) -> Option<semver::Version> {
     let tag = match package {
-        Some(name) => tag.strip_prefix(name)?.strip_prefix('-')?,
+        Some(name) => {
+            let tag = tag.strip_prefix(name)?;
+            tag.strip_prefix('/').or_else(|| tag.strip_prefix('-'))?
+        }
         None => tag,
     };
     semver::Version::parse(
@@ -217,10 +220,18 @@ mod tests {
         for tag in ["1.2.3", "v1.2.3", "vers1.2.3"] {
             assert_eq!(super::tag_version(None, tag), Some(expected.clone()));
             assert_eq!(
+                super::tag_version(Some("example"), &format!("example/{tag}")),
+                Some(expected.clone())
+            );
+            assert_eq!(
                 super::tag_version(Some("example"), &format!("example-{tag}")),
                 Some(expected.clone())
             );
             assert_eq!(super::tag_version(Some("example"), &format!("other-{tag}")), None);
+            assert_eq!(
+                super::tag_version(Some("example"), &format!("example-other/{tag}")),
+                None
+            );
         }
         Ok(())
     }

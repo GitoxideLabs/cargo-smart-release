@@ -81,10 +81,14 @@ pub enum SubCommands {
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         no_bump_on_demand: bool,
 
-        /// Do not create a github release (if the repo is located on github) reflecting the content of the changelogs most recent
-        /// release section.
+        /// Do not create any GitHub releases from the most recent changelog release sections.
         #[clap(long, help_heading = Some("CHANGELOG"))]
         no_changelog_github_release: bool,
+
+        /// Also create GitHub releases for namespaced workspace-crate tags.
+        /// By default, only the crate at the Git repository root gets a GitHub release.
+        #[clap(long, conflicts_with = "no_changelog_github_release", help_heading = Some("CHANGELOG"))]
+        changelog_github_release_for_namespaced_tags: bool,
 
         /// If changelogs are generated from git-conventional comments extracted from the commit history exclusively, publishes
         /// will fail as to give an opportunity to author at least a portion of the upcoming release.

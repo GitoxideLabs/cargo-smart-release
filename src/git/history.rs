@@ -114,7 +114,7 @@ pub fn crate_ref_segments<'h>(
         let refs = ctx.repo.references()?;
         match tag_prefix {
             Some(prefix) => BTreeMap::from_iter(
-                refs.prefixed(format!("refs/tags/{prefix}-").as_str())?
+                refs.prefixed(format!("refs/tags/{prefix}").as_str())?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
                     .filter(|r| is_tag_name(prefix, strip_tag_path(r.name.as_ref())))
