@@ -185,8 +185,14 @@ impl ChangeLog {
         components: Components,
         capitalize_commit: bool,
     ) -> std::fmt::Result {
+        let mut buf = String::new();
         for section in &self.sections {
-            section.write_to(&mut out, link_mode, components, capitalize_commit)?;
+            section.write_to(&mut buf, link_mode, components, capitalize_commit)?;
+        }
+        let trimmed = buf.trim_end();
+        out.write_str(trimmed)?;
+        if !trimmed.is_empty() {
+            out.write_str(Section::NL)?;
         }
         Ok(())
     }
@@ -245,17 +251,17 @@ impl section::Segment {
                                 if write_html {
                                     writeln!(
                                         out,
-                                        " - {}{}/> {}",
+                                        "- {}{}/> {}",
                                         segment::Conventional::REMOVED_HTML_PREFIX,
                                         id,
                                         title
                                     )?;
                                 } else {
-                                    writeln!(out, " - {title}")?;
+                                    writeln!(out, "- {title}")?;
                                 }
                                 if let Some(body) = body {
                                     for line in body.as_bytes().as_bstr().lines_with_terminator() {
-                                        write!(out, "   {}", line.to_str().expect("cannot fail as original is UTF-8"))?;
+                                        write!(out, "  {}", line.to_str().expect("cannot fail as original is UTF-8"))?;
                                     }
                                     if !body.ends_with('\n') {
                                         writeln!(out)?;
@@ -288,18 +294,18 @@ impl section::Segment {
                     writeln!(out, "{}\n", segment::Details::HTML_PREFIX)?;
                 }
                 for (category, messages) in commits_by_category.iter() {
-                    writeln!(out, " * **{}**", format_category(category, link_mode))?;
+                    writeln!(out, "- **{}**", format_category(category, link_mode))?;
                     for message in messages {
                         writeln!(
                             out,
-                            "    - {} ({})",
+                            "  - {} ({})",
                             capitalize_message_title(&message.title),
                             format_oid(&message.id, link_mode)
                         )?;
                     }
                 }
                 if write_details_tags {
-                    writeln!(out, "{}", segment::Details::HTML_PREFIX_END)?;
+                    writeln!(out, "\n{}", segment::Details::HTML_PREFIX_END)?;
                 }
                 writeln!(out)?;
             }
@@ -316,7 +322,7 @@ impl section::Segment {
                 }
                 writeln!(
                     out,
-                    " - {} {} contributed to the release{}",
+                    "- {} {} contributed to the release{}",
                     count,
                     if *count == 1 { "commit" } else { "commits" },
                     match duration {
@@ -331,24 +337,24 @@ impl section::Segment {
                 if let Some(days_between_releases) = time_passed_since_last_release.filter(|d| *d > 0) {
                     writeln!(
                         out,
-                        " - {} {} passed between releases.",
+                        "- {} {} passed between releases.",
                         days_between_releases,
                         if days_between_releases == 1 { "day" } else { "days" }
                     )?;
                 }
                 writeln!(
                     out,
-                    " - {} {} {} understood as [conventional](https://www.conventionalcommits.org).",
+                    "- {} {} {} understood as [conventional](https://www.conventionalcommits.org).",
                     conventional_count,
                     if *conventional_count == 1 { "commit" } else { "commits" },
                     if *conventional_count == 1 { "was" } else { "were" }
                 )?;
                 if unique_issues.is_empty() {
-                    writeln!(out, " - 0 issues like '(#ID)' were seen in commit messages")?;
+                    writeln!(out, "- 0 issues like '(#ID)' were seen in commit messages")?;
                 } else {
                     writeln!(
                         out,
-                        " - {} unique {} {} worked on: {}",
+                        "- {} unique {} {} worked on: {}",
                         unique_issues.len(),
                         if unique_issues.len() == 1 { "issue" } else { "issues" },
                         if unique_issues.len() == 1 { "was" } else { "were" },
