@@ -6,7 +6,7 @@ use crate::{
     command::changelog::Options,
     git,
     traverse::dependency,
-    utils::will,
+    utils::{format_markdown, will},
     version::BumpSpec,
     ChangeLog,
 };
@@ -55,7 +55,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         })
         .collect()
     };
-    assure_working_tree_is_unchanged(opts)?;
+    assure_working_tree_is_unchanged(opts.clone())?;
     let history = git::history::collect(&ctx.repo)?;
 
     let bat = (dry_run && preview).then(bat::Support::new);
@@ -84,21 +84,21 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
                 .display(),
             state.as_str(),
         );
-        lock.with_mut(|file| {
-            let mut buf = String::new();
-            log.write_to(
-                &mut buf,
-                &linkables,
-                if dry_run {
-                    Components::SECTION_TITLE
-                } else {
-                    Components::all()
-                },
-                capitalize_commit,
-            )
-            .map_err(std::io::Error::other)?;
-            file.write_all(buf.as_bytes())
-        })?;
+        let mut buf = String::new();
+        log.write_to(
+            &mut buf,
+            &linkables,
+            if dry_run {
+                Components::SECTION_TITLE
+            } else {
+                Components::all()
+            },
+            capitalize_commit,
+        )?;
+        if let Some(formatter) = opts.formatter.as_deref() {
+            buf = format_markdown(formatter, &buf)?;
+        }
+        lock.with_mut(|file| file.write_all(buf.as_bytes()))?;
         if let Some(bat) = bat.as_ref() {
             bat.display_to_tty(
                 lock.lock_path(),

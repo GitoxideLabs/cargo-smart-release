@@ -671,6 +671,7 @@ mod tests {
             publish_uses_docs_rs_metadata: false,
             signoff: false,
             commit_prefix: None,
+            formatter: None,
         }
     }
 

@@ -475,6 +475,7 @@ fn gather_changelog_data<'meta>(
         dry_run,
         generator_segments,
         capitalize_commit,
+        formatter,
         ..
     }: Options,
 ) -> anyhow::Result<GatherOutcome<'meta>> {
@@ -598,6 +599,9 @@ fn gather_changelog_data<'meta>(
                 },
                 capitalize_commit,
             )?;
+            if let Some(formatter) = formatter.as_deref() {
+                write_buf = crate::utils::format_markdown(formatter, &write_buf)?;
+            }
             lock.with_mut(|file| file.write_all(write_buf.as_bytes()))?;
             *made_change |= previous_content != Some(write_buf);
             pending_changelogs.push((publishee, log_init_state.is_modified(), lock));

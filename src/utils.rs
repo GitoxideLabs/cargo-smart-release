@@ -33,6 +33,36 @@ pub fn will(not_really: bool) -> &'static str {
     }
 }
 
+/// Run `formatter`, a program optionally followed by whitespace-separated arguments, feeding it `markdown` on stdin and returning its stdout.
+pub fn format_markdown(formatter: &str, markdown: &str) -> anyhow::Result<String> {
+    use std::io::Write;
+
+    let mut parts = formatter.split_whitespace();
+    let program = parts
+        .next()
+        .ok_or_else(|| anyhow!("Markdown formatter command is empty"))?;
+    let mut child = std::process::Command::new(program)
+        .args(parts)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| anyhow!("Markdown formatter stdin was not piped"))?
+        .write_all(markdown.as_bytes())?;
+    let output = child.wait_with_output()?;
+    anyhow::ensure!(
+        output.status.success(),
+        "Markdown formatter '{}' failed ({}): {}",
+        formatter,
+        output.status,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    Ok(String::from_utf8(output.stdout)?)
+}
+
 pub fn try_to_published_crate_and_new_version<'meta, 'a>(
     c: &'a crate::traverse::Dependency<'meta>,
 ) -> Option<(&'meta Package, &'a semver::Version)> {

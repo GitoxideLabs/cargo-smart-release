@@ -32,6 +32,12 @@ explicit major-bump requests, failed API checks, or conservative dependency safe
 runs and before execution, without `--verbose`, including with `--auto-publish-of-stable-crates`. Known published
 versions are used as the baseline so an already bumped manifest still appears in the report.
 To polish changelogs, run `cargo changelog --write <crate-name>` to update the scaffolding and edit it by hand until it fits.
+To run generated Markdown through an external formatter before previewing or writing it, pass `--formatter "<program> [args...]"`.
+The formatter reads Markdown from stdin and must write the formatted Markdown to stdout.
+For example:
+
+- `cargo changelog --formatter "prettier --parser markdown"`
+- `cargo smart-release --formatter "rumdl fmt --stdin"`
 
 For particularly thorough but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`.
 Crates that don't compile for the host can be released by passing `--target <triple>`, which is forwarded to every `cargo publish` invocation (including dry runs).

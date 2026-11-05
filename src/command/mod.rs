@@ -36,6 +36,7 @@ pub mod release {
         pub publish_uses_docs_rs_metadata: bool,
         pub signoff: bool,
         pub commit_prefix: Option<String>,
+        pub formatter: Option<String>,
     }
 }
 #[path = "release/mod.rs"]
@@ -45,7 +46,7 @@ pub use release_impl::release;
 pub mod changelog {
     use crate::changelog::section::segment;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone)]
     pub struct Options {
         pub dry_run: bool,
         pub dependencies: bool,
@@ -55,6 +56,7 @@ pub mod changelog {
         pub generator_segments: segment::Selection,
         pub no_links: bool,
         pub capitalize_commit: bool,
+        pub formatter: Option<String>,
     }
 }
 #[path = "changelog.rs"]
