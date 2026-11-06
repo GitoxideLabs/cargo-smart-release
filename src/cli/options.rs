@@ -207,6 +207,8 @@ pub enum SubCommands {
         commit_prefix: Option<String>,
 
         /// Run this command to format generated changelog Markdown, e.g. 'rumdl fmt --stdin'; it receives Markdown on stdin and returns it on stdout.
+        ///
+        /// Supports POSIX-style quoting, escaping, and leading environment assignments, without a shell or expansions.
         #[clap(long, help_heading = Some("CHANGELOG"))]
         formatter: Option<String>,
     },
@@ -259,6 +261,8 @@ pub enum SubCommands {
         capitalize_commit: bool,
 
         /// Run this command to format generated Markdown, e.g. 'rumdl fmt --stdin'; it receives Markdown on stdin and returns it on stdout.
+        ///
+        /// Supports POSIX-style quoting, escaping, and leading environment assignments, without a shell or expansions.
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         formatter: Option<String>,
     },

@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use cargo_metadata::{
     camino::{Utf8Component, Utf8Path},
     Dependency, DependencyKind, Metadata, Package, PackageId,
@@ -33,26 +33,31 @@ pub fn will(not_really: bool) -> &'static str {
     }
 }
 
-/// Run `formatter`, a program optionally followed by whitespace-separated arguments, feeding it `markdown` on stdin and returning its stdout.
+/// Run `formatter` with POSIX-style argument splitting but no shell, feeding it `markdown` on stdin and returning its stdout.
 pub fn format_markdown(formatter: &str, markdown: &str) -> anyhow::Result<String> {
     use std::io::Write;
 
-    let mut parts = formatter.split_whitespace();
-    let program = parts
-        .next()
-        .ok_or_else(|| anyhow!("Markdown formatter command is empty"))?;
-    let mut child = std::process::Command::new(program)
-        .args(parts)
+    let parsed = gix::command::parse::command_line(formatter.as_bytes().as_bstr())
+        .map_err(anyhow::Error::from)
+        .context("Could not parse Markdown formatter command")?;
+    let mut child = std::process::Command::new(parsed.command)
+        .args(parsed.args)
+        .envs(parsed.env)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
-    child
+    let mut stdin = child
         .stdin
         .take()
-        .ok_or_else(|| anyhow!("Markdown formatter stdin was not piped"))?
-        .write_all(markdown.as_bytes())?;
-    let output = child.wait_with_output()?;
+        .ok_or_else(|| anyhow!("Markdown formatter stdin was not piped"))?;
+    // Drain both output pipes while supplying input, so a streaming formatter cannot deadlock on a full pipe.
+    let (output, input_result) = std::thread::scope(|scope| {
+        let writer = scope.spawn(move || stdin.write_all(markdown.as_bytes()));
+        let output = child.wait_with_output();
+        (output, writer.join())
+    });
+    let output = output?;
     anyhow::ensure!(
         output.status.success(),
         "Markdown formatter '{}' failed ({}): {}",
@@ -60,6 +65,9 @@ pub fn format_markdown(formatter: &str, markdown: &str) -> anyhow::Result<String
         output.status,
         String::from_utf8_lossy(&output.stderr).trim()
     );
+    input_result
+        .map_err(|_| anyhow!("Markdown formatter stdin writer panicked"))?
+        .context("Could not write Markdown to formatter stdin")?;
     Ok(String::from_utf8(output.stdout)?)
 }
 
@@ -202,6 +210,102 @@ pub fn time_to_zoned_time(time: gix::date::Time) -> anyhow::Result<jiff::Zoned> 
 
 #[cfg(test)]
 mod tests {
+    mod format_markdown {
+        use super::super::format_markdown;
+
+        #[test]
+        fn rejects_invalid_commands() {
+            for (command, expected) in [
+                ("", "missing command"),
+                (" \t\n", "missing command"),
+                ("FORMATTER_TEST_VALUE=value", "missing command"),
+                ("printf 'unterminated", "missing closing quote"),
+                ("printf \\", "missing byte after escape"),
+            ] {
+                let err = format_markdown(command, "").unwrap_err();
+                assert_eq!(err.to_string(), "Could not parse Markdown formatter command");
+                assert!(format!("{err:#}").contains(expected), "{err:#}");
+            }
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn honors_quotes_and_escapes() {
+            let output = format_markdown(
+                r#""printf" '<%s>\n' 'single quoted' "double quoted" escaped\ space '' "" "escaped \"quote\"""#,
+                "",
+            )
+            .unwrap();
+            assert_eq!(
+                output,
+                "<single quoted>\n<double quoted>\n<escaped space>\n<>\n<>\n<escaped \"quote\">\n"
+            );
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn does_not_interpret_shell_syntax() {
+            let output = format_markdown(r#"printf '%s\n' $HOME $(echo) `echo` ; | > *.md ~"#, "").unwrap();
+            assert_eq!(output, "$HOME\n$(echo)\n`echo`\n;\n|\n>\n*.md\n~\n");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn applies_leading_environment_assignments() {
+            let output = format_markdown("FORMATTER_TEST_VALUE='a value' printenv FORMATTER_TEST_VALUE", "").unwrap();
+            assert_eq!(output, "a value\n");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn feeds_markdown_to_stdin_and_returns_stdout() {
+            let output = format_markdown("tr '[:lower:]' '[:upper:]'", "# Title\n").unwrap();
+            assert_eq!(output, "# TITLE\n");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn drains_output_while_writing_large_input() {
+            let markdown = "# Large changelog entry\n".repeat(128 * 1024);
+            let expected = markdown.clone();
+            let (sender, receiver) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let _ = sender.send(format_markdown("tee /dev/stderr", &markdown));
+            });
+            let output = receiver
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .expect("formatter must finish even when stdin, stdout, and stderr exceed pipe capacity")
+                .unwrap();
+            assert_eq!(output, expected);
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn reports_formatter_failure_when_stdin_closes_early() {
+            let markdown = "# Large changelog entry\n".repeat(128 * 1024);
+            let err = format_markdown("cat --formatter-invalid-option", &markdown).unwrap_err();
+            let message = err.to_string();
+            assert!(
+                message.starts_with("Markdown formatter 'cat --formatter-invalid-option' failed ("),
+                "{message}"
+            );
+            let (_, stderr) = message.split_once("): ").unwrap();
+            assert!(!stderr.is_empty(), "{message}");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn reports_write_failure_even_if_formatter_succeeds() {
+            let markdown = "# Large changelog entry\n".repeat(128 * 1024);
+            let err = format_markdown("true", &markdown).unwrap_err();
+            assert_eq!(err.to_string(), "Could not write Markdown to formatter stdin");
+            assert_eq!(
+                err.downcast_ref::<std::io::Error>().unwrap().kind(),
+                std::io::ErrorKind::BrokenPipe
+            );
+        }
+    }
+
     #[test]
     fn release_tags_use_crate_namespaces() {
         let version = semver::Version::parse("1.2.3-beta.1+build.2").unwrap();
