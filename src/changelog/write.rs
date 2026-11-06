@@ -189,7 +189,7 @@ impl ChangeLog {
         for section in &self.sections {
             section.write_to(&mut buf, link_mode, components, capitalize_commit)?;
         }
-        let trimmed = buf.trim_end();
+        let trimmed = buf.trim_end_matches(['\r', '\n']);
         out.write_str(trimmed)?;
         if !trimmed.is_empty() {
             out.write_str(Section::NL)?;

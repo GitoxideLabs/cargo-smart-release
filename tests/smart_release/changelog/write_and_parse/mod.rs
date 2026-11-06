@@ -112,6 +112,36 @@ fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
 }
 
 #[test]
+fn write_preserves_trailing_whitespace_in_user_code_blocks() -> Result {
+    for last_line in ["    code  ", "    code\t", "    code\u{2003}"] {
+        for trailing_newlines in ["", "\n", "\n\n", "\r", "\r\n", "\r\n\r\n"] {
+            let log = ChangeLog {
+                sections: vec![Section::Release {
+                    heading_level: 2,
+                    version_prefix: Section::DEFAULT_PREFIX.into(),
+                    date: None,
+                    name: changelog::Version::Unreleased,
+                    removed_messages: vec![],
+                    segments: vec![section::Segment::User {
+                        markdown: format!("{last_line}{trailing_newlines}"),
+                    }],
+                    unknown: String::new(),
+                }],
+            };
+            let mut md = String::new();
+            log.write_to(
+                &mut md,
+                &changelog::write::Linkables::AsText,
+                changelog::write::Components::all(),
+                false,
+            )?;
+            assert_eq!(md, format!("## Unreleased\n\n{last_line}{}", Section::NL));
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn conventional_write_empty_messages() -> Result {
     let first_message = hex_to_id("0000000000000000000000000000000000000001");
     let second_message = hex_to_id("0000000000000000000000000000000000000002");
