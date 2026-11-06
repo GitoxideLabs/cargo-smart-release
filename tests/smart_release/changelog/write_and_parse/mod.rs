@@ -74,7 +74,7 @@ fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
     // Verify the markdown structure: There should be exactly 2 top-level bullet points
     // (one for each conventional::Message::Generated), not 6 (as would happen if
     // the list items in the body were flattened).
-    let top_level_bullets = md.lines().filter(|line| line.starts_with(" - ")).count();
+    let top_level_bullets = md.lines().filter(|line| line.starts_with("- ")).count();
     assert_eq!(
         top_level_bullets, 2,
         "Expected 2 top-level bullet points (one per message), but got {}.\n\
@@ -84,6 +84,10 @@ fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
     );
 
     // Parse back and verify round-trip stability
+    assert!(
+        md.ends_with('\n') && !md.ends_with("\n\n"),
+        "the file ends with exactly one newline"
+    );
     let parsed_log = ChangeLog::from_markdown(&md);
     assert_eq!(parsed_log, log, "should round-trip losslessly");
 
@@ -92,18 +96,48 @@ fn issue_30_body_with_unordered_list_does_not_flatten() -> Result {
 
     ### Bug Fixes
 
-     - <csr-id-0000000000000000000000000000000000000001/> Remove hidden bogosort functionality
-       If users turn out to be depending on bogosort, we may:
-       
-       - Add instructions for using an earlier version.
-       - Add back bogosort and document it properly.
-       
-       We defaulted to bogosort on Tuesdays based on these mistaken beliefs:
-       
-       - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.
-       - The software can never be run on Tuesday.
-     - <csr-id-0000000000000000000000000000000000000002/> Time zones are remembered across sessions
+    - <csr-id-0000000000000000000000000000000000000001/> Remove hidden bogosort functionality
+      If users turn out to be depending on bogosort, we may:
+      
+      - Add instructions for using an earlier version.
+      - Add back bogosort and document it properly.
+      
+      We defaulted to bogosort on Tuesdays based on these mistaken beliefs:
+      
+      - Bogosort runs in O(n log n log log n log log log n) if you have an odd number of RAM sticks.
+      - The software can never be run on Tuesday.
+    - <csr-id-0000000000000000000000000000000000000002/> Time zones are remembered across sessions
     ");
+    Ok(())
+}
+
+#[test]
+fn write_preserves_trailing_whitespace_in_user_code_blocks() -> Result {
+    for last_line in ["    code  ", "    code\t", "    code\u{2003}"] {
+        for trailing_newlines in ["", "\n", "\n\n", "\r", "\r\n", "\r\n\r\n"] {
+            let log = ChangeLog {
+                sections: vec![Section::Release {
+                    heading_level: 2,
+                    version_prefix: Section::DEFAULT_PREFIX.into(),
+                    date: None,
+                    name: changelog::Version::Unreleased,
+                    removed_messages: vec![],
+                    segments: vec![section::Segment::User {
+                        markdown: format!("{last_line}{trailing_newlines}"),
+                    }],
+                    unknown: String::new(),
+                }],
+            };
+            let mut md = String::new();
+            log.write_to(
+                &mut md,
+                &changelog::write::Linkables::AsText,
+                changelog::write::Components::all(),
+                false,
+            )?;
+            assert_eq!(md, format!("## Unreleased\n\n{last_line}{}", Section::NL));
+        }
+    }
     Ok(())
 }
 
