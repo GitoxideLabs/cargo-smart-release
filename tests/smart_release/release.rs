@@ -153,6 +153,58 @@ fn changelog_prefers_namespaced_tags_for_duplicate_release_versions() -> gix_tes
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn formatter_changes_are_previewed_when_changelog_initialization_is_unchanged() -> gix_testtools::Result {
+    let dir = fixture()?;
+    let root = dir.path();
+    let run = |args: &[&str]| -> std::io::Result<std::process::Output> {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        gix_testtools::configure_git_environment(&mut command, root)
+            .current_dir(root.join("release"))
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .env("BAT_PAGER", "cat")
+            .args(args)
+            .output()
+    };
+    let output = run(&["changelog", "release-test", "--write", "--allow-dirty", "--no-preview"])?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let changelog_path = root.join("release/CHANGELOG.md");
+    let previous_content = fs::read_to_string(&changelog_path)?;
+    assert!(previous_content.contains("Initial"), "{previous_content}");
+
+    let output = run(&[
+        "smart-release",
+        "release-test",
+        "--execute",
+        "--allow-dirty",
+        "--no-publish",
+        "--no-push",
+        "--no-changelog-github-release",
+        "--no-bump-on-demand",
+        "--bump",
+        "keep",
+        "--bump-dependencies",
+        "keep",
+        "--allow-fully-generated-changelogs",
+        "--allow-empty-release-message",
+        "--formatter",
+        "sed 's/Initial/Formatted/g'",
+    ])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        stderr.contains("Will leave alone the changelog for 'release-test'"),
+        "{stderr}"
+    );
+    let formatted_content = fs::read_to_string(changelog_path)?;
+    assert!(formatted_content.contains("Formatted"), "{formatted_content}");
+    assert_ne!(formatted_content, previous_content);
+    assert!(stderr.contains("About to preview 1 pending changelog(s)"), "{stderr}");
+    Ok(())
+}
+
 #[test]
 fn unreachable_tag_aliases_preserve_reachable_release_boundaries() -> gix_testtools::Result {
     for namespaced_reachable in [false, true] {

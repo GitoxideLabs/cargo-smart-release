@@ -23,6 +23,7 @@ fn main() -> anyhow::Result<()> {
             without,
             allow_dirty,
             capitalize_commit,
+            formatter,
         } => {
             init_logging(false);
             command::changelog(
@@ -34,6 +35,7 @@ fn main() -> anyhow::Result<()> {
                     dependencies: !no_dependencies,
                     generator_segments: names_to_segment_selection(&without)?,
                     capitalize_commit,
+                    formatter,
                 },
                 crates,
             )?
@@ -72,6 +74,7 @@ fn main() -> anyhow::Result<()> {
             publish_uses_docs_rs_metadata,
             signoff,
             commit_prefix,
+            formatter,
         } => {
             let verbose = execute || verbose;
             init_logging(verbose);
@@ -107,6 +110,7 @@ fn main() -> anyhow::Result<()> {
                     publish_uses_docs_rs_metadata,
                     signoff,
                     commit_prefix,
+                    formatter,
                 },
                 crates,
                 to_bump_spec(bump.as_deref().unwrap_or(DEFAULT_BUMP_SPEC))?,
