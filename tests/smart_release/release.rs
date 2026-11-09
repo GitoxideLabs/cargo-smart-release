@@ -112,6 +112,80 @@ fn stable_breaking_releases_are_reported_when_the_manifest_is_already_bumped() -
 }
 
 #[test]
+fn manifest_only_changes_in_a_workspace_root_are_included_in_changelogs() -> gix_testtools::Result {
+    let dir = tempfile::tempdir()?;
+    let root = dir.path();
+    write(
+        root,
+        "Cargo.toml",
+        "[package]\nname = \"release-test\"\nversion = \"0.8.0\"\n\n\
+         [workspace]\nmembers = [\"leaf\"]\n\n\
+         [dependencies]\nleaf = { path = \"leaf\", version = \"0.1.0\" }\n",
+    )?;
+    write(root, "src/lib.rs", "pub fn initial() {}\n")?;
+    write(
+        root,
+        "leaf/Cargo.toml",
+        "[package]\nname = \"leaf\"\nversion = \"0.1.0\"\n",
+    )?;
+    write(root, "leaf/src/lib.rs", "pub fn initial() {}\n")?;
+    write(root, ".gitignore", "/cargo-home/\n/Cargo.lock\n")?;
+    git(root, "init")?;
+    git(root, "add .")?;
+    git(root, "commit -m 'feat: initial workspace'")?;
+    git(root, "tag v0.8.0")?;
+    git(root, "tag leaf/v0.1.0")?;
+    let manifest_path = root.join("Cargo.toml");
+    fs::write(
+        &manifest_path,
+        fs::read_to_string(&manifest_path)? + "\n[features]\nplatform-backend = []\n",
+    )?;
+    git(root, "commit -am 'fix: configure the platform backend'")?;
+    let recorded = "# Changelog\n\n## 0.8.0 (2000-01-02)\n\nPreviously recorded release notes.\n";
+    write(root, "CHANGELOG.md", recorded)?;
+    git(root, "add CHANGELOG.md")?;
+    git(root, "commit -m 'record the previous release'")?;
+    let manifest = fs::read(&manifest_path)?;
+    let head = git(root, "rev-parse HEAD")?;
+    let mut preview = Command::new(env!("CARGO_BIN_EXE_cargo-changelog"));
+    let preview = gix_testtools::configure_git_environment(&mut preview, root)
+        .current_dir(root)
+        .env("CARGO_HOME", root.join("cargo-home"))
+        .env("CARGO_NET_OFFLINE", "true")
+        .args(["changelog", "release-test", "--only", "--no-preview"])
+        .output()?;
+    assert!(preview.status.success(), "{}", String::from_utf8_lossy(&preview.stderr));
+    assert_eq!(
+        fs::read_to_string(root.join("CHANGELOG.md"))?,
+        recorded,
+        "preview does not write"
+    );
+    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-changelog"));
+    let output = gix_testtools::configure_git_environment(&mut command, root)
+        .current_dir(root)
+        .env("CARGO_HOME", root.join("cargo-home"))
+        .env("CARGO_NET_OFFLINE", "true")
+        .args(["changelog", "release-test", "--write", "--no-preview"])
+        .output()?;
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let changelog = fs::read_to_string(root.join("CHANGELOG.md"))?;
+    let (unreleased, released) = changelog.split_once("## 0.8.0").expect("release section exists");
+    assert!(unreleased.contains("configure the platform backend"), "{changelog}");
+    assert!(released.contains("Previously recorded release notes."), "{changelog}");
+    assert!(
+        released.contains("initial workspace"),
+        "recorded releases gain generated history: {changelog}"
+    );
+    assert!(
+        !root.join("leaf/CHANGELOG.md").exists(),
+        "unchanged dependencies stay excluded"
+    );
+    assert_eq!(fs::read(&manifest_path)?, manifest);
+    assert_eq!(git(root, "rev-parse HEAD")?, head);
+    Ok(())
+}
+
+#[test]
 fn changelog_prefers_namespaced_tags_for_duplicate_release_versions() -> gix_testtools::Result {
     for namespaced_first in [false, true] {
         let dir = fixture()?;

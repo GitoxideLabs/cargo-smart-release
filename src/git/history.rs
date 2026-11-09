@@ -160,13 +160,11 @@ pub fn crate_ref_segments<'h>(
                 Filter::None
             } else {
                 log::info!(
-                    "{}: Tracking top-level crate's changes in multi-crate workspace through 'src/' directory only.",
+                    "{}: Tracking top-level crate's changes in multi-crate workspace through 'src/' and 'Cargo.toml'.",
                     package.name
                 );
                 // TODO: analyse .targets to find actual source directory.
-                Filter::Fast {
-                    name: Cow::Borrowed(b"src"),
-                }
+                Filter::TopLevel
             }
         },
         |dir| {
@@ -228,6 +226,8 @@ pub fn crate_ref_segments<'h>(
 enum Filter<'a> {
     /// Unconditionally use history items, we always consider them relevant for the package.
     None,
+    /// The top-level crate in a workspace tracks its sources and manifest, excluding sibling crates.
+    TopLevel,
     /// The package sits directly at the root, allowing us to use our cached trees exclusively, which is the fastest possible change detection.
     Fast { name: Cow<'a, [u8]> },
     /// The package sits at a deeper level which means we have to read other trees as well while determining its hash.
@@ -256,6 +256,15 @@ fn add_item_if_package_changed<'a>(
     }
     match filter {
         Filter::None => history.push(item),
+        Filter::TopLevel => {
+            if super::top_level_package_changed(
+                &data_by_tree_id[&item.tree_id],
+                item.parent_tree_id.map(|parent| data_by_tree_id[&parent].as_slice()),
+                item.tree_id.kind(),
+            ) {
+                history.push(item);
+            }
+        }
         Filter::Fast { name } => {
             let current = gix::objs::TreeRefIter::from_bytes(&data_by_tree_id[&item.tree_id], item.tree_id.kind())
                 .filter_map(Result::ok)

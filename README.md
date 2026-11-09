@@ -32,6 +32,8 @@ explicit major-bump requests, failed API checks, or conservative dependency safe
 runs and before execution, without `--verbose`, including with `--auto-publish-of-stable-crates`. Known published
 versions are used as the baseline so an already bumped manifest still appears in the report.
 To polish changelogs, run `cargo changelog --write <crate-name>` to update the scaffolding and edit it by hand until it fits.
+For a workspace's top-level crate, changes to `src/` or `Cargo.toml` count toward release detection and changelog entries.
+This includes dependency and feature fixes that change only the manifest.
 To run generated Markdown through an external formatter before previewing or writing it, pass `--formatter "<program> [args...]"`.
 The formatter reads Markdown from stdin and must write the formatted Markdown to stdout.
 Commands support POSIX-style quoting, escaping, and leading environment assignments, but run without a shell:
