@@ -56,7 +56,14 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         .collect()
     };
     assure_working_tree_is_unchanged(opts.clone())?;
-    let history = git::history::collect(&ctx.repo)?;
+    let collected_history;
+    let history = match ctx.history.as_ref() {
+        Some(history) => history,
+        None => {
+            collected_history = git::history::collect(&ctx.repo)?;
+            &collected_history
+        }
+    };
 
     let bat = (dry_run && preview).then(bat::Support::new);
 
@@ -73,7 +80,7 @@ pub fn changelog(opts: Options, crates: Vec<String>) -> anyhow::Result<()> {
         num_crates += 1;
         let crate::changelog::init::Outcome {
             log, mut lock, state, ..
-        } = ChangeLog::for_package_with_write_lock(package, &history, &ctx, generator_segments)?;
+        } = ChangeLog::for_package_with_write_lock(package, history, &ctx, generator_segments)?;
         log::info!(
             "{} write {} sections to {} ({})",
             will(dry_run),

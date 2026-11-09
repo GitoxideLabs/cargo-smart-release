@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context};
-use cargo_metadata::{camino::Utf8Path, Package};
+use cargo_metadata::Package;
 use gix::{
     bstr::{BStr, ByteSlice},
     object,
@@ -39,11 +39,13 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
         Some(current_commit) => {
             let released_target = tag_ref.peel_to_id()?;
 
-            match repo_relative_crate_dir
-                // If it's a top-level crate, use the src-directory for now
-                // KEEP THIS IN SYNC with gix::create_ref_history()!
-                .or_else(|| (ctx.meta.workspace_members.len() != 1).then(|| Utf8Path::new("src")))
-            {
+            match repo_relative_crate_dir {
+                None if ctx.meta.workspace_members.len() != 1 => {
+                    let current_tree = current_commit.object()?.peel_to_kind(object::Kind::Tree)?;
+                    let released_tree = released_target.object()?.peel_to_kind(object::Kind::Tree)?;
+                    top_level_package_changed(&current_tree.data, Some(&released_tree.data), current_commit.kind())
+                        .then_some(PackageChangeKind::ChangedOrNew)
+                }
                 None => (current_commit != released_target).then_some(PackageChangeKind::ChangedOrNew),
                 Some(dir) => {
                     let components = dir.components().map(component_to_bytes);
@@ -71,6 +73,21 @@ pub fn change_since_last_release(package: &Package, ctx: &crate::Context) -> any
         }
         None => Some(PackageChangeKind::ChangedOrNew),
     })
+}
+
+pub(crate) fn top_level_package_changed(
+    current_tree: &[u8],
+    previous_tree: Option<&[u8]>,
+    hash_kind: gix::hash::Kind,
+) -> bool {
+    let package_entries = |tree: &[u8]| {
+        gix::objs::TreeRefIter::from_bytes(tree, hash_kind)
+            .filter_map(Result::ok)
+            .filter(|entry| entry.filename == b"src".as_bstr() || entry.filename == b"Cargo.toml".as_bstr())
+            .map(|entry| (entry.filename.to_owned(), entry.oid.to_owned()))
+            .collect::<Vec<_>>()
+    };
+    package_entries(current_tree) != package_entries(previous_tree.unwrap_or_default())
 }
 
 pub fn assure_clean_working_tree() -> anyhow::Result<()> {
