@@ -4,66 +4,67 @@ use gix_testtools::{git, tempfile};
 
 #[test]
 fn release_tags_are_pushed_in_batches_and_github_releases_are_opt_in_for_members() -> gix_testtools::Result {
-    for (packages, options, expected_tags, expected_releases) in [
+    for (metadata, packages, options, expected_tags, expected_releases) in [
         (
+            None,
             vec!["tag-member-a", "tag-root", "tag-member-b"],
             vec![],
             vec![vec!["v0.1.0"], vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
             vec!["v0.1.0"],
         ),
         (
+            Some("false"),
             vec!["tag-root", "tag-member-a", "tag-member-b"],
             vec!["--changelog-github-release-for-namespaced-tags"],
             vec![vec!["v0.1.0"], vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
             vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0", "v0.1.0"],
         ),
         (
+            Some("false"),
             vec!["tag-member-a", "tag-member-b"],
             vec![],
             vec![vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
             vec![],
         ),
-        (vec!["tag-root"], vec![], vec![vec!["v0.1.0"]], vec!["v0.1.0"]),
         (
+            Some("false"),
+            vec!["tag-root"],
+            vec![],
+            vec![vec!["v0.1.0"]],
+            vec!["v0.1.0"],
+        ),
+        (
+            Some("true"),
+            vec!["tag-root", "tag-member-a", "tag-member-b"],
+            vec![],
+            vec![vec!["v0.1.0"], vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
+            vec!["tag-member-a/v0.1.0", "v0.1.0"],
+        ),
+        (
+            Some("true"),
+            vec!["tag-member-a", "tag-member-b"],
+            vec![],
+            vec![vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
+            vec!["tag-member-a/v0.1.0"],
+        ),
+        (
+            Some("true"),
             vec!["tag-root", "tag-member-a", "tag-member-b"],
             vec!["--no-changelog-github-release"],
             vec![vec!["v0.1.0"], vec!["tag-member-a/v0.1.0", "tag-member-b/v0.1.0"]],
             vec![],
         ),
     ] {
-        let directory = fixture()?;
+        let directory = fixture(metadata)?;
         let root = directory.path().join("worktree");
-        let bin = directory.path().join("bin");
         let release_log = directory.path().join("github-releases");
-        let command_path = std::env::join_paths(
-            std::iter::once(bin).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())),
-        )?;
-        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
-        gix_testtools::configure_git_environment(&mut command, &root);
-        let output = command
-            .current_dir(&root)
-            .env("PATH", command_path)
-            .env("GH_RELEASE_LOG", &release_log)
-            .env("CARGO_HOME", directory.path().join("cargo-home"))
-            .env("CARGO_NET_OFFLINE", "true")
-            .args([
-                "smart-release",
-                "--execute",
-                "--no-publish",
-                "--bump",
-                "keep",
-                "--bump-dependencies",
-                "keep",
-                "--no-changelog-preview",
-                "--no-changelog-links",
-                "--allow-fully-generated-changelogs",
-                "--allow-empty-release-message",
-            ])
-            .args(&packages)
-            .args(&options)
-            .output()?;
+        let mut command = release_command(directory.path())?;
+        let output = command.args(&packages).args(&options).output()?;
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(output.status.success(), "{packages:?} {options:?}: {stderr}");
+        assert!(
+            output.status.success(),
+            "{metadata:?} {packages:?} {options:?}: {stderr}"
+        );
 
         let pushes = fs::read_to_string(directory.path().join("remote.git/pushes"))?;
         let batches: Vec<Vec<_>> = pushes
@@ -96,7 +97,10 @@ fn release_tags_are_pushed_in_batches_and_github_releases_are_opt_in_for_members
         let releases = fs::read_to_string(&release_log)?;
         let mut release_tags: Vec<_> = releases.lines().collect();
         release_tags.sort_unstable();
-        assert_eq!(release_tags, expected_releases, "{packages:?} {options:?}: {stderr}");
+        assert_eq!(
+            release_tags, expected_releases,
+            "{metadata:?} {packages:?} {options:?}: {stderr}"
+        );
 
         let released_head = git(&root, "rev-parse HEAD")?;
         let unchanged = command.output()?;
@@ -114,7 +118,60 @@ fn release_tags_are_pushed_in_batches_and_github_releases_are_opt_in_for_members
     Ok(())
 }
 
-fn fixture() -> gix_testtools::Result<tempfile::TempDir> {
+#[test]
+fn malformed_github_release_metadata_aborts_before_release_mutations() -> gix_testtools::Result {
+    for value in ["\"true\"", "1", "[]", "{}"] {
+        let directory = fixture(Some(value))?;
+        let root = directory.path().join("worktree");
+        let head = git(&root, "rev-parse HEAD")?;
+        let tags = git(&root, "tag --list")?;
+        let output = release_command(directory.path())?.arg("tag-member-a").output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "{value}: {stderr}");
+        assert!(
+            stderr.contains("github-release") && stderr.contains("boolean"),
+            "{value}: {stderr}"
+        );
+        assert_eq!(git(&root, "rev-parse HEAD")?, head);
+        assert_eq!(git(&root, "tag --list")?, tags);
+        assert!(git(&root, "status --porcelain")?.is_empty());
+        assert!(!directory.path().join("remote.git/pushes").exists());
+        assert!(fs::read_to_string(directory.path().join("github-releases"))?.is_empty());
+    }
+    Ok(())
+}
+
+fn release_command(directory: &Path) -> gix_testtools::Result<Command> {
+    let root = directory.join("worktree");
+    let command_path = std::env::join_paths(
+        std::iter::once(directory.join("bin"))
+            .chain(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())),
+    )?;
+    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+    gix_testtools::configure_git_environment(&mut command, &root);
+    command
+        .current_dir(&root)
+        .env("PATH", command_path)
+        .env("GH_RELEASE_LOG", directory.join("github-releases"))
+        .env("CARGO_HOME", directory.join("cargo-home"))
+        .env("CARGO_NET_OFFLINE", "true")
+        .args([
+            "smart-release",
+            "--execute",
+            "--no-publish",
+            "--bump",
+            "keep",
+            "--bump-dependencies",
+            "keep",
+            "--no-changelog-preview",
+            "--no-changelog-links",
+            "--allow-fully-generated-changelogs",
+            "--allow-empty-release-message",
+        ]);
+    Ok(command)
+}
+
+fn fixture(github_release: Option<&str>) -> gix_testtools::Result<tempfile::TempDir> {
     let directory = tempfile::tempdir()?;
     let root = directory.path().join("worktree");
     fs::create_dir(&root)?;
@@ -133,7 +190,13 @@ fn fixture() -> gix_testtools::Result<tempfile::TempDir> {
         };
         fs::write(
             package.join("Cargo.toml"),
-            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n{workspace}"),
+            format!(
+                "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n{workspace}{}",
+                github_release
+                    .filter(|_| path != "member-b")
+                    .map(|value| format!("\n[package.metadata.smart-release]\ngithub-release = {value}\n"))
+                    .unwrap_or_default(),
+            ),
         )?;
     }
     fs::write(root.join(".gitignore"), "/target/\n/Cargo.lock\n")?;

@@ -54,10 +54,20 @@ use `<CRATE>/v<VERSION>` tags. The root tag is pushed first with the release com
 all namespaced tags are pushed together afterwards. Without a root crate release,
 the namespaced tags and release commit are pushed together.
 
-GitHub releases are created for the root crate by default. Pass
-`--changelog-github-release-for-namespaced-tags` to create them for workspace crates
-too, or `--no-changelog-github-release` to disable them all. Legacy `<CRATE>-v<VERSION>`
-tags remain valid for release detection, changelog history, and API baselines.
+GitHub releases are created for the root crate by default. To opt in an individual
+workspace crate, add this to its `Cargo.toml`:
+
+```toml
+[package.metadata.smart-release]
+github-release = true
+```
+
+This setting works on its own, without API-check configuration or additional flags.
+Omitting it or setting it to `false` keeps the default behavior. Pass
+`--changelog-github-release-for-namespaced-tags` to create releases for all workspace
+crates, or `--no-changelog-github-release` to disable them all, including crates that
+opted in through their manifests. Legacy `<CRATE>-v<VERSION>` tags remain valid for
+release detection, changelog history, and API baselines.
 
 There are various other options that shouldn't be needed in the common case, use `cargo smart-release --help` to see them.
 
