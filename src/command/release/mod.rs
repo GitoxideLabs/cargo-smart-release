@@ -507,6 +507,7 @@ fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -
     let github_release_enabled = |package: &cargo_metadata::Package| {
         options.allow_changelog_github_release
             && (options.changelog_github_release_for_namespaced_tags
+                || package.metadata["smart-release"]["github-release"].as_bool() == Some(true)
                 || crate::utils::tag_prefix(package, &ctx.base.repo).is_none())
     };
     let should_publish_to_github = crates

@@ -36,7 +36,7 @@ impl<'meta> Checks<'meta> {
         for id in &ctx.meta.workspace_members {
             let package = package_by_id(&ctx.meta, id);
             if let Some(policy) = Policy::from_metadata(&package.metadata)
-                .with_context(|| format!("Invalid API-check metadata for '{}'", package.name))?
+                .with_context(|| format!("Invalid smart-release metadata for '{}'", package.name))?
             {
                 for feature in &policy.unstable_features {
                     if !package.features.contains_key(feature) {
@@ -272,9 +272,14 @@ impl Policy {
             .as_object()
             .context("package.metadata.smart-release must be a table")?;
         for key in metadata.keys() {
-            if !["api-check", "unstable-features"].contains(&key.as_str()) {
+            if !["api-check", "unstable-features", "github-release"].contains(&key.as_str()) {
                 bail!("Unknown package.metadata.smart-release key '{key}'");
             }
+        }
+        if let Some(value) = metadata.get("github-release") {
+            value
+                .as_bool()
+                .context("package.metadata.smart-release.github-release must be a boolean")?;
         }
         let Some(command) = metadata.get("api-check") else {
             if metadata.contains_key("unstable-features") {

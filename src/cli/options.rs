@@ -86,7 +86,8 @@ pub enum SubCommands {
         no_changelog_github_release: bool,
 
         /// Also create GitHub releases for namespaced workspace-crate tags.
-        /// By default, only the crate at the Git repository root gets a GitHub release.
+        /// By default, only the crate at the Git repository root and crates with
+        /// `package.metadata.smart-release.github-release = true` get GitHub releases.
         #[clap(long, conflicts_with = "no_changelog_github_release", help_heading = Some("CHANGELOG"))]
         changelog_github_release_for_namespaced_tags: bool,
 
