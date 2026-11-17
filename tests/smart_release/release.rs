@@ -46,6 +46,72 @@ wrong-name = { path = "../release", version = "0.8.0" }
 "#;
 
 #[test]
+fn handwritten_unreleased_notes_only_replace_empty_release_placeholders() -> gix_testtools::Result {
+    for (existing_notes, generated) in [("", true), ("", false), ("Existing release notes.", true)] {
+        let dir = fixture()?;
+        let root = dir.path();
+        let changelog_path = root.join("release/CHANGELOG.md");
+        let original = format!(
+            "# Changelog\n\n## Unreleased\n\nadd `Error::source()` implementation.\n\n## v0.8.0 (2026-11-16)\n\n{existing_notes}\n\n## 0.7.0 (2026-11-04)\n\nPreviously released notes.\n",
+        );
+        fs::write(&changelog_path, &original)?;
+        git(root, "add release/CHANGELOG.md")?;
+        git(root, "commit -m 'prepare handwritten release notes'")?;
+        let head = git(root, "rev-parse HEAD")?;
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        gix_testtools::configure_git_environment(&mut command, root)
+            .current_dir(root.join("release"))
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .args([
+                "smart-release",
+                "release-test",
+                "--execute",
+                "--no-publish",
+                "--no-push",
+                "--no-changelog-github-release",
+                "--no-changelog-preview",
+                "--no-bump-on-demand",
+                "--bump",
+                "keep",
+                "--bump-dependencies",
+                "keep",
+            ]);
+        if !generated {
+            for segment in ["clippy", "commit-statistics", "commit-details", "git-conventional"] {
+                command.args(["--changelog-without", segment]);
+            }
+        }
+
+        let output = command.output()?;
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let changelog = fs::read_to_string(&changelog_path)?;
+        if existing_notes.is_empty() {
+            assert!(output.status.success(), "{stderr}");
+            assert!(!changelog.contains("Unreleased"), "{changelog}");
+            assert_eq!(changelog.matches("## v0.8.0").count(), 1, "{changelog}");
+            let (released, previous) = changelog.split_once("## 0.7.0").expect("previous release remains");
+            assert!(
+                released.contains("add `Error::source()` implementation."),
+                "{changelog}"
+            );
+            assert_eq!(released.contains("### Commit Statistics"), generated, "{changelog}");
+            assert!(previous.contains("Previously released notes."), "{changelog}");
+        } else {
+            assert!(!output.status.success(), "{stderr}");
+            assert!(
+                stderr.contains("Refusing to merge user-authored changelog content into another release"),
+                "{stderr}"
+            );
+            assert_eq!(changelog, original);
+            assert_eq!(git(root, "rev-parse HEAD")?, head);
+        }
+        assert!(git(root, "diff HEAD --")?.is_empty());
+    }
+    Ok(())
+}
+
+#[test]
 fn stable_major_bump_requests_are_reported_before_dry_run_and_execution() -> gix_testtools::Result {
     for args in [vec![], vec!["--execute"]] {
         let dir = fixture()?;

@@ -84,7 +84,32 @@ impl ChangeLog {
 
 impl Section {
     pub fn merge(&mut self, src: Section) -> anyhow::Result<()> {
-        self.merge_with_conventional_pruning(src, true)
+        match (self, src) {
+            (
+                Section::Release {
+                    date: dest_date,
+                    segments: dest_segments,
+                    unknown: dest_unknown,
+                    removed_messages: dest_removed_messages,
+                    ..
+                },
+                Section::Release {
+                    date,
+                    segments,
+                    unknown,
+                    removed_messages,
+                    ..
+                },
+            ) if dest_segments.is_empty() && dest_unknown.is_empty() && dest_removed_messages.is_empty() => {
+                // An empty release placeholder has no content to conflict with unreleased notes.
+                *dest_date = date;
+                *dest_segments = segments;
+                *dest_unknown = unknown;
+                *dest_removed_messages = removed_messages;
+                Ok(())
+            }
+            (dest, src) => dest.merge_with_conventional_pruning(src, true),
+        }
     }
 
     fn merge_with_conventional_pruning(
