@@ -29,7 +29,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
     crates: &[Dependency<'meta>],
     opts: Options,
     ctx: &'repo Context,
-) -> anyhow::Result<Outcome<'repo, 'meta>> {
+) -> anyhow::Result<Option<Outcome<'repo, 'meta>>> {
     let Options { dry_run, changelog, .. } = opts;
     let crates_and_versions_to_be_published: Vec<_> = crates
         .iter()
@@ -122,8 +122,8 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
 
     let prepare_only_empty_changelogs =
         !changelog_ids_with_statistical_segments_only.is_empty() && !opts.allow_empty_release_message;
-    let would_stop_release = prepare_only_empty_changelogs
-        || (!changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_fully_generated_changelogs);
+    let generated_changelogs_need_edits =
+        !changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_fully_generated_changelogs;
     let safety_bumped_packages = crates
         .iter()
         .filter_map(|c| c.mode.safety_bump().map(|b| (c.package, &b.next_release)))
@@ -131,7 +131,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
     let commit_message = generate_commit_message(
         &crates_and_versions_to_be_published,
         &safety_bumped_packages,
-        would_stop_release,
+        prepare_only_empty_changelogs || generated_changelogs_need_edits,
         locks_by_manifest_path.len(),
         &pending_changelogs,
         opts.clone(),
@@ -159,12 +159,20 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
     )?;
     if let Some(bail_message) = bail_message {
         bail!(bail_message);
-    } else {
-        Ok(Outcome {
-            commit_id: res,
-            section_by_package: release_section_by_publishee,
-        })
     }
+
+    let stop_after_commit = if prepare_only_empty_changelogs {
+        !opts.skip_publish
+    } else {
+        generated_changelogs_need_edits
+    };
+    if dry_run && stop_after_commit {
+        return Ok(None);
+    }
+    Ok(Some(Outcome {
+        commit_id: res,
+        section_by_package: release_section_by_publishee,
+    }))
 }
 
 fn tracked_manifest_paths(repo: &gix::Repository) -> anyhow::Result<Vec<PathBuf>> {
@@ -320,6 +328,7 @@ fn commit_locks_and_generate_bail_message(
         }
         if !changelog_ids_probably_lacking_user_edits.is_empty() {
             let crate_names = crate_names(&changelog_ids_probably_lacking_user_edits);
+            let stop_for_generated_changelogs = !prepare_only_empty_changelogs && !allow_fully_generated_changelogs;
             log::warn!(
                 "{} likely to be fully generated from commit history or contain lower-case git-conventional headlines: {}{}",
                 if changelog_ids_probably_lacking_user_edits.len() == 1 {
@@ -328,13 +337,13 @@ fn commit_locks_and_generate_bail_message(
                     "These changelogs are"
                 },
                 crate_names.join(", "),
-                if allow_fully_generated_changelogs {
-                    ""
-                } else {
+                if stop_for_generated_changelogs {
                     ". Would stop after commit to allow edits."
+                } else {
+                    ""
                 }
             );
-            if !allow_fully_generated_changelogs {
+            if stop_for_generated_changelogs {
                 for crate_name in crate_names {
                     log::warn!("{fix_preamble} {crate_name}");
                 }
@@ -398,7 +407,7 @@ fn preview_changelogs(
 fn generate_commit_message(
     crates_and_versions_to_be_published: &[(&Package, &Version)],
     safety_bumped_packages: &[(&Package, &Version)],
-    would_stop_release: bool,
+    preparing_changelog_edits: bool,
     num_locks: usize,
     pending_changelogs: &[(&Package, bool, File)],
     Options {
@@ -410,7 +419,7 @@ fn generate_commit_message(
 ) -> String {
     let mut message = format!(
         "{} {}{}",
-        if would_stop_release {
+        if preparing_changelog_edits {
             "Adjusting changelogs prior to release of"
         } else if skip_publish {
             "Bump"

@@ -499,10 +499,13 @@ fn assure_working_tree_is_unchanged(options: Options) -> anyhow::Result<()> {
 }
 
 fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -> anyhow::Result<()> {
-    let manifest::Outcome {
+    let Some(manifest::Outcome {
         commit_id,
         section_by_package: release_section_by_publishee,
-    } = manifest::edit_version_and_fixup_dependent_crates_and_handle_changelog(crates, options.clone(), ctx)?;
+    }) = manifest::edit_version_and_fixup_dependent_crates_and_handle_changelog(crates, options.clone(), ctx)?
+    else {
+        return Ok(());
+    };
 
     let github_release_enabled = |package: &cargo_metadata::Package| {
         options.allow_changelog_github_release

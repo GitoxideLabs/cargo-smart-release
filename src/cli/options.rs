@@ -67,8 +67,8 @@ pub enum SubCommands {
         #[clap(long, short = 'v', help_heading = Some("CUSTOMIZATION"))]
         verbose: bool,
 
-        /// Additionally run 'cargo publish --dry-run' when --execute is not set. This can be useful to see which local
-        /// crates do not build with the released versions of their workspace dependencies anymore.
+        /// Also run 'cargo publish --dry-run' when the release preview reaches the publish step. This can show which
+        /// local crates no longer build with the released versions of their workspace dependencies.
         #[clap(long, help_heading = Some("CUSTOMIZATION"))]
         dry_run_cargo_publish: bool,
 

@@ -92,31 +92,41 @@ fn check_new_changelog_staging(
     write(root, "with-notes/src/lib.rs", "pub fn new_feature() {}\n")?;
     git(root, "commit -am 'feat: introduce an API'")?;
 
-    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
-    gix_testtools::configure_git_environment(&mut command, root)
-        .current_dir(root)
-        .env("CARGO_HOME", root.join("cargo-home"))
-        .env("CARGO_NET_OFFLINE", "true")
-        .env("RUST_LOG", "info,cargo_smart_release=trace")
-        .args([
-            "smart-release",
-            "stats-only",
-            "with-notes",
-            "--verbose",
-            "--no-push",
-            "--no-changelog-github-release",
-            "--no-changelog-preview",
-            "--no-bump-on-demand",
-            "--bump",
-            "keep",
-        ])
-        .args(options);
-    let output = command.output()?;
+    let run = |extra: &[&str]| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+        gix_testtools::configure_git_environment(&mut command, root)
+            .current_dir(root)
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("CARGO_NET_OFFLINE", "true")
+            .env("RUST_LOG", "info,cargo_smart_release=trace")
+            .args([
+                "smart-release",
+                "stats-only",
+                "with-notes",
+                "--verbose",
+                "--no-push",
+                "--no-changelog-github-release",
+                "--no-changelog-preview",
+                "--no-bump-on-demand",
+                "--bump",
+                "keep",
+            ])
+            .args(options)
+            .args(extra)
+            .output()
+    };
+    let skip_publish = options.contains(&"--no-publish");
+    let output = run(if skip_publish {
+        &[]
+    } else {
+        &["--dry-run-cargo-publish"]
+    })?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
-    let skip_publish = options.contains(&"--no-publish");
     if !skip_publish {
         assert!(stderr.contains("WOULD stop release after commit"), "{stderr}");
+        assert!(!stderr.contains("\"publish\""), "{stderr}");
+        assert!(!stderr.contains("WOULD create tag"), "{stderr}");
     }
     let add_preview = stderr
         .lines()
@@ -126,7 +136,7 @@ fn check_new_changelog_staging(
     assert_eq!(add_preview.contains("with-notes"), stages_both, "{add_preview}");
     assert!(git(root, "status --porcelain")?.is_empty());
 
-    let output = command.arg("--execute").output()?;
+    let output = run(&["--execute"])?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.success(), skip_publish, "{stderr}");
     if let Some(message) = expected_message {
