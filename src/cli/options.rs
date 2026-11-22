@@ -94,8 +94,8 @@ pub enum SubCommands {
         /// If changelogs are generated from git-conventional comments extracted from the commit history exclusively, publishes
         /// will fail as to give an opportunity to author at least a portion of the upcoming release.
         ///
-        /// With this flag set, the release will not stop.
-        /// Note that changelog entries purely composed of statistical information will always stop a release.
+        /// This flag allows generated notes that contain release information.
+        /// Use --allow-empty-release-message to allow changelogs that contain only statistics.
         #[clap(long, help_heading = Some("CHANGELOG-EXPERT"))]
         allow_fully_generated_changelogs: bool,
         /// If changelogs have no message or release information at all, continue anyway.
@@ -112,7 +112,7 @@ pub enum SubCommands {
 
         /// If unset, about-to-be changed changelogs will be previewed using 'bat', if available, and when executing.
         ///
-        /// If set, no preview will ever be displayed, but note that empty changelogs will always stop the release process.
+        /// Use this flag to skip the preview.
         #[clap(long, help_heading = Some("CHANGELOG"))]
         no_changelog_preview: bool,
 

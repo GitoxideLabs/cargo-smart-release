@@ -120,9 +120,10 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         made_change |= changed;
     }
 
-    let would_stop_release = (!changelog_ids_with_statistical_segments_only.is_empty()
-        && !opts.allow_fully_generated_changelogs)
-        || (!changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_empty_release_message);
+    let prepare_only_empty_changelogs =
+        !changelog_ids_with_statistical_segments_only.is_empty() && !opts.allow_empty_release_message;
+    let would_stop_release = prepare_only_empty_changelogs
+        || (!changelog_ids_probably_lacking_user_edits.is_empty() && !opts.allow_fully_generated_changelogs);
     let safety_bumped_packages = crates
         .iter()
         .filter_map(|c| c.mode.safety_bump().map(|b| (c.package, &b.next_release)))
@@ -144,6 +145,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
         locks_by_manifest_path,
         changelog_ids_with_statistical_segments_only,
         changelog_ids_probably_lacking_user_edits,
+        prepare_only_empty_changelogs,
         opts.clone(),
     )?;
 
@@ -204,6 +206,7 @@ fn commit_locks_and_generate_bail_message(
     locks_by_manifest_path: BTreeMap<PathBuf, File>,
     changelog_ids_with_statistical_segments_only: Vec<usize>,
     changelog_ids_probably_lacking_user_edits: Vec<usize>,
+    prepare_only_empty_changelogs: bool,
     Options {
         dry_run,
         skip_publish,
@@ -212,10 +215,8 @@ fn commit_locks_and_generate_bail_message(
         ..
     }: Options,
 ) -> anyhow::Result<(Vec<PathBuf>, Option<String>)> {
-    let should_write_changelog = |idx: usize| {
-        changelog_ids_with_statistical_segments_only.is_empty()
-            || changelog_ids_with_statistical_segments_only.contains(&idx)
-    };
+    let should_write_changelog =
+        |idx: usize| !prepare_only_empty_changelogs || changelog_ids_with_statistical_segments_only.contains(&idx);
     let mut changelog_paths = Vec::new();
     let bail_message = if !dry_run {
         let mut packages_whose_changelogs_need_edits = None;
@@ -224,7 +225,7 @@ fn commit_locks_and_generate_bail_message(
             if should_write_changelog(idx) {
                 let (path, _) = lock.commit()?;
                 changelog_paths.push(path);
-                if !allow_fully_generated_changelogs && !changelog_ids_with_statistical_segments_only.is_empty() {
+                if prepare_only_empty_changelogs {
                     packages_whose_changelogs_need_edits
                         .get_or_insert_with(Vec::new)
                         .push(package);
@@ -232,7 +233,7 @@ fn commit_locks_and_generate_bail_message(
             } else {
                 drop(lock);
             }
-            if allow_empty_release_message || changelog_ids_probably_lacking_user_edits.contains(&idx) {
+            if changelog_ids_probably_lacking_user_edits.contains(&idx) {
                 packages_which_might_be_fully_generated
                     .get_or_insert_with(Vec::new)
                     .push(package);

@@ -47,6 +47,29 @@ wrong-name = { path = "../release", version = "0.8.0" }
 
 #[test]
 fn stages_only_the_new_changelogs_written_during_release() -> gix_testtools::Result {
+    for (options, expected_message, stages_both) in [
+        (
+            ["--no-publish"].as_slice(),
+            Some("Please consider creating changelog entries for crate: stats-only"),
+            false,
+        ),
+        (
+            &["--registry", "unused", "--allow-fully-generated-changelogs"],
+            Some("Write changelog entries for crate(s) stats-only and try again"),
+            false,
+        ),
+        (&["--no-publish", "--allow-empty-release-message"], None, true),
+    ] {
+        check_new_changelog_staging(options, expected_message, stages_both)?;
+    }
+    Ok(())
+}
+
+fn check_new_changelog_staging(
+    options: &[&str],
+    expected_message: Option<&str>,
+    stages_both: bool,
+) -> gix_testtools::Result {
     let dir = tempfile::tempdir()?;
     let root = dir.path();
     write(
@@ -74,42 +97,50 @@ fn stages_only_the_new_changelogs_written_during_release() -> gix_testtools::Res
         .current_dir(root)
         .env("CARGO_HOME", root.join("cargo-home"))
         .env("CARGO_NET_OFFLINE", "true")
+        .env("RUST_LOG", "info,cargo_smart_release=trace")
         .args([
             "smart-release",
             "stats-only",
             "with-notes",
             "--verbose",
-            "--no-publish",
             "--no-push",
             "--no-changelog-github-release",
             "--no-changelog-preview",
             "--no-bump-on-demand",
             "--bump",
             "keep",
-        ]);
+        ])
+        .args(options);
     let output = command.output()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
+    let skip_publish = options.contains(&"--no-publish");
+    if !skip_publish {
+        assert!(stderr.contains("WOULD stop release after commit"), "{stderr}");
+    }
     let add_preview = stderr
         .lines()
         .find(|line| line.contains("\"add\" \"--\""))
         .expect("dry run previews git add");
-    assert!(
-        add_preview.contains("stats-only") && !add_preview.contains("with-notes"),
-        "{add_preview}"
-    );
+    assert!(add_preview.contains("stats-only"), "{add_preview}");
+    assert_eq!(add_preview.contains("with-notes"), stages_both, "{add_preview}");
     assert!(git(root, "status --porcelain")?.is_empty());
 
     let output = command.arg("--execute").output()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "{stderr}");
-    assert!(
-        stderr.contains("Please consider creating changelog entries for crate: stats-only"),
-        "{stderr}"
-    );
+    assert_eq!(output.status.success(), skip_publish, "{stderr}");
+    if let Some(message) = expected_message {
+        assert!(stderr.contains(message), "{stderr}");
+    }
+    assert!(!stderr.contains("\"publish\""), "{stderr}");
     let changelog = git(root, "show HEAD:stats-only/CHANGELOG.md")?;
     assert!(changelog.contains("### Commit Statistics"), "{changelog}");
-    assert!(!root.join("with-notes/CHANGELOG.md").exists());
+    if stages_both {
+        let changelog = git(root, "show HEAD:with-notes/CHANGELOG.md")?;
+        assert!(changelog.contains("Introduce an API"), "{changelog}");
+    } else {
+        assert!(!root.join("with-notes/CHANGELOG.md").exists());
+    }
     assert!(git(root, "status --porcelain")?.is_empty());
     Ok(())
 }
