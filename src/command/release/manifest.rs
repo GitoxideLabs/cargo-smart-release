@@ -138,13 +138,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
 
     preview_changelogs(ctx, &pending_changelogs, opts.clone())?;
 
-    // Collect all changelog paths before they are consumed by commit_locks_and_generate_bail_message
-    let changelog_paths: Vec<std::path::PathBuf> = pending_changelogs
-        .iter()
-        .map(|(_, _, lock)| lock.resource_path().to_owned())
-        .collect();
-
-    let bail_message = commit_locks_and_generate_bail_message(
+    let (changelog_paths, bail_message) = commit_locks_and_generate_bail_message(
         ctx,
         pending_changelogs,
         locks_by_manifest_path,
@@ -217,15 +211,19 @@ fn commit_locks_and_generate_bail_message(
         allow_empty_release_message,
         ..
     }: Options,
-) -> anyhow::Result<Option<String>> {
+) -> anyhow::Result<(Vec<PathBuf>, Option<String>)> {
+    let should_write_changelog = |idx: usize| {
+        changelog_ids_with_statistical_segments_only.is_empty()
+            || changelog_ids_with_statistical_segments_only.contains(&idx)
+    };
+    let mut changelog_paths = Vec::new();
     let bail_message = if !dry_run {
         let mut packages_whose_changelogs_need_edits = None;
         let mut packages_which_might_be_fully_generated = None;
         for (idx, (package, _, lock)) in pending_changelogs.into_iter().enumerate() {
-            if changelog_ids_with_statistical_segments_only.is_empty()
-                || changelog_ids_with_statistical_segments_only.contains(&idx)
-            {
-                lock.commit()?;
+            if should_write_changelog(idx) {
+                let (path, _) = lock.commit()?;
+                changelog_paths.push(path);
                 if !allow_fully_generated_changelogs && !changelog_ids_with_statistical_segments_only.is_empty() {
                     packages_whose_changelogs_need_edits
                         .get_or_insert_with(Vec::new)
@@ -341,9 +339,16 @@ fn commit_locks_and_generate_bail_message(
                 }
             }
         }
+        changelog_paths.extend(
+            pending_changelogs
+                .iter()
+                .enumerate()
+                .filter(|(idx, _)| should_write_changelog(*idx))
+                .map(|(_, (_, _, lock))| lock.resource_path().to_owned()),
+        );
         None
     };
-    Ok(bail_message)
+    Ok((changelog_paths, bail_message))
 }
 
 fn preview_changelogs(

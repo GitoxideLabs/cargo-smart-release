@@ -46,6 +46,75 @@ wrong-name = { path = "../release", version = "0.8.0" }
 "#;
 
 #[test]
+fn stages_only_the_new_changelogs_written_during_release() -> gix_testtools::Result {
+    let dir = tempfile::tempdir()?;
+    let root = dir.path();
+    write(
+        root,
+        "Cargo.toml",
+        "[workspace]\nresolver = \"2\"\nmembers = [\"stats-only\", \"with-notes\"]\n",
+    )?;
+    write(root, ".gitignore", "/cargo-home/\n/Cargo.lock\n")?;
+    for name in ["stats-only", "with-notes"] {
+        write(
+            root,
+            &format!("{name}/Cargo.toml"),
+            &format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"),
+        )?;
+        write(root, &format!("{name}/src/lib.rs"), "")?;
+    }
+    git(root, "init")?;
+    git(root, "add .")?;
+    git(root, "commit -m 'add workspace crates'")?;
+    write(root, "with-notes/src/lib.rs", "pub fn new_feature() {}\n")?;
+    git(root, "commit -am 'feat: introduce an API'")?;
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_cargo-smart-release"));
+    gix_testtools::configure_git_environment(&mut command, root)
+        .current_dir(root)
+        .env("CARGO_HOME", root.join("cargo-home"))
+        .env("CARGO_NET_OFFLINE", "true")
+        .args([
+            "smart-release",
+            "stats-only",
+            "with-notes",
+            "--verbose",
+            "--no-publish",
+            "--no-push",
+            "--no-changelog-github-release",
+            "--no-changelog-preview",
+            "--no-bump-on-demand",
+            "--bump",
+            "keep",
+        ]);
+    let output = command.output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    let add_preview = stderr
+        .lines()
+        .find(|line| line.contains("\"add\" \"--\""))
+        .expect("dry run previews git add");
+    assert!(
+        add_preview.contains("stats-only") && !add_preview.contains("with-notes"),
+        "{add_preview}"
+    );
+    assert!(git(root, "status --porcelain")?.is_empty());
+
+    let output = command.arg("--execute").output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(
+        stderr.contains("Please consider creating changelog entries for crate: stats-only"),
+        "{stderr}"
+    );
+    let changelog = git(root, "show HEAD:stats-only/CHANGELOG.md")?;
+    assert!(changelog.contains("### Commit Statistics"), "{changelog}");
+    assert!(!root.join("with-notes/CHANGELOG.md").exists());
+    assert!(git(root, "status --porcelain")?.is_empty());
+    Ok(())
+}
+
+#[test]
 fn handwritten_unreleased_notes_only_replace_empty_release_placeholders() -> gix_testtools::Result {
     for (existing_notes, generated) in [("", true), ("", false), ("Existing release notes.", true)] {
         let dir = fixture()?;
