@@ -269,7 +269,7 @@ EOF
     (with "docs.rs publish metadata"
       it "forwards docs.rs feature flags to cargo publish" && {
         expect_run_sh $SUCCESSFULLY \
-          "\"$exe\" smart-release a --no-push -v --allow-dirty -b minor --publish-uses-docs-rs-metadata 2>&1 | grep -F '\"cargo\" \"publish\" \"--features\" \"docs-rs-feature\" \"--all-features\" \"--no-default-features\"'"
+          "\"$exe\" smart-release a --no-push -v --allow-dirty -b minor --allow-empty-release-message --publish-uses-docs-rs-metadata 2>&1 | grep -F '\"cargo\" \"publish\" \"--features\" \"docs-rs-feature\" \"--all-features\" \"--no-default-features\"'"
       }
     )
   )
