@@ -42,6 +42,7 @@ pub mod release {
 #[path = "release/mod.rs"]
 mod release_impl;
 pub use release_impl::release;
+pub(crate) use release_impl::unstable as parallel;
 
 pub mod changelog {
     use crate::changelog::section::segment;

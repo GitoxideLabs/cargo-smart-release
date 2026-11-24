@@ -20,6 +20,7 @@ mod cargo;
 mod git;
 mod github;
 mod manifest;
+pub(crate) mod unstable;
 
 pub(crate) struct Context {
     base: crate::Context,
@@ -48,9 +49,17 @@ impl Context {
 
 /// In order to try dealing with <https://github.com/sunng87/cargo-release/issues/224> and also to make workspace
 /// releases more selective.
-pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependencies: BumpSpec) -> anyhow::Result<()> {
+pub fn release(
+    mut opts: Options,
+    crates: Vec<String>,
+    bump: BumpSpec,
+    bump_dependencies: BumpSpec,
+) -> anyhow::Result<()> {
     if opts.dry_run_cargo_publish && !opts.dry_run {
         bail!("The --no-dry-run-cargo-publish flag is only effective without --execute")
+    }
+    if opts.registry.is_none() && !opts.skip_publish {
+        opts.registry = cargo::default_registry()?;
     }
     let allow_changelog = if opts.changelog && opts.skip_tag {
         log::warn!("With --no-tag enabled, changelog generation will be disabled as it relies on tags to segment commit history.");
@@ -78,7 +87,7 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
 
 fn should_update_crates_index(opts: &Options) -> bool {
     opts.update_crates_index
-        || (opts.registry.is_none()
+        || (opts.registry.as_deref().is_none_or(|registry| registry == "crates-io")
             && (opts.allow_auto_publish_of_stable_crates || (!opts.dry_run && !opts.skip_publish)))
 }
 
@@ -95,6 +104,9 @@ impl From<Options> for traverse::Options {
 }
 
 fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
+    if unstable::resume(&ctx.base, &opts)? {
+        return Ok(());
+    }
     let mut checks = crate::api::Checks::new(&ctx.base, opts.allow_auto_publish_of_stable_crates, opts.skip_api_check)?;
     let crates = {
         traverse::dependencies_with_checks(&ctx.base, opts.clone().into(), &mut checks)
@@ -499,6 +511,23 @@ fn assure_working_tree_is_unchanged(options: Options) -> anyhow::Result<()> {
 }
 
 fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -> anyhow::Result<()> {
+    let unstable = if options.skip_publish {
+        unstable::Plan::default()
+    } else {
+        unstable::Plan::new(
+            crates.iter().filter_map(try_to_published_crate_and_new_version),
+            &ctx.base,
+            Some(&options),
+        )?
+    };
+    let publishees = unstable.publish_order(
+        crates
+            .iter()
+            .filter_map(try_to_published_crate_and_new_version)
+            .collect(),
+        &ctx.base,
+        &options,
+    )?;
     let Some(manifest::Outcome {
         commit_id,
         section_by_package: release_section_by_publishee,
@@ -524,37 +553,125 @@ fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -
             false
         };
     let mut tag_names = Vec::new();
+    let mut companions = Vec::new();
     let mut successful_publishees_and_version = Vec::<(&cargo_metadata::Package, &semver::Version)>::new();
     let mut publish_err = None;
     let prevent_default_members = ctx.base.meta.workspace_members.len() > 1;
-    for (publishee, new_version) in crates.iter().filter_map(try_to_published_crate_and_new_version) {
-        if let Some((crate_, version)) = successful_publishees_and_version.last() {
-            if let Err(err) = wait_for_release(&crate_.name, version, &ctx.base.crates_index, options.clone()) {
-                log::warn!(
-                    "Failed to wait for crates-index update - trying to publish '{} v{}' anyway: {}.",
-                    publishee.name,
-                    new_version,
-                    err
-                );
+    let staging = tempfile::tempdir()?;
+    let staged = publishees
+        .into_iter()
+        .map(|(package, version)| {
+            let paths = if options.skip_publish {
+                None
+            } else {
+                unstable.stage(package, version, &ctx.base, &options, staging.path())?
+            };
+            Ok((package, version, paths))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let prepared = staged
+        .iter()
+        .filter_map(|(package, stable, paths)| {
+            let manifest = paths.as_ref()?.1.as_deref()?;
+            Some(unstable::Companion {
+                package,
+                stable,
+                companion: unstable.companion(package)?,
+                manifest,
+            })
+        })
+        .collect::<Vec<_>>();
+    let companion_commit = unstable::prepare_source(&prepared, commit_id, &ctx.base, &options)?;
+    let companion_checkout = companion_commit
+        .map(|commit| {
+            let path = staging.path().join("companion-source");
+            unstable::checkout_source(commit, &path)?;
+            Ok::<_, anyhow::Error>(path)
+        })
+        .transpose()?;
+    let dry_run_config = if options.dry_run_cargo_publish {
+        cargo::dry_run_patches(
+            staging.path(),
+            staged.iter().flat_map(|(package, _, paths)| {
+                paths.iter().flat_map(|(stable, companion)| {
+                    std::iter::once(stable)
+                        .chain(companion)
+                        .map(|path| (*package, path.as_path()))
+                })
+            }),
+        )?
+    } else {
+        None
+    };
+    let mut previous: Option<(&cargo_metadata::Package, &semver::Version)> = None;
+    'publish: for (publishee, new_version, paths) in &staged {
+        let stable_manifest = paths
+            .as_ref()
+            .map_or(publishee.manifest_path.as_std_path(), |(path, _)| path);
+        let companion = paths
+            .as_ref()
+            .and_then(|(_, path)| path.as_deref())
+            .zip(unstable.companion(publishee));
+        for (manifest, version, experimental) in [(stable_manifest, *new_version, false)]
+            .into_iter()
+            .chain(companion.map(|(path, version)| (path, version, true)))
+        {
+            if let Some((crate_, version)) = previous {
+                if let Err(err) = wait_for_release(&crate_.name, version, &ctx.base.crates_index, options.clone()) {
+                    log::warn!(
+                        "Failed to wait for crates-index update - trying to publish '{} v{}' anyway: {}.",
+                        publishee.name,
+                        new_version,
+                        err
+                    );
+                }
+            }
+
+            let checkout_manifest = companion_checkout
+                .as_ref()
+                .filter(|_| experimental)
+                .map(|root| unstable::source_manifest(&ctx.base, publishee).map(|manifest| root.join(manifest)))
+                .transpose()?;
+            if let Err(err) = cargo::publish_crate(
+                publishee,
+                checkout_manifest.as_deref().unwrap_or(manifest),
+                paths.is_some(),
+                experimental,
+                paths.is_none() && prevent_default_members,
+                dry_run_config.as_deref(),
+                options.clone(),
+            ) {
+                publish_err = Some(err);
+                break 'publish;
+            }
+            previous = Some((*publishee, version));
+            if experimental {
+                companions.push(unstable::Companion {
+                    package: publishee,
+                    stable: new_version,
+                    companion: version,
+                    manifest,
+                });
+                continue;
+            }
+            successful_publishees_and_version.push((publishee, new_version));
+            let notes = release_section_by_publishee
+                .get(&publishee.name.as_str())
+                .and_then(|s| section_to_string(s, WriteMode::Tag, options.capitalize_commit));
+            match git::create_version_tag(publishee, version, commit_id, notes, &ctx.base, options.clone()) {
+                Ok(tag_name) => tag_names.extend(tag_name),
+                Err(err) => {
+                    publish_err = Some(err);
+                    break 'publish;
+                }
             }
         }
-
-        if let Err(err) = cargo::publish_crate(publishee, prevent_default_members, options.clone()) {
-            publish_err = Some(err);
-            break;
-        }
-        successful_publishees_and_version.push((publishee, new_version));
-        if let Some(tag_name) = git::create_version_tag(
-            publishee,
-            new_version,
-            commit_id,
-            release_section_by_publishee
-                .get(&publishee.name.as_str())
-                .and_then(|s| section_to_string(s, WriteMode::Tag, options.capitalize_commit)),
-            &ctx.base,
-            options.clone(),
-        )? {
-            tag_names.push(tag_name);
+    }
+    for companion in companions {
+        match unstable::create_tag(&companion, companion_commit, &ctx.base, options.clone()) {
+            Ok(tag) => tag_names.extend(tag),
+            Err(err) if publish_err.is_some() => log::error!("Could not tag '{}': {err:#}", companion.package.name),
+            Err(err) => publish_err = Some(err),
         }
     }
     git::push_tags_and_head(&ctx.base.repo, &tag_names, options.clone())?;
@@ -588,7 +705,11 @@ fn wait_for_release(
         ..
     }: Options,
 ) -> anyhow::Result<()> {
-    if skip_publish || dry_run || dry_run_cargo_publish || registry.is_some() {
+    if skip_publish
+        || dry_run
+        || dry_run_cargo_publish
+        || registry.as_deref().is_some_and(|registry| registry != "crates-io")
+    {
         return Ok(());
     }
     let timeout = std::time::Duration::from_secs(60);

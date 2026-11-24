@@ -133,7 +133,7 @@ pub(in crate::command::release_impl) fn create_version_tag<'repo>(
                 tag
             }
         };
-        Ok(Some(tag.inner.name))
+        Ok(Some(tag.detach().name))
     }
 }
 

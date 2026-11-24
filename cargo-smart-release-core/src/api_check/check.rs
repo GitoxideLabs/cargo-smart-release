@@ -33,9 +33,13 @@ pub fn boundary(manifest: &Path) -> Result<Option<Incompatible>> {
         .find(|package| package["manifest_path"] == manifest.to_string_lossy().as_ref())
         .context("manifest package missing from metadata")?;
     let name = required_str(package, "name")?;
-    let unstable = package["metadata"]["smart-release"]
+    let mut unstable = package["metadata"]["smart-release"]
         .get("unstable-features")
         .map_or_else(|| Ok(Vec::new()), string_array)?;
+    let parallel = has_parallel_features(package);
+    if parallel && !unstable.iter().any(|feature| feature == "unstable") {
+        unstable.push("unstable".into());
+    }
     let output = tempfile::tempdir()?;
     let mut incompatible = Incompatible {
         package: name.to_owned(),
@@ -44,7 +48,7 @@ pub fn boundary(manifest: &Path) -> Result<Option<Incompatible>> {
         issues: Vec::new(),
     };
     for (index, profile) in profiles(package)?.iter().enumerate() {
-        let features = feature_args(profile, &package["features"], &unstable)?;
+        let features = stable_feature_args(profile, &package["features"], &unstable, parallel)?;
         let resolved = cargo_metadata(&manifest, &features)?;
         let document = rustdoc_document(
             &manifest,
@@ -97,8 +101,16 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
     let package_metadata = find_package(&metadata, package, &manifest)?;
     let root = Path::new(required_str(&metadata, "workspace_root")?);
     let supported_profiles = profiles(package_metadata)?;
-    let unstable = &request.unstable_features;
+    let mut unstable = request.unstable_features.clone();
     let dependencies = &request.dependencies;
+    let parallel = has_parallel_features(package_metadata)
+        || (package_metadata["features"].get("unstable").is_some()
+            && dependencies
+                .iter()
+                .any(|dep| dep.name == package && dep.next_version.major > 0 && dep.next_version.pre.is_empty()));
+    if parallel && !unstable.iter().any(|feature| feature == "unstable") {
+        unstable.push("unstable".into());
+    }
     let baseline_dir = tempfile::tempdir()?;
     let baseline_root = match baseline_override.as_deref() {
         Some(path) => path.to_path_buf(),
@@ -129,11 +141,11 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
         if request.experimental {
             selected.features.extend(unstable.iter().cloned());
         }
-        let current_features = feature_args(
-            &selected,
-            &package_metadata["features"],
-            if request.experimental { &[] } else { unstable },
-        )?;
+        let current_features = if request.experimental {
+            feature_args(&selected, &package_metadata["features"], &[])?
+        } else {
+            stable_feature_args(&selected, &package_metadata["features"], &unstable, parallel)?
+        };
         tracing::info!("Checking {package}, features: {current_features:?}");
         let current_metadata = cargo_metadata(&manifest, &current_features)?;
         let current_json = baseline_dir.path().join(format!("current-{profile_index}.json"));
@@ -169,6 +181,16 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
             }
             selected.features.extend(excluded);
             feature_args(&selected, &baseline_package["features"], &[])?
+        } else if parallel {
+            let mut baseline_excluded = baseline_package["metadata"]["smart-release"]
+                .get("unstable-features")
+                .map_or_else(|| Ok(Vec::new()), string_array)?;
+            if baseline_package["features"].get("unstable").is_some()
+                && !baseline_excluded.iter().any(|feature| feature == "unstable")
+            {
+                baseline_excluded.push("unstable".into());
+            }
+            stable_feature_args(profile, &baseline_package["features"], &baseline_excluded, true)?
         } else {
             current_features.clone()
         };
@@ -730,6 +752,66 @@ fn string_array(value: &Value) -> Result<Vec<String>> {
         .iter()
         .map(|value| value.as_str().map(str::to_owned).context("expected a string"))
         .collect()
+}
+
+fn has_parallel_features(package: &Value) -> bool {
+    if package["version"]
+        .as_str()
+        .and_then(|version| semver::Version::parse(version).ok())
+        .is_some_and(|version| version.major > 0 && version.pre.is_empty())
+    {
+        package["features"].get("unstable").is_some()
+    } else {
+        false
+    }
+}
+
+fn stable_feature_args(
+    profile: &FeatureProfile,
+    features: &Value,
+    unstable: &[String],
+    parallel: bool,
+) -> Result<Vec<String>> {
+    if !parallel || (!profile.default_features && !profile.features.iter().any(|feature| feature == "default")) {
+        return feature_args(profile, features, unstable);
+    }
+    let Some(feature_table) = features.as_object() else {
+        return feature_args(profile, features, unstable);
+    };
+    let mut excluded: BTreeSet<_> = unstable.iter().map(String::as_str).collect();
+    loop {
+        let count = excluded.len();
+        for (name, enables) in feature_table {
+            if enables
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .any(|item| excluded.contains(item))
+            {
+                excluded.insert(name);
+            }
+        }
+        if excluded.len() == count {
+            break;
+        }
+    }
+    if !excluded.contains("default") {
+        return feature_args(profile, features, unstable);
+    }
+
+    let mut stripped = profile.clone();
+    stripped.default_features = false;
+    stripped.features.retain(|feature| feature != "default");
+    for feature in string_array(&features["default"])? {
+        if !excluded.contains(feature.as_str()) && !stripped.features.contains(&feature) {
+            if !feature_table.contains_key(&feature) {
+                return Err(anyhow!("stable API profile cannot select stripped default entry '{feature}' by name; put that entry behind a named feature"));
+            }
+            stripped.features.push(feature);
+        }
+    }
+    feature_args(&stripped, features, unstable)
 }
 
 fn feature_args(profile: &FeatureProfile, features: &Value, unstable: &[String]) -> Result<Vec<String>> {
@@ -1954,6 +2036,24 @@ pub fn higher<F: for<'b> Fn(&'b u8)>(value: F) { let _ = value; }
             feature_args(&profile, &features, &["unstable".into()]).is_err(),
             "stable profiles exclude the entire unstable feature closure"
         );
+    }
+
+    #[test]
+    fn parallel_api_profiles_use_the_retained_defaults() -> Result<()> {
+        let profile = FeatureProfile {
+            default_features: true,
+            features: vec!["selected".into()],
+        };
+        let features = serde_json::json!({
+            "default": ["supported", "experimental"],
+            "supported": [], "selected": [], "experimental": ["unstable"], "unstable": []
+        });
+        assert_eq!(
+            stable_feature_args(&profile, &features, &["unstable".into()], true)?,
+            ["--no-default-features", "--features", "selected,supported"]
+        );
+        assert!(stable_feature_args(&profile, &features, &["unstable".into()], false).is_err());
+        Ok(())
     }
 
     #[test]

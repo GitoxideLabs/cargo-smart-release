@@ -99,7 +99,7 @@ pub(in crate::command::release_impl) fn edit_version_and_fixup_dependent_crates_
                     &manifest_path,
                     gix::lock::acquire::Fail::Immediately,
                     None,
-                    0,
+                    Default::default(),
                 )
                 .map_err(anyhow::Error::from)
                 .with_context(|| {
@@ -509,7 +509,7 @@ fn gather_changelog_data<'meta>(
             &publishee.manifest_path,
             gix::lock::acquire::Fail::Immediately,
             None,
-            0,
+            Default::default(),
             Some(&gix::lock::acquire::resolve_symlink),
         )
         .map_err(anyhow::Error::from)
@@ -729,7 +729,10 @@ fn set_version_and_update_package_dependency(
                 if !planned && (!experimental || new_version.major < 1) {
                     continue;
                 }
-                let constrain_minor = experimental && new_version.major >= 1 && !exact;
+                let constrain_minor = experimental
+                    && new_version.major >= 1
+                    && !crate::api::has_parallel_release(package, new_version)
+                    && !exact;
                 let force_update = conservative_pre_release_version_handling
                         && version::is_pre_release(new_version) // setting the lower bound unnecessarily can be harmful
                         // don't claim to be conservative if this is necessary anyway
@@ -773,7 +776,7 @@ fn set_version_and_update_package_dependency(
 // Originally copied from [cargo release](https://github.com/crate-ci/cargo-release/blob/9633353ad5a57dbdca9a9ed6a70c1cf78fc5a51f/src/cargo.rs#L235:L263).
 // The licenses are compatible.
 // With adjustments.
-fn find_dependency_tables(
+pub(super) fn find_dependency_tables(
     root: &mut toml_edit::Table,
 ) -> impl Iterator<Item = (&mut dyn toml_edit::TableLike, Cow<'_, str>)> + '_ {
     const DEP_TABLES: &[&str] = &["dependencies", "dev-dependencies", "build-dependencies"];

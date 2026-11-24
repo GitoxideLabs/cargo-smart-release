@@ -30,7 +30,7 @@ cache-efficiency-debug = ["gix/cache-efficiency-debug"]
 allow-emoji = ["unicode-properties"]
 
 [dependencies]
-gix = { version = "0.90.0", default-features = false, features = [
+gix = { version = "0.91.0", default-features = false, features = [
     "anyhow",
     "command",
     "max-performance",
@@ -48,6 +48,9 @@ env_logger = { version = "0.11.11", default-features = false, features = [
 cargo_metadata = "0.23.1"
 log = "0.4.33"
 toml_edit = "0.25"
+flate2 = "1.1"
+tar = { version = "0.4.46", default-features = false }
+tempfile = "3.27.0"
 semver = "1.0.28"
 crates-index = { version = "4.0.0", default-features = false, features = [
     "sparse",
@@ -72,7 +75,7 @@ unicode-properties = { version = "0.1.4", optional = true, features = [
 
 [dev-dependencies]
 insta = "1.48.0"
-gix-testtools = "0.22.0"
+gix-testtools = "0.23.0"
 testing_logger = "0.1.1"
 
 [workspace]

@@ -43,7 +43,9 @@ For example:
 - `cargo changelog --formatter "prettier --parser markdown"`
 - `cargo smart-release --formatter "rumdl fmt --stdin"`
 
-For particularly thorough but error-prone simulations (as in false positives) one could run `cargo smart-release --dry-run-cargo-publish`.
+Use `cargo smart-release --dry-run-cargo-publish` to run Cargo's packaging and
+verification. For parallel releases, temporary Cargo patches make the staged
+stable and companion versions available during verification.
 Crates that don't compile for the host can be released by passing `--target <triple>`, which is forwarded to every `cargo publish` invocation (including dry runs).
 
 After evaluating the release procedure and following instructions,
@@ -70,6 +72,42 @@ opted in through their manifests. Legacy `<CRATE>-v<VERSION>` tags remain valid 
 release detection, changelog history, and API baselines.
 
 There are various other options that shouldn't be needed in the common case, use `cargo smart-release --help` to see them.
+
+### Parallel experimental releases
+
+A crate with a planned major-positive version and an `unstable` Cargo feature is
+published twice to crates.io. The stable release leaves out `unstable` and any
+features that enable it. The companion enables `unstable` by default and starts
+a fresh `0.x` minor series after the highest published `0.x` version. Downstream
+crates choose the API by version, so different experimental series and the stable
+release can coexist in one dependency graph.
+
+Keep workspace path dependencies on the source version. Cargo smart-release
+rewrites paths requesting experimental features to the companion version in
+the published manifest. Use `package.metadata.smart-release.unstable-features`
+to declare additional experimental features that should be absent in the stable
+package, including when the crate has no API checker. Routing and upload order
+are checked before the release commit. Companion publication requires crates.io
+as the effective Cargo registry.
+
+The stable tags point to the release commit. Smart-release prepares one child
+commit with the companion manifests at their original paths and publishes from
+a temporary checkout of that source tree. Each companion is built as an
+independent Cargo workspace so it can resolve the published versions of its
+dependencies. All companion tags from the run point to that child. Each tag
+annotation links to its archive on crates.io.
+
+When the companion needs to share types defined by the stable package, set
+`package.metadata.smart-release.unstable-stable-dependency = true`. The companion
+then depends on the stable crate as `smart-release-stable` and can re-export its
+types. The companion uses the paired stable version as a caret lower bound, so
+companions paired with different releases of the same stable major can resolve
+to one shared version.
+
+If the stable upload succeeds and the companion fails, retry from the tagged
+stable release commit with `cargo smart-release <crate> --bump keep --execute`.
+The retry reuses the prepared companion source commit recorded in the local
+repository.
 
 [conventional]: https://www.conventionalcommits.org
 
@@ -123,20 +161,17 @@ contain the experimental markers `**Unstable:**` or `**Unstable.**`.
 Dependencies outside the workspace are checked for nominal identity but their
 members are not recursively compared. The default audit is not recursive.
 
-Release planning checks stable and experimental compatibility separately. Stable
-incompatibility requires a breaking release. Experimental incompatibility requires
-at least a minor release, while full compatibility still permits patch releases.
-Explicit major bumps and breaking commits retain their stronger release intent.
-The full comparison enables all declared `unstable-features` together on each
-supported profile and includes experimental documentation items. Declare features
-that can be enabled together; a failed build aborts instead of assuming compatibility.
+Stable incompatibility requires a breaking release. A parallel `0.x` companion
+always starts a new minor series, so experimental changes do not set the stable
+version increment. Explicit major bumps and breaking commits retain their
+stronger release intent.
 
-Consumers opting into experimental APIs should use a requirement such as `~1.2.3`,
-which admits `1.2.x` updates but excludes `1.3.0`. Release manifest updates preserve
-tilde requirements and constrain normal workspace dependencies that explicitly
-enable or forward declared unstable features to the dependency's minor series.
-These bounds must be present in the first published experimental release: updating
-later manifests cannot repair broad requirements in older published versions.
+For crates using a single release series, the full comparison enables all declared
+`unstable-features` together on each supported profile and includes experimental
+documentation items. Experimental incompatibility requires at least a minor release.
+Consumers of those experimental features should use a requirement such as
+`~1.2.3`, which admits `1.2.x` updates. Smart-release applies those bounds to
+workspace path dependencies that enable or forward declared unstable features.
 
 To see the checks **with the dependency versions proposed by smart-release**, use:
 
@@ -223,11 +258,11 @@ back to the manifest version when the index has no entry, and the usual release
 tag naming. A missing baseline or unsupported configuration must fail the check;
 returning success without performing the comparison would waive the guarantee.
 `dependencies` contains **all workspace packages**, including transitive ones,
-with their proposed versions. Each dependency's `baseline_version` is its latest
-published version when known, or its manifest version otherwise; `breaking` compares
-against that baseline so manually pre-bumped manifests are handled too.
-The source manifests have not yet been rewritten,
-so the checker must account for these proposed dependency identities explicitly.
+with their proposed versions. A dependency's `baseline_version` normally comes
+from the index, with its manifest version as a fallback. For a routed dependency,
+the planner also accounts for the consuming crate's previously published
+requirement when available. The checker uses `breaking` to account for the
+proposed dependency identities while running against the workspace source.
 
 Exit **0** verifies that the stable API is compatible and stops inherited breaking
 bumps at this crate. Exit **10** reports incompatibility and requires its normal
