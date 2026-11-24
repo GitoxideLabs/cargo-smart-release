@@ -1,4 +1,8 @@
-use std::process::Command;
+use std::{
+    io::ErrorKind,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::bail;
 use cargo_metadata::Package;
@@ -8,7 +12,11 @@ use crate::utils::will;
 
 pub(in crate::command::release_impl) fn publish_crate(
     publishee: &Package,
+    manifest_path: &Path,
+    staged: bool,
+    experimental: bool,
     prevent_default_members: bool,
+    dry_run_config: Option<&Path>,
     Options {
         skip_publish,
         dry_run,
@@ -28,6 +36,15 @@ pub(in crate::command::release_impl) fn publish_crate(
     let max_attempts = 3;
     let uses_cargo_dry_run = dry_run && dry_run_cargo_publish;
     let cargo_must_run = !dry_run || uses_cargo_dry_run;
+    let docs_args = if !publish_uses_docs_rs_metadata {
+        Vec::new()
+    } else if staged {
+        let manifest = cargo_toml::Manifest::from_path(manifest_path)?;
+        let metadata = manifest.package.and_then(|package| package.metadata);
+        docs_rs_metadata_publish_args_from_value(&publishee.name, &serde_json::to_value(metadata)?)?
+    } else {
+        docs_rs_metadata_publish_args_from_value(&publishee.name, &publishee.metadata)?
+    };
     for attempt in 1..=max_attempts {
         let mut c = Command::new("cargo");
         c.arg("publish");
@@ -38,8 +55,9 @@ pub(in crate::command::release_impl) fn publish_crate(
         if let Some(ref target) = target {
             c.arg("--target").arg(target);
         }
-        if publish_uses_docs_rs_metadata {
-            c.args(docs_rs_metadata_publish_args(publishee)?);
+        c.args(&docs_args);
+        if experimental && docs_args.iter().any(|arg| arg == "--no-default-features") {
+            c.args(["--features", "unstable"]);
         }
 
         if allow_dirty {
@@ -50,8 +68,11 @@ pub(in crate::command::release_impl) fn publish_crate(
         }
         if uses_cargo_dry_run {
             c.arg("--dry-run");
+            if let Some(config) = dry_run_config {
+                c.arg("--config").arg(config);
+            }
         }
-        c.arg("--manifest-path").arg(&publishee.manifest_path);
+        c.arg("--manifest-path").arg(manifest_path);
         if prevent_default_members {
             c.arg("--package").arg(publishee.name.as_str());
         }
@@ -71,13 +92,77 @@ pub(in crate::command::release_impl) fn publish_crate(
     Ok(())
 }
 
+pub(super) fn dry_run_patches<'a>(
+    staging: &Path,
+    staged: impl Iterator<Item = (&'a Package, &'a Path)>,
+) -> anyhow::Result<Option<PathBuf>> {
+    use anyhow::Context as _;
+    use toml_edit::{value, DocumentMut, InlineTable, Table};
+
+    let mut patches = Table::new();
+    for (index, (package, manifest)) in staged.enumerate() {
+        let directory = manifest.parent().context("Staged manifest has no parent")?;
+        let mut entry = InlineTable::new();
+        entry.insert("package", package.name.as_str().into());
+        entry.insert(
+            "path",
+            directory.to_str().context("Staged package path must be UTF-8")?.into(),
+        );
+        patches.insert(&format!("release-{index}"), value(entry));
+    }
+    if patches.is_empty() {
+        return Ok(None);
+    }
+    let mut config = DocumentMut::new();
+    config["patch"]["crates-io"] = toml_edit::Item::Table(patches);
+    let path = staging.join("dry-run.toml");
+    std::fs::write(&path, config.to_string())?;
+    Ok(Some(path))
+}
+
 pub fn refresh_lock_file() -> anyhow::Result<()> {
     cargo_metadata::MetadataCommand::new().exec()?;
     Ok(())
 }
 
-fn docs_rs_metadata_publish_args(publishee: &Package) -> anyhow::Result<Vec<String>> {
-    docs_rs_metadata_publish_args_from_value(&publishee.name, &publishee.metadata)
+pub(super) fn default_registry() -> anyhow::Result<Option<String>> {
+    use anyhow::Context as _;
+
+    if let Some(registry) = std::env::var_os("CARGO_REGISTRY_DEFAULT") {
+        return Ok(Some(
+            registry
+                .into_string()
+                .map_err(|_| anyhow::anyhow!("CARGO_REGISTRY_DEFAULT must be UTF-8"))?,
+        ));
+    }
+    let cwd = std::env::current_dir()?;
+    let cargo_home = std::env::var_os("CARGO_HOME")
+        .map(PathBuf::from)
+        .or_else(|| gix::path::env::home_dir().map(|home| home.join(".cargo")));
+    for dir in cwd.ancestors().map(|dir| dir.join(".cargo")).chain(cargo_home) {
+        // Cargo prefers the extensionless file when both names exist.
+        for name in ["config", "config.toml"] {
+            let path = dir.join(name);
+            let source = match std::fs::read_to_string(&path) {
+                Ok(source) => source,
+                Err(err) if err.kind() == ErrorKind::NotFound => continue,
+                Err(err) => return Err(err).with_context(|| format!("Could not read {}", path.display())),
+            };
+            let config = source
+                .parse::<toml_edit::DocumentMut>()
+                .with_context(|| format!("Invalid Cargo config {}", path.display()))?;
+            if let Some(registry) = config.get("registry").and_then(|registry| registry.get("default")) {
+                return Ok(Some(
+                    registry
+                        .as_str()
+                        .with_context(|| format!("registry.default in {} must be a string", path.display()))?
+                        .to_owned(),
+                ));
+            }
+            break;
+        }
+    }
+    Ok(None)
 }
 
 fn docs_rs_metadata_publish_args_from_value(

@@ -9,11 +9,20 @@ use cargo_metadata::{Dependency as CargoDependency, Package, PackageId};
 use cargo_smart_release_core::api_check::{ReleaseDependency, ReleaseRequest};
 use serde_json::Value;
 
-use crate::{traverse::Dependency, utils::package_by_id, Context};
+use crate::{
+    command::parallel,
+    traverse::Dependency,
+    utils::{package_by_id, try_to_published_crate_and_new_version},
+    Context,
+};
 
 struct Policy {
     command: Vec<String>,
     unstable_features: Vec<String>,
+}
+
+pub(crate) fn has_parallel_release(package: &Package, version: &semver::Version) -> bool {
+    version.major > 0 && version.pre.is_empty() && package.features.contains_key("unstable")
 }
 
 /// A successful check bounds the stable API, not consumers of excluded features.
@@ -35,14 +44,9 @@ impl<'meta> Checks<'meta> {
         let mut policies = BTreeMap::new();
         for id in &ctx.meta.workspace_members {
             let package = package_by_id(&ctx.meta, id);
-            if let Some(policy) = Policy::from_metadata(&package.metadata)
+            if let Some(policy) = Policy::from_package(package)
                 .with_context(|| format!("Invalid smart-release metadata for '{}'", package.name))?
             {
-                for feature in &policy.unstable_features {
-                    if !package.features.contains_key(feature) {
-                        bail!("Unknown unstable feature '{feature}' in '{}'", package.name);
-                    }
-                }
                 if package.publish.is_none()
                     && (package.version.major == 0
                         || allow_auto_publish_of_stable_crates
@@ -85,6 +89,14 @@ impl<'meta> Checks<'meta> {
 
     /// Recheck changed candidate versions until no further API boundary is rejected.
     pub fn verify(&mut self, ctx: &Context, crates: &[Dependency<'meta>]) -> anyhow::Result<bool> {
+        if self.policies.is_empty() {
+            return Ok(false);
+        }
+        let parallels = parallel::Plan::new(
+            crates.iter().filter_map(try_to_published_crate_and_new_version),
+            ctx,
+            None,
+        )?;
         let dependencies: Vec<_> = ctx
             .meta
             .workspace_members
@@ -128,12 +140,23 @@ impl<'meta> Checks<'meta> {
                 .transpose()?
                 .unwrap_or_else(|| package.version.clone());
             let baseline_revision = crate::utils::release_tag_name(package, &baseline_version, &ctx.repo)?;
+            let next_version = dep
+                .mode
+                .version_adjustment_bump()
+                .map_or(&package.version, |bump| &bump.next_release);
+            let parallel = has_parallel_release(package, next_version);
+            let mut unstable_features = policy.unstable_features.clone();
+            if parallel && !unstable_features.iter().any(|feature| feature == "unstable") {
+                unstable_features.push("unstable".into());
+            }
             for experimental in [false, true] {
                 if self.skipped.contains(&(&package.id, experimental)) {
                     continue;
                 }
                 if experimental
-                    && (self.incompatible.contains(&package.id) || self.experimental_incompatible.contains(&package.id))
+                    && (parallel
+                        || self.incompatible.contains(&package.id)
+                        || self.experimental_incompatible.contains(&package.id))
                 {
                     continue;
                 }
@@ -142,8 +165,12 @@ impl<'meta> Checks<'meta> {
                     manifest_path: package.manifest_path.clone().into_std_path_buf(),
                     baseline_revision: baseline_revision.clone(),
                     baseline_version: Some(baseline_version.clone()),
-                    unstable_features: policy.unstable_features.clone(),
-                    dependencies: dependencies.clone(),
+                    unstable_features: unstable_features.clone(),
+                    dependencies: routed_dependencies(
+                        dependencies.clone(),
+                        parallels.api_routes(package, ctx, experimental)?,
+                        latest.as_ref().map(|entry| entry.highest_version()),
+                    )?,
                     experimental,
                 };
                 let request = serde_json::to_string(&request)?;
@@ -155,7 +182,7 @@ impl<'meta> Checks<'meta> {
                             if experimental { "experimental" } else { "stable" },
                             package.name,
                             baseline_revision,
-                            policy.unstable_features.join(", ")
+                            unstable_features.join(", ")
                         );
                         let compatible = (|| {
                             let mut child = Command::new(&policy.command[0])
@@ -221,12 +248,61 @@ impl<'meta> Checks<'meta> {
     }
 }
 
+fn routed_dependencies(
+    mut dependencies: Vec<ReleaseDependency>,
+    routes: Vec<(&CargoDependency, Option<semver::Version>)>,
+    baseline: Option<&crates_index::Version>,
+) -> anyhow::Result<Vec<ReleaseDependency>> {
+    for (edge, routed_version) in routes {
+        let Some(dependency) = dependencies.iter_mut().find(|dependency| dependency.name == edge.name) else {
+            continue;
+        };
+        let previous = baseline
+            .into_iter()
+            .flat_map(crates_index::Version::dependencies)
+            .find(|previous| {
+                previous.kind() == crates_index::DependencyKind::Normal
+                    && previous.crate_name() == edge.name
+                    && previous.name() == edge.rename.as_deref().unwrap_or(&edge.name)
+                    && previous.target().and_then(|target| target.parse().ok()) == edge.target
+            })
+            .map(|previous| semver::VersionReq::parse(previous.requirement()))
+            .transpose()?;
+        let comparator = previous.as_ref().and_then(|req| req.comparators.first());
+        let Some(version) = routed_version.or_else(|| {
+            (dependency.next_version.major > 0 && comparator.is_some_and(|previous| previous.major == 0))
+                .then(|| dependency.next_version.clone())
+        }) else {
+            continue;
+        };
+        let breaking = previous.as_ref().map_or_else(
+            || {
+                dependency.baseline_version.major > 0
+                    || crate::version::rhs_is_breaking_bump_for_lhs(&dependency.baseline_version, &version)
+            },
+            |previous| !previous.matches(&version),
+        );
+        if dependency.next_version.major > 0 || breaking {
+            if let Some(comparator) = comparator {
+                dependency.baseline_version = semver::Version::new(
+                    comparator.major,
+                    comparator.minor.unwrap_or_default(),
+                    comparator.patch.unwrap_or_default(),
+                );
+            }
+            dependency.next_version = version;
+            dependency.breaking = breaking;
+        }
+    }
+    Ok(dependencies)
+}
+
 pub(crate) fn dependency_uses_unstable(
     consumer: &Package,
     dependency: &CargoDependency,
     package: &Package,
 ) -> anyhow::Result<bool> {
-    Ok(Policy::from_metadata(&package.metadata)?
+    Ok(Policy::from_package(package)?
         .is_some_and(|policy| uses_unstable(consumer, dependency, package, &policy.unstable_features)))
 }
 
@@ -264,15 +340,22 @@ fn uses_unstable(
 }
 
 impl Policy {
-    fn from_metadata(metadata: &Value) -> anyhow::Result<Option<Self>> {
-        let Some(metadata) = metadata.get("smart-release") else {
+    fn from_package(package: &Package) -> anyhow::Result<Option<Self>> {
+        let Some(metadata) = package.metadata.get("smart-release") else {
             return Ok(None);
         };
         let metadata = metadata
             .as_object()
             .context("package.metadata.smart-release must be a table")?;
         for key in metadata.keys() {
-            if !["api-check", "unstable-features", "github-release"].contains(&key.as_str()) {
+            if ![
+                "api-check",
+                "unstable-features",
+                "github-release",
+                "unstable-stable-dependency",
+            ]
+            .contains(&key.as_str())
+            {
                 bail!("Unknown package.metadata.smart-release key '{key}'");
             }
         }
@@ -281,12 +364,11 @@ impl Policy {
                 .as_bool()
                 .context("package.metadata.smart-release.github-release must be a boolean")?;
         }
-        let Some(command) = metadata.get("api-check") else {
-            if metadata.contains_key("unstable-features") {
-                bail!("unstable-features requires api-check");
-            }
-            return Ok(None);
-        };
+        if let Some(value) = metadata.get("unstable-stable-dependency") {
+            value
+                .as_bool()
+                .context("package.metadata.smart-release.unstable-stable-dependency must be a boolean")?;
+        }
         let strings = |value: &Value| -> anyhow::Result<Vec<String>> {
             value
                 .as_array()
@@ -295,17 +377,68 @@ impl Policy {
                 .map(|value| value.as_str().map(str::to_owned).context("Expected a string"))
                 .collect()
         };
+        let mut unstable_features = metadata
+            .get("unstable-features")
+            .map(strings)
+            .transpose()?
+            .unwrap_or_default();
+        for feature in &unstable_features {
+            if !package.features.contains_key(feature) {
+                bail!("Unknown unstable feature '{feature}' in '{}'", package.name);
+            }
+        }
+        let Some(command) = metadata.get("api-check") else {
+            if metadata.contains_key("unstable-features") && !package.features.contains_key("unstable") {
+                bail!("unstable-features requires api-check or a parallel unstable release");
+            }
+            return Ok(None);
+        };
+        if has_parallel_release(package, &package.version)
+            && !unstable_features.iter().any(|feature| feature == "unstable")
+        {
+            unstable_features.push("unstable".into());
+        }
         let command = strings(command).context("Invalid api-check command")?;
         if command.first().is_none_or(String::is_empty) {
             bail!("api-check needs a nonempty executable name");
         }
         Ok(Some(Self {
             command,
-            unstable_features: metadata
-                .get("unstable-features")
-                .map(strings)
-                .transpose()?
-                .unwrap_or_default(),
+            unstable_features,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_consumer_already_on_the_same_companion_series_stays_compatible() -> anyhow::Result<()> {
+        let edge = serde_json::from_value::<CargoDependency>(serde_json::json!({
+            "name": "api", "req": "^1.0", "kind": "normal", "optional": false,
+            "uses_default_features": true, "features": [],
+        }))?;
+        let previous = serde_json::from_value::<crates_index::Version>(serde_json::json!({
+            "name": "consumer", "vers": "1.2.3", "features": {}, "cksum": "0".repeat(64),
+            "deps": [{ "name": "api", "req": "^0.3.0", "features": [], "optional": false, "default_features": true }],
+        }))?;
+        for (routed, breaking) in [(Some("0.3.1"), false), (Some("0.4.0"), true), (None, true)] {
+            let dependencies = vec![ReleaseDependency {
+                name: "api".into(),
+                current_version: semver::Version::new(1, 0, 0),
+                baseline_version: semver::Version::new(1, 0, 0),
+                next_version: semver::Version::new(1, 0, 1),
+                breaking: false,
+                experimental_breaking: false,
+            }];
+            let planned = routed_dependencies(
+                dependencies,
+                vec![(&edge, routed.map(semver::Version::parse).transpose()?)],
+                Some(&previous),
+            )?;
+            assert_eq!(planned[0].breaking, breaking, "published series ^0.3.0 vs. {routed:?}");
+        }
+        Ok(())
     }
 }

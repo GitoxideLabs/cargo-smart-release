@@ -5,13 +5,7 @@ use std::{
 };
 
 use cargo_metadata::Package;
-use gix::{
-    bstr::ByteSlice,
-    head,
-    prelude::{ObjectIdExt, ReferenceExt},
-    traverse::commit::simple::CommitTimeOrder,
-    Reference,
-};
+use gix::{bstr::ByteSlice, prelude::ObjectIdExt, traverse::commit::simple::CommitTimeOrder, Reference};
 
 use crate::{
     commit,
@@ -36,10 +30,9 @@ pub fn collect(repo: &gix::Repository) -> anyhow::Result<commit::History> {
     let id = head
         .try_peel_to_id()?
         .context("Refusing to operate on a unborn head.")?;
-    let mut reference = match head.kind {
-        head::Kind::Detached { .. } => handle.find_reference("HEAD")?,
-        head::Kind::Unborn { .. } => unreachable!("handled above"),
-        head::Kind::Symbolic(r) => r.attach(&handle),
+    let mut reference = match head.try_into_referent() {
+        Some(reference) => reference,
+        None => handle.find_reference("HEAD")?,
     };
     reference.peel_to_id()?;
 
@@ -112,9 +105,9 @@ pub fn crate_ref_segments<'h>(
     let tag_prefix = tag_prefix(package, &ctx.repo);
     let mut tags_by_commit = {
         let refs = ctx.repo.references()?;
+        let reachable_commits: HashSet<_> = history.items.iter().map(|item| item.id).collect();
         match tag_prefix {
             Some(prefix) => {
-                let reachable_commits: HashSet<_> = history.items.iter().map(|item| item.id).collect();
                 let mut tags_by_version = BTreeMap::new();
                 for tag in refs
                     .prefixed(format!("refs/tags/{prefix}").as_str())?
@@ -138,6 +131,7 @@ pub fn crate_ref_segments<'h>(
                 refs.prefixed("refs/tags/")?
                     .peeled()?
                     .filter_map(|r| r.ok().map(Reference::detach))
+                    .filter(|tag| reachable_commits.contains(&tag.peeled.expect("already peeled")))
                     .filter(|r| is_tag_version(strip_tag_path(r.name.as_ref())))
                     .map(|r| {
                         let t = r.peeled.expect("already peeled");

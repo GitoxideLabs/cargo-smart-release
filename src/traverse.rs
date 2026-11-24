@@ -763,7 +763,7 @@ fn depth_first_traversal<'meta>(
     for workspace_dependency in root
         .dependencies
         .iter()
-        .filter(|d| d.kind == DependencyKind::Normal)
+        .filter(|d| matches!(d.kind, DependencyKind::Normal | DependencyKind::Build))
         .filter_map(|d| workspace_package_by_dependency(&ctx.meta, d))
     {
         if seen.contains(&&workspace_dependency.id) {
@@ -779,12 +779,29 @@ fn depth_first_traversal<'meta>(
             bump_when_needed,
         )?;
 
+        let selected = ctx.crate_names.contains(&workspace_dependency.name);
+        let kind = if selected {
+            dependency::Kind::UserSelection
+        } else {
+            dependency::Kind::DependencyOrDependentOfUserSelection
+        };
         crates.push(match git::change_since_last_release(workspace_dependency, ctx)? {
+            Some(_) if !package_may_be_published(workspace_dependency) => Dependency {
+                package: workspace_dependency,
+                kind,
+                mode: dependency::Mode::NotForPublishing {
+                    reason: dependency::NoPublishReason::PublishDisabledInManifest,
+                    adjustment: None,
+                },
+            },
             Some(change) => {
-                if is_pre_release_version(&workspace_dependency.version) || allow_auto_publish_of_stable_crates {
+                if selected
+                    || is_pre_release_version(&workspace_dependency.version)
+                    || allow_auto_publish_of_stable_crates
+                {
                     Dependency {
                         package: workspace_dependency,
-                        kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                        kind,
                         mode: dependency::Mode::ToBePublished {
                             adjustment: VersionAdjustment::Changed {
                                 change: Some(change),
@@ -795,7 +812,7 @@ fn depth_first_traversal<'meta>(
                 } else {
                     Dependency {
                         package: workspace_dependency,
-                        kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                        kind,
                         mode: dependency::Mode::NotForPublishing {
                             reason: dependency::NoPublishReason::DeniedAutopublishOfProductionCrate,
                             adjustment: None,
@@ -805,7 +822,7 @@ fn depth_first_traversal<'meta>(
             }
             None => Dependency {
                 package: workspace_dependency,
-                kind: dependency::Kind::DependencyOrDependentOfUserSelection,
+                kind,
                 mode: dependency::Mode::NotForPublishing {
                     reason: dependency::NoPublishReason::Unchanged,
                     adjustment: None,

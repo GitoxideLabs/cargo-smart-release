@@ -103,14 +103,14 @@ pub struct ReleaseDependency {
     pub name: String,
     /// Version currently declared in the package's manifest.
     pub current_version: Version,
-    /// Latest published version known to the planner, or the manifest version if unknown.
+    /// Published version used for comparison, or the manifest version if unknown.
     ///
-    /// This is the reference for deciding whether the planned version is breaking,
-    /// so a manually bumped manifest does not hide a change from published users.
+    /// This may describe the version series required by the consuming crate's
+    /// previous published manifest when its dependency is routed between releases.
     pub baseline_version: Version,
-    /// Version proposed by the release plan, which may equal `current_version`.
+    /// Version proposed for this consumer, including any companion routing.
     pub next_version: Version,
-    /// Whether `next_version` is a breaking increase relative to `baseline_version`.
+    /// Whether `next_version` represents a breaking change relative to `baseline_version`.
     ///
     /// The planner supplies this flag using Cargo's version compatibility rules,
     /// including minor increases below 1.0 and patch increases below 0.1.

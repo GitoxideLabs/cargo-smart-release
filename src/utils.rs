@@ -102,14 +102,18 @@ pub fn version_req_unset_or_default(req: &VersionReq) -> bool {
 
 pub fn package_eq_dependency_ignore_dev_without_version(package: &Package, dependency: &Dependency) -> bool {
     (dependency.kind != DependencyKind::Development || !version_req_unset_or_default(&dependency.req))
+        && dependency
+            .path
+            .as_deref()
+            .is_some_and(|path| package.manifest_path.parent() == Some(path))
         && package.name.as_str() == dependency.name
 }
 
 pub fn workspace_package_by_dependency<'a>(meta: &'a Metadata, dep: &Dependency) -> Option<&'a Package> {
-    meta.packages
-        .iter()
-        .find(|p| p.name.as_str() == dep.name && p.source.as_ref().is_none_or(|s| !s.is_crates_io()))
-        .filter(|p| meta.workspace_members.iter().any(|m| m == &p.id))
+    let path = dep.path.as_deref()?;
+    meta.packages.iter().find(|p| {
+        p.name.as_str() == dep.name && p.manifest_path.parent() == Some(path) && meta.workspace_members.contains(&p.id)
+    })
 }
 
 pub fn package_by_name<'a>(meta: &'a Metadata, name: &str) -> anyhow::Result<&'a Package> {

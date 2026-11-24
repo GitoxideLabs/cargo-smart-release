@@ -27,7 +27,7 @@ fn private_breaking_dependencies_stop_at_verified_boundaries() -> gix_testtools:
         "a verified private dependency must not cause a major bump: {stderr}"
     );
     let request: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.path().join("request.json"))?)?;
-    assert_eq!(request["unstable_features"], serde_json::json!(["unstable"]));
+    assert_eq!(request["unstable_features"], serde_json::json!(["unstable-api"]));
     assert_eq!(request["baseline_revision"], "csr-api-facade-v1.2.3");
     let leaf = request["dependencies"]
         .as_array()
@@ -83,7 +83,7 @@ fn rejected_boundaries_and_unchecked_crates_keep_conservative_bumps() -> gix_tes
 
 #[test]
 fn unstable_consumers_keep_conservative_bumps() -> gix_testtools::Result {
-    for features in ["features = [\"unstable\"],", "features = [\"experimental\"],"] {
+    for features in ["features = [\"unstable-api\"],", "features = [\"experimental\"],"] {
         let dir = fixture(Some(0), features)?;
         let output = release(dir.path(), &[])?;
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -95,11 +95,43 @@ fn unstable_consumers_keep_conservative_bumps() -> gix_testtools::Result {
 }
 
 #[test]
+fn checked_public_dependencies_use_the_companion_identity() -> gix_testtools::Result {
+    let dir = fixture(Some(0), "features = [\"unstable\"],")?;
+    let root = dir.path();
+    let facade = root.join("facade/Cargo.toml");
+    fs::write(
+        &facade,
+        fs::read_to_string(&facade)?.replace("unstable-api", "unstable"),
+    )?;
+    let client = root.join("client/Cargo.toml");
+    let mut manifest = fs::read_to_string(&client)?;
+    manifest.push_str("\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\n");
+    fs::write(client, manifest)?;
+    fs::write(
+        root.join("client-check.sh"),
+        r#"#!/bin/sh
+request=$(cat)
+case "$request" in
+    *'"name":"csr-api-facade","current_version":"1.2.3","baseline_version":"1.2.3","next_version":"0.1.0","breaking":true'*) exit 10 ;;
+    *) printf '%s\n' "$request" >&2; exit 5 ;;
+esac
+"#,
+    )?;
+    git(root, "add client-check.sh")?;
+    git(root, "commit -am 'check companion dependency identities'")?;
+    let output = release(root, &[])?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(stderr.contains("'csr-api-client' from 1.2.3 to 2.0.0"), "{stderr}");
+    Ok(())
+}
+
+#[test]
 fn experimental_compatibility_controls_patch_and_minor_releases() -> gix_testtools::Result {
     for (experimental_result, expected) in [(0, "1.2.4"), (10, "1.3.0")] {
         let dir = fixture(Some(0), "")?;
         let client = dir.path().join("client/Cargo.toml");
-        fs::write(&client, format!("{}\n[features]\nunstable = [\"csr-api-facade/unstable\"]\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\nunstable-features = [\"unstable\"]\n", fs::read_to_string(&client)?))?;
+        fs::write(&client, format!("{}\n[features]\nunstable-api = [\"csr-api-facade/unstable-api\"]\n[package.metadata.smart-release]\napi-check = [\"sh\", \"client-check.sh\"]\nunstable-features = [\"unstable-api\"]\n", fs::read_to_string(&client)?))?;
         fs::write(
             dir.path().join("client-check.sh"),
             r#"#!/bin/sh
@@ -194,9 +226,9 @@ fn unstable_dependency_requirements_allow_only_patch_updates() -> gix_testtools:
     for (features, requested, expected, changed_dependency) in [
         ("", "1.2.3", "1.2.3", true),
         ("features = [\"experimental\"],", "1.2.3", "~1.2.4", true),
-        ("features = [\"unstable\"],", "~1.2.3", "~1.2.3", true),
-        ("features = [\"unstable\"],", "1.2.3", "~1.2.3", false),
-        ("features = [\"unstable\"],", "=1.2.3", "=1.2.3", false),
+        ("features = [\"unstable-api\"],", "~1.2.3", "~1.2.3", true),
+        ("features = [\"unstable-api\"],", "1.2.3", "~1.2.3", false),
+        ("features = [\"unstable-api\"],", "=1.2.3", "=1.2.3", false),
     ] {
         let dir = fixture(Some(0), features)?;
         if !changed_dependency {
@@ -419,7 +451,7 @@ fn missing_checker_and_malformed_metadata_abort() -> gix_testtools::Result {
         "api-check = []",
         "api-check = [\"./missing-checker\"]",
         "api-check = true",
-        "unstable-features = [\"unstable\"]",
+        "unstable-features = [\"unstable-api\"]",
         "api-check = [\"sh\", \"check.sh\"]\nunstable-features = [\"missing\"]",
     ] {
         let dir = fixture(None, "")?;
@@ -498,7 +530,7 @@ esac
 #[test]
 fn default_and_forwarded_features_count_as_unstable_consumers() -> gix_testtools::Result {
     for (manifest_path, features) in [
-        ("facade/Cargo.toml", "default = [\"unstable\"]\n"),
+        ("facade/Cargo.toml", "default = [\"unstable-api\"]\n"),
         (
             "client/Cargo.toml",
             "[features]\nexpose = [\"csr-api-facade/experimental\"]\n",
@@ -565,7 +597,7 @@ fn unstable_dependants_outside_the_selected_graph_receive_manifest_bumps() -> gi
 name = "csr-api-sibling"
 version = "1.2.3"
 [dependencies]
-csr-api-facade = { path = "../facade", version = "1.2.3", features = ["unstable"] }
+csr-api-facade = { path = "../facade", version = "1.2.3", features = ["unstable-api"] }
 "#,
     )?;
     git(root, "add .")?;
@@ -883,8 +915,8 @@ fn fixture(result: Option<i32>, dependency_features: &str) -> gix_testtools::Res
         fs::create_dir_all(root.join(directory).join("src"))?;
         fs::write(root.join(directory).join("src/lib.rs"), "pub fn value() {}\n")?;
         let metadata = if directory == "facade" {
-            let check = result.map_or(String::new(), |result| format!("[package.metadata.smart-release]\napi-check = [\"sh\", \"check.sh\", \"{result}\"]\nunstable-features = [\"unstable\"]\n"));
-            format!("[features]\nunstable = []\nexperimental = [\"unstable\"]\n{check}")
+            let check = result.map_or(String::new(), |result| format!("[package.metadata.smart-release]\napi-check = [\"sh\", \"check.sh\", \"{result}\"]\nunstable-features = [\"unstable-api\"]\n"));
+            format!("[features]\nunstable-api = []\nexperimental = [\"unstable-api\"]\n{check}")
         } else { String::new() };
         fs::write(root.join(directory).join("Cargo.toml"), format!("[package]\nname = \"csr-api-{directory}\"\nversion = \"{version}\"\nedition = \"2021\"\n{dependency}{metadata}"))?;
     }

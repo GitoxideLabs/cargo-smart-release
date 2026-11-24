@@ -66,7 +66,7 @@ impl ChangeLog {
             &changelog_path,
             gix::lock::acquire::Fail::Immediately,
             None,
-            0,
+            Default::default(),
         )
         .map_err(anyhow::Error::from)
         .with_context(|| {
