@@ -694,13 +694,18 @@ impl<'a> Plan<'a> {
         let mut removed_features = BTreeSet::new();
         let mut removed_dependencies = BTreeSet::new();
         if let Some(companion) = companion {
-            let features = doc["features"]
+            let features = doc
+                .entry("features")
+                .or_insert(Item::Table(Table::new()))
                 .as_table_like_mut()
                 .context("Expected a feature table")?;
             if features.iter().any(|(name, _)| name.starts_with(MARKER_PREFIX)) {
                 bail!("The feature prefix '{MARKER_PREFIX}' is reserved for parallel unstable releases");
             }
             features.insert(&format!("{MARKER_PREFIX}{version}"), value(Array::new()));
+            if !features.contains_key("default") && package.features.contains_key("default") {
+                add_feature(doc, "default", "dep:default")?;
+            }
             add_feature(doc, "default", GATE)?;
             if package.metadata["smart-release"]["unstable-stable-dependency"].as_bool() == Some(true) {
                 let dependencies = doc.entry("dependencies").or_insert(Item::Table(Table::new()));
@@ -916,7 +921,10 @@ fn excluded_features(package: &Package) -> BTreeSet<&str> {
     loop {
         let count = excluded.len();
         for (name, items) in &package.features {
-            if items.iter().any(|item| excluded.contains(item.as_str())) {
+            if items
+                .iter()
+                .any(|item| enables_excluded_feature(item, &excluded, package))
+            {
                 excluded.insert(name);
             }
         }
@@ -926,38 +934,82 @@ fn excluded_features(package: &Package) -> BTreeSet<&str> {
     }
 }
 
+fn enables_excluded_feature(item: &str, excluded: &BTreeSet<&str>, package: &Package) -> bool {
+    excluded.contains(item)
+        || item.split_once('/').is_some_and(|(name, _)| {
+            excluded.contains(name)
+                && package.dependencies.iter().any(|dependency| {
+                    dependency.optional && dependency.rename.as_deref().unwrap_or(&dependency.name) == name
+                })
+        })
+}
+
 fn strip_experimental_features(
     doc: &mut DocumentMut,
     package: &Package,
 ) -> anyhow::Result<(BTreeSet<String>, BTreeSet<String>)> {
     let mut excluded = excluded_features(package);
-    excluded.remove("default");
-    let features = doc["features"]
+    if package
+        .features
+        .get("default")
+        .is_none_or(|items| items != &["dep:default"])
+    {
+        excluded.remove("default");
+    }
+    let required_deps: BTreeSet<_> = find_dependency_tables(doc)
+        .flat_map(|(table, _)| table.iter())
+        .filter(|(_, entry)| entry.get("optional").and_then(Item::as_bool) != Some(true))
+        .map(|(name, _)| name.to_owned())
+        .collect();
+    let features = doc
+        .entry("features")
+        .or_insert(Item::Table(Table::new()))
         .as_table_like_mut()
         .context("Expected a feature table")?;
     let mut removed_deps = BTreeSet::new();
     for name in &excluded {
-        if let Some(items) = features.remove(name).as_ref().and_then(Item::as_array) {
+        features.remove(name);
+        // Cargo metadata includes implicit optional-dependency features omitted from the packaged manifest.
+        if let Some(items) = package.features.get(*name) {
             removed_deps.extend(
                 items
                     .iter()
-                    .filter_map(|item| optional_dependency(item.as_str()?))
+                    .filter_map(|item| optional_dependency(item))
                     .map(str::to_owned),
             );
         }
     }
     if let Some(default) = features.get_mut("default").and_then(Item::as_array_mut) {
-        default.retain(|item| item.as_str().is_none_or(|item| !excluded.contains(item)));
+        default.retain(|item| {
+            item.as_str()
+                .is_none_or(|item| !enables_excluded_feature(item, &excluded, package))
+        });
     }
-    for (name, items) in features.iter() {
-        removed_deps.remove(name);
-        for dependency in items
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|item| optional_dependency(item.as_str()?))
-        {
+    removed_deps.retain(|name| excluded.contains(name.as_str()) || !package.features.contains_key(name));
+    for (_, items) in features.iter() {
+        let dependencies = items.as_array().into_iter().flatten().filter_map(|item| {
+            let item = item.as_str()?;
+            optional_dependency(item).filter(|_| !item.contains("?/"))
+        });
+        for dependency in dependencies {
             removed_deps.remove(dependency);
+        }
+    }
+    // Cargo permits weak forwarding only while the dependency is optional on at least one target.
+    for (_, items) in features.iter_mut() {
+        if let Some(items) = items.as_array_mut() {
+            for item in items.iter_mut() {
+                if let Some((name, feature)) = item.as_str().and_then(|item| item.split_once("?/")) {
+                    if removed_deps.contains(name) && required_deps.contains(name) {
+                        *item = format!("{name}/{feature}").into();
+                    }
+                }
+            }
+            items.retain(|item| {
+                item.as_str()
+                    .and_then(|item| item.split_once("?/"))
+                    .is_none_or(|(dependency, _)| !removed_deps.contains(dependency))
+            });
         }
     }
     if let Some(docs_features) = doc
@@ -968,7 +1020,13 @@ fn strip_experimental_features(
         .and_then(|rs| rs.get_mut("features"))
         .and_then(Item::as_array_mut)
     {
-        docs_features.retain(|item| item.as_str().is_none_or(|item| !excluded.contains(item)));
+        docs_features.retain(|item| {
+            item.as_str().is_none_or(|item| {
+                !excluded.contains(item)
+                    && optional_dependency(item)
+                        .is_none_or(|name| !removed_deps.contains(name) || required_deps.contains(name))
+            })
+        });
     }
     Ok((excluded.into_iter().map(str::to_owned).collect(), removed_deps))
 }

@@ -48,7 +48,7 @@ pub fn boundary(manifest: &Path) -> Result<Option<Incompatible>> {
         issues: Vec::new(),
     };
     for (index, profile) in profiles(package)?.iter().enumerate() {
-        let features = stable_feature_args(profile, &package["features"], &unstable, parallel)?;
+        let features = stable_feature_args(profile, package, &unstable, parallel)?;
         let resolved = cargo_metadata(&manifest, &features)?;
         let document = rustdoc_document(
             &manifest,
@@ -144,7 +144,7 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
         let current_features = if request.experimental {
             feature_args(&selected, &package_metadata["features"], &[])?
         } else {
-            stable_feature_args(&selected, &package_metadata["features"], &unstable, parallel)?
+            stable_feature_args(&selected, package_metadata, &unstable, parallel)?
         };
         tracing::info!("Checking {package}, features: {current_features:?}");
         let current_metadata = cargo_metadata(&manifest, &current_features)?;
@@ -190,7 +190,7 @@ pub fn release(request: &ReleaseRequest, baseline_override: Option<&Path>) -> Re
             {
                 baseline_excluded.push("unstable".into());
             }
-            stable_feature_args(profile, &baseline_package["features"], &baseline_excluded, true)?
+            stable_feature_args(profile, baseline_package, &baseline_excluded, true)?
         } else {
             current_features.clone()
         };
@@ -768,15 +768,29 @@ fn has_parallel_features(package: &Value) -> bool {
 
 fn stable_feature_args(
     profile: &FeatureProfile,
-    features: &Value,
+    package: &Value,
     unstable: &[String],
     parallel: bool,
 ) -> Result<Vec<String>> {
-    if !parallel || (!profile.default_features && !profile.features.iter().any(|feature| feature == "default")) {
+    let features = &package["features"];
+    if !parallel {
         return feature_args(profile, features, unstable);
     }
     let Some(feature_table) = features.as_object() else {
         return feature_args(profile, features, unstable);
+    };
+    let optional: BTreeSet<_> = package["dependencies"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|dependency| dependency["optional"] == true)
+        .filter_map(|dependency| dependency["rename"].as_str().or_else(|| dependency["name"].as_str()))
+        .collect();
+    let enables_excluded = |item: &str, excluded: &BTreeSet<&str>| {
+        excluded.contains(item)
+            || item
+                .split_once('/')
+                .is_some_and(|(name, _)| excluded.contains(name) && optional.contains(name))
     };
     let mut excluded: BTreeSet<_> = unstable.iter().map(String::as_str).collect();
     loop {
@@ -787,7 +801,7 @@ fn stable_feature_args(
                 .into_iter()
                 .flatten()
                 .filter_map(Value::as_str)
-                .any(|item| excluded.contains(item))
+                .any(|item| enables_excluded(item, &excluded))
             {
                 excluded.insert(name);
             }
@@ -796,22 +810,27 @@ fn stable_feature_args(
             break;
         }
     }
-    if !excluded.contains("default") {
-        return feature_args(profile, features, unstable);
-    }
-
     let mut stripped = profile.clone();
-    stripped.default_features = false;
-    stripped.features.retain(|feature| feature != "default");
-    for feature in string_array(&features["default"])? {
-        if !excluded.contains(feature.as_str()) && !stripped.features.contains(&feature) {
-            if !feature_table.contains_key(&feature) {
-                return Err(anyhow!("stable API profile cannot select stripped default entry '{feature}' by name; put that entry behind a named feature"));
+    if excluded.contains("default")
+        && (stripped.default_features || stripped.features.iter().any(|feature| feature == "default"))
+    {
+        stripped.default_features = false;
+        stripped.features.retain(|feature| feature != "default");
+        let mut defaults = string_array(&features["default"])?;
+        if defaults == ["dep:default"] {
+            defaults.clear();
+        }
+        for feature in defaults {
+            if !enables_excluded(&feature, &excluded) && !stripped.features.contains(&feature) {
+                if !feature_table.contains_key(&feature) {
+                    return Err(anyhow!("stable API profile cannot select stripped default entry '{feature}' by name; put that entry behind a named feature"));
+                }
+                stripped.features.push(feature);
             }
-            stripped.features.push(feature);
         }
     }
-    feature_args(&stripped, features, unstable)
+    let excluded: Vec<_> = excluded.into_iter().map(str::to_owned).collect();
+    feature_args(&stripped, features, &excluded)
 }
 
 fn feature_args(profile: &FeatureProfile, features: &Value, unstable: &[String]) -> Result<Vec<String>> {
@@ -2044,15 +2063,47 @@ pub fn higher<F: for<'b> Fn(&'b u8)>(value: F) { let _ = value; }
             default_features: true,
             features: vec!["selected".into()],
         };
-        let features = serde_json::json!({
+        let package = json!({"features": {
             "default": ["supported", "experimental"],
             "supported": [], "selected": [], "experimental": ["unstable"], "unstable": []
-        });
+        }});
         assert_eq!(
-            stable_feature_args(&profile, &features, &["unstable".into()], true)?,
+            stable_feature_args(&profile, &package, &["unstable".into()], true)?,
             ["--no-default-features", "--features", "selected,supported"]
         );
-        assert!(stable_feature_args(&profile, &features, &["unstable".into()], false).is_err());
+        assert!(stable_feature_args(&profile, &package, &["unstable".into()], false).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn parallel_api_profiles_exclude_strong_forwarding_to_optional_features() -> Result<()> {
+        let profile = FeatureProfile {
+            default_features: true,
+            features: Vec::new(),
+        };
+        let package = json!({
+            "dependencies": [{"name": "optional-crate", "rename": "experimental", "optional": true}],
+            "features": {
+                "default": ["stable", "experimental/extra"],
+                "stable": ["experimental?/extra"],
+                "forward": ["experimental/extra"],
+                "experimental": ["dep:experimental"]
+            }
+        });
+        assert_eq!(
+            stable_feature_args(&profile, &package, &["experimental".into()], true)?,
+            ["--no-default-features", "--features", "stable"]
+        );
+        let implicit_default = json!({"features": {"default": ["dep:default"]}});
+        assert_eq!(
+            stable_feature_args(&profile, &implicit_default, &["default".into()], true)?,
+            ["--no-default-features"]
+        );
+        let profile = FeatureProfile {
+            default_features: false,
+            features: vec!["forward".into()],
+        };
+        assert!(stable_feature_args(&profile, &package, &["experimental".into()], true).is_err());
         Ok(())
     }
 

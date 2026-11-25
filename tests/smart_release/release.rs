@@ -231,7 +231,7 @@ fn major_zero_companions_publish_the_experimental_api_and_route_workspace_consum
     write(
         root,
         "Cargo.toml",
-        "[workspace]\nmembers = [\"api\", \"client\", \"extra\", \"dev\"]\nresolver = \"2\"\n",
+        "[workspace]\nmembers = [\"api\", \"client\", \"extra\", \"dev\"]\nexclude = [\"optional\", \"supported-optional\", \"mixed-optional\"]\nresolver = \"2\"\n",
     )?;
     write(
         root,
@@ -241,18 +241,26 @@ name = "csr-parallel-api"
 version = "1.2.3"
 edition = "2021"
 [features]
-default = ["supported", "unstable"]
-supported = []
+default = ["supported", "unstable", "implicit-experiment/extra"]
+supported = ["implicit-experiment?/extra", "supported-optional", "mixed-optional?/extra"]
 unstable = []
 experimental = ["unstable"]
 extra-experimental = []
+forward-experimental = ["implicit-experiment/extra", "supported-optional/extra"]
+[dependencies]
+implicit-experiment = { package = "csr-parallel-optional", path = "../optional", version = "1", optional = true }
+supported-optional = { package = "csr-parallel-supported-optional", path = "../supported-optional", version = "1", optional = true }
+[target.'cfg(unix)'.dependencies]
+mixed-optional = { package = "csr-parallel-mixed-optional", path = "../mixed-optional", version = "1" }
+[target.'cfg(windows)'.dependencies]
+mixed-optional = { package = "csr-parallel-mixed-optional", path = "../mixed-optional", version = "1", optional = true }
 [package.metadata.smart-release]
-unstable-features = ["extra-experimental"]
+unstable-features = ["extra-experimental", "implicit-experiment", "mixed-optional"]
 unstable-stable-dependency = true
 [lints.rust]
 unexpected_cfgs = "deny"
 [package.metadata.docs.rs]
-features = ["supported", "experimental"]
+features = ["supported", "experimental", "implicit-experiment/extra", "implicit-experiment?/extra"]
 "#,
     )?;
     write(
@@ -262,6 +270,8 @@ features = ["supported", "experimental"]
 pub struct Shared;
 #[cfg(companion)]
 pub use smart_release_stable::Shared;
+#[cfg(all(unix, feature = "supported"))]
+pub use mixed_optional::Extra;
 pub fn supported() {}
 #[cfg(feature = "unstable")]
 pub fn experimental() {}
@@ -311,11 +321,26 @@ csr-parallel-api = { path = "../api", version = "*", features = ["unstable"] }
 name = "csr-parallel-extra"
 version = "2.0.0"
 edition = "2021"
-[features]
-unstable = []
+[dependencies]
+default = { package = "csr-parallel-optional", path = "../optional", version = "1", optional = true }
+unstable = { package = "csr-parallel-supported-optional", path = "../supported-optional", version = "1", optional = true }
+[package.metadata.smart-release]
+unstable-features = ["default"]
 "#,
     )?;
     write(root, "extra/src/lib.rs", "")?;
+    for name in ["optional", "supported-optional", "mixed-optional"] {
+        write(
+            root,
+            &format!("{name}/Cargo.toml"),
+            &format!("[package]\nname = \"csr-parallel-{name}\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[features]\nextra = []\n"),
+        )?;
+        write(
+            root,
+            &format!("{name}/src/lib.rs"),
+            "#[cfg(feature = \"extra\")] pub struct Extra;\n",
+        )?;
+    }
     write(root, ".gitignore", "/Cargo.lock\n/cargo-home/\n/bin/\n/staged/\n")?;
     git(root, "init")?;
     git(root, "add .")?;
@@ -451,6 +476,17 @@ printf '%s\n' "${version_dir##*/}" >> "$CAPTURE/order"
     assert!(stable_manifest["features"].get("unstable").is_none());
     assert!(stable_manifest["features"].get("experimental").is_none());
     assert!(stable_manifest["features"].get("extra-experimental").is_none());
+    assert!(stable_manifest["features"].get("forward-experimental").is_none());
+    let dependencies = stable_manifest
+        .get("dependencies")
+        .expect("the stable manifest retains its supported optional dependency");
+    assert!(dependencies.get("implicit-experiment").is_none());
+    assert!(dependencies.get("supported-optional").is_some());
+    assert!(stable_manifest["features"]["supported"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|feature| feature.as_str() == Some("mixed-optional/extra")));
     assert_eq!(
         stable_manifest["package"]["metadata"]["docs"]["rs"]["features"]
             .as_array()
@@ -458,6 +494,9 @@ printf '%s\n' "${version_dir##*/}" >> "$CAPTURE/order"
             .len(),
         1
     );
+    let stable_extra = fs::read_to_string(staged.join("csr-parallel-extra-2.0.1/Cargo.toml"))?;
+    let stable_extra = stable_extra.parse::<toml_edit::DocumentMut>()?;
+    assert!(stable_extra.get("dependencies").is_none());
 
     assert!(
         git(root, "diff HEAD --")?.is_empty(),
@@ -550,14 +589,18 @@ edition = "2021"
 [workspace]
 [dependencies]
 stable = { package = "csr-parallel-api", version = "1.2", features = ["supported"] }
-early = { package = "csr-parallel-api", version = "0.1" }
+early = { package = "csr-parallel-api", version = "0.1", features = ["implicit-experiment"] }
 late = { package = "csr-parallel-api", version = "0.7" }
+side = { package = "csr-parallel-extra", path = "../csr-parallel-extra-0.1.0" }
 
 [patch.crates-io]
 stable = { package = "csr-parallel-api", path = "../csr-parallel-api-1.2.4" }
 stable-later = { package = "csr-parallel-api", path = "../csr-parallel-api-1.2.5" }
 early = { package = "csr-parallel-api", path = "../csr-parallel-api-0.1.0" }
 late = { package = "csr-parallel-api", path = "../retry/csr-parallel-api-0.7.0" }
+csr-parallel-optional = { path = "../../optional" }
+csr-parallel-supported-optional = { path = "../../supported-optional" }
+csr-parallel-mixed-optional = { path = "../../mixed-optional" }
 "#,
     )?;
     let consumer = staged.join("check");
